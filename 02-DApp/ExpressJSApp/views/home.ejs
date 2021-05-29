@@ -7,10 +7,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" integrity="sha256-OweaP/Ic6rsV+lysfyS4h+LM6sRwuO3euTYfr6M124g=" crossorigin="anonymous" />
     <!-- FontAwesome icons -->
     <link href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+    <!-- <link rel="type/javascript" href="views\main.js"> -->
     <title>Rickoshea</title>
 </head>
 
-<body class="indigo lighten-4">
+<body class="indigo lighten-4" onload="main()">
 
     <!-- <div class="row"> -->
         <!-- Title & Logo -->
@@ -47,35 +48,70 @@
                     <!-- <td><button onclick="approve()" id="approve-0x5943F705aBb6834Cad767e6E4bB258Bc48D9C947">Approve</button> </td>
                     <td><input type="text" id="input-amt-0x5943F705aBb6834Cad767e6E4bB258Bc48D9C947"  disabled> USDCx/month</td>
                     <td><button onclick="startStream();startAnimation()" id="start-0x5943F705aBb6834Cad767e6E4bB258Bc48D9C947" disabled>Stream</button> </td> -->
-                    <td><button id="approve-0x5943F705aBb6834Cad767e6E4bB258Bc48D9C947">Approve</button> </td>
+                    <td><button onclick="getAddress()" id="approve-0x5943F705aBb6834Cad767e6E4bB258Bc48D9C947">Approve</button> </td>
                     <td><input type="text" id="input-amt-0x5943F705aBb6834Cad767e6E4bB258Bc48D9C947"> USDCx/month</td>
-                    <td><button id="start-0x5943F705aBb6834Cad767e6E4bB258Bc48D9C947">Stream</button> </td>
-                  </tr>
+                    <!-- <td><button id="start-0x5943F705aBb6834Cad767e6E4bB258Bc48D9C947">Stream</button> </td> -->
+                    <td>Stream</td>
+                  <!-- </tr>
                   <tr>
                     <td>aAAVEx</td>
                     <td>0x5a669e6A17B056Ca87e54c3Ca889114dB5A02590<br/></td>
                     <td>0 aAAVEx/hr</td>
                     <td>0 USDCx</td>
                     <td>0 aAAVEx</td>
-                    <!-- <td><button onclick="approve()" id="approve-0x5a669e6A17B056Ca87e54c3Ca889114dB5A02590">Approve</button> </td>
+                    <td><button onclick="approve()" id="approve-0x5a669e6A17B056Ca87e54c3Ca889114dB5A02590">Approve</button> </td>
                     <td><input type="text" id="input-amt-0x5a669e6A17B056Ca87e54c3Ca889114dB5A02590"  disabled> USDCx/month</td>
-                    <td><button onclick="startStream()" id="start-0x5a669e6A17B056Ca87e54c3Ca889114dB5A02590" disabled>Stream</button> </td> -->
+                    <td><button onclick="startStream()" id="start-0x5a669e6A17B056Ca87e54c3Ca889114dB5A02590" disabled>Stream</button> </td>
                     <td><button id="approve-0x5a669e6A17B056Ca87e54c3Ca889114dB5A02590">Approve</button> </td>
                     <td><input type="text" id="input-amt-0x5a669e6A17B056Ca87e54c3Ca889114dB5A02590"> USDCx/month</td>
                     <td><button id="start-0x5a669e6A17B056Ca87e54c3Ca889114dB5A02590">Stream</button> </td>
-                  </tr>
+                  </tr> -->
                 </table>
               </div>
             </div>
         </div>
+    <!-- Try using Axios -->
+    <script>  
+      async function main() {
+         // async and await so other things can run simultaneously 
+          await ethereum.enable();
+          web3 = new Web3(ethereum);
+          user = (await web3.eth.getAccounts())[0];
 
+
+          const networkId = await web3.eth.net.getId();
+          console.log("Wassup")
+          console.log(web3.eth.getAccounts())
+          console.log(user);
+          console.log(networkId);
+      }
+
+      async function getAddress() {
+        console.log("Getting Address")
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+              // Typical action to be performed when the document is ready:
+              console.log(xhttp.responseText);
+            }
+        }
+        
+        let url = `/wallet_address?user=${user}`
+        // console.log(`${user}, we hear ya on the browser side`)
+        // RestAPI methods are first arg
+        xhttp.open("GET", url, true);
+        xhttp.send();
+      }
+
+      
+    </script>
     <!-- JQuery 3.4.1 slim minified -->
     <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
     <!-- Compiled and minified JavaScript for Materialize CSS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js" integrity="sha256-U/cHDMTIHCeMcvehBv1xQ052bPSbJtbuiw4QA9cTKz0=" crossorigin="anonymous"></script>
     <!-- Web3.js -->
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.2.5-rc.0/dist/web3.min.js" integrity="sha256-ZjUHyLZZWkQPbWfRjTSmGtfcTSOermVT6f/CvJW2RY4=" crossorigin="anonymous"></script>
-
+    <!-- <script src="https://cdn.jsdelivr.net/npm/web3@1.2.5-rc.0/dist/web3.min.js" integrity="sha256-ZjUHyLZZWkQPbWfRjTSmGtfcTSOermVT6f/CvJW2RY4=" crossorigin="anonymous"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
     <!-- <script src="{{ url_for('static', filename='dapp.js') }}"></script> -->
 
 </body>
