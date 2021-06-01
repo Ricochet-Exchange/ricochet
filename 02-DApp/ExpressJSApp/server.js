@@ -3,75 +3,41 @@
 const express = require('express')
 const app = express()
 const path = require('path')
+const { nextTick } = require('process')
 
-// main.js to handle browser/ui work
-// server.js to handle server worl
-
-
-// const Window = require('window');
-// const window = new Window();
-
-// const Web3 = require('web3')
-// const web3 = new Web3(window.ethereum);
-
-// const isMetaMaskInstalled = () => {
-//     const { ethereum } = windowW
-//     return Boolean(ethereum && ethereum.isMetaMask)
-// }
-
-// const initialize = async () => {
-//     const isMetaMaskConnected = () => accounts && accounts.length > 0
-//     const onClickConnect = async () => {
-//         try {
-//           const newAccounts = await ethereum.request({
-//             method: 'eth_requestAccounts',
-//           })
-//           handleNewAccounts(newAccounts)
-//         } catch (error) {
-//           console.error(error)
-//         }
-//     }
-// }
-
-// const getWeb3 = () => {
-//   return new Promise((resolve, reject) => {
-//     window.addEventListener("load", async () => {
-//       if (window.ethereum) {
-//         const web3 = new Web3(window.ethereum);
-//         try {
-//           // ask user permission to access his accounts
-//           await window.ethereum.request({ method: "eth_requestAccounts" });
-//           resolve(web3);
-//         } catch (error) {
-//           reject(error);
-//         }
-//       } else {
-//         reject("Must install MetaMask");
-//       }
-//     });
-//   });
-// };
+var Web3 = require('web3')
+var web3 = new Web3(new Web3.providers.HttpProvider("wss://mainnet.infura.io/ws/v3/786671decfea4241a9e3c811abcdf3fe"))
+var Eth = require('web3-eth')
+var eth = new Eth(Eth.givenProvider)
 
 // Loading ABIs
-const ercJson = require("./abi/IERC20.json")
-const idaJson = require("./abi/IInstantDistributionAgreementV1.json")
-const isuJson = require("./abi/ISuperfluid.json")
-const stxJson = require("./abi/StreamExchange.json")
+const ercJson = require("./public/abi/IERC20.json")
+const idaJson = require("./public/abi/IInstantDistributionAgreementV1.json")
+const isuJson = require("./public/abi/ISuperfluid.json")
+const stxJson = require("./public/abi/StreamExchange.json")
 
 app.use(express.urlencoded({extended: false}))
 // TODO: format CSS better
-app.use(express.static(path.join(__dirname,"public")))
-
+app.use(express.static(path.join(__dirname,'public')))
 app.set("view engine","ejs")
 app.set("views",path.join(__dirname,'views'))
 
+var acct = "Not defined yet"
+
+// function getAccounts(req,res,next) {
+//     req.acct = web3.eth.getAccounts()[0]
+
+//     next()
+// }
+
 app.get('/', (req,res) => {
+    console.log(web3.currentProvider)
     res.render("home")
 })
 
 app.get('/wallet_address', (req,res) => {
-    const walletAddress = req.query.user
-    res.send(`${walletAddress} is my wallet address`)
+    const walletAddress = req.query
+    res.send(walletAddress)
 })
 
 // window.addEventListener('DOMContentLoaded', initialize)
