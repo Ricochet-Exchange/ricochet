@@ -10,6 +10,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@ethersproject/contracts": "^5.3.0",
+    "@superfluid-finance/js-sdk": "^0.4.3",
     "axios": "^0.21.1",
     "ejs": "^3.1.6",
     "express": "^4.17.1",
