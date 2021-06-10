@@ -30,6 +30,7 @@ import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 
 import "./StreamExchangeStorage.sol";
@@ -41,6 +42,7 @@ contract StreamExchange is SuperAppBase, Ownable {
     // TODO: uint256 public constant RATE_PERCISION = 1000000;
     using SafeERC20 for ERC20;
     using StreamExchangeStorage for StreamExchangeStorage.StreamExchange;
+    using SafeMath for uint256;
     StreamExchangeStorage.StreamExchange internal _exchange;
 
     // TODO: Emit these events where appropriate
@@ -161,7 +163,7 @@ contract StreamExchange is SuperAppBase, Ownable {
         newCtx
       );
 
-      _exchange.totalInflow = _exchange.totalInflow + inflowRate; // TODO: Safemath
+      _exchange.totalInflow = _exchange.totalInflow + inflowRate; // TODO: Safemath (how can this be done if you're adding two different int types)
 
       // TODO: Need to put the new streamers into a "timeout" to prevent someone
       //       from streaming for a few seconds
@@ -185,9 +187,9 @@ contract StreamExchange is SuperAppBase, Ownable {
 
       // Compute the amount to distribute
       // TODO: Don't declare so many variables
-      uint256 time_delta = block.timestamp - _exchange.lastDistributionAt;
-      uint256 inflowAmount = uint256(_exchange.totalInflow) * time_delta;
-      uint256 amount = inflowAmount / _exchange.rate; // TODO: RATE_PERCISION;
+      // time since last distributions -> (block.timestamp - _exchange.lastDistributionAt)
+      // inflow amount should be total inflow since last distribution divided by exchange rate (ex. 2000 USD / 1 ETH)
+      uint256 inflowAmount = ( uint256(_exchange.totalInflow) * (block.timestamp - _exchange.lastDistributionAt) ) / _exchange.rate;
 
       (uint256 actualAmount,) = _exchange.ida.calculateDistribution(
        _exchange.outputToken,
