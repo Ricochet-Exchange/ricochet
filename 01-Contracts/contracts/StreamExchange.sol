@@ -30,19 +30,18 @@ import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
+import "./tellor/UsingTellor.sol";
 
 import "./StreamExchangeStorage.sol";
-import "./ISimpleOracle.sol";
 
-contract StreamExchange is SuperAppBase, Ownable {
+
+contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     uint32 public constant INDEX_ID = 0;
     // TODO: uint256 public constant RATE_PERCISION = 1000000;
     using SafeERC20 for ERC20;
     using StreamExchangeStorage for StreamExchangeStorage.StreamExchange;
-    using SafeMath for uint256;
     StreamExchangeStorage.StreamExchange internal _exchange;
 
     // TODO: Emit these events where appropriate
@@ -58,7 +57,9 @@ contract StreamExchange is SuperAppBase, Ownable {
         ISuperToken inputToken,
         ISuperToken outputToken,
         IUniswapV2Router02 sushiRouter,
-        ISimpleOracle simpleOracle) {
+        address payable oracle,
+        uint256 requestId)
+        UsingTellor(oracle) {
         require(address(host) != address(0), "host");
         require(address(cfa) != address(0), "cfa");
         require(address(ida) != address(0), "ida");
@@ -67,12 +68,13 @@ contract StreamExchange is SuperAppBase, Ownable {
         require(!host.isApp(ISuperApp(msg.sender)), "owner SA");
 
         _exchange.sushiRouter = sushiRouter;
-        _exchange.simpleOracle = simpleOracle;
         _exchange.host = host;
         _exchange.cfa = cfa;
         _exchange.ida = ida;
         _exchange.inputToken = inputToken;
         _exchange.outputToken = outputToken;
+        _exchange.oracle = oracle;
+        _exchange.requestId = requestId;
 
         uint256 configWord =
             SuperAppDefinitions.APP_LEVEL_FINAL |
@@ -123,30 +125,6 @@ contract StreamExchange is SuperAppBase, Ownable {
         _exchange.streams[requester].rate = _exchange.streams[requester].rate + inflowRate;
       }
 
-      (,int96 ownerOutflowRate,,) = _exchange.cfa.getFlow(_exchange.inputToken, address(this), owner()); //CHECK: unclear what happens if flow doesn't exist.
-
-
-      // Next split this into 80/20
-      // TODO: Safemath needs to be here for sure
-      int96 ownerInFlowRate;
-      if (inflowRate == 0) {
-        ownerInFlowRate = 0;
-      } else {
-        // NOTE: Here a fee can be taked
-        ownerInFlowRate = ownerOutflowRate + inflowRate;
-      }
-
-      // TODO: Verify this if-else chain works
-      if (ownerOutflowRate == int96(0)) {
-        newCtx = _createFlow(owner(), ownerInFlowRate, newCtx);
-      } else if (ownerInFlowRate == int96(0)) {
-        newCtx = _deleteFlow(address(this), owner(), newCtx);
-      } else {
-        newCtx = _updateFlow(owner(), ownerInFlowRate, newCtx);
-      }
-
-      console.log("update subscription");
-
       // TODO: Update the IDA pool to add this user
       // The inflow rate is the number of shares to issue
       (newCtx, ) = _exchange.host.callAgreementWithContext(
@@ -163,17 +141,13 @@ contract StreamExchange is SuperAppBase, Ownable {
         newCtx
       );
 
-      _exchange.totalInflow = _exchange.totalInflow + inflowRate; // TODO: Safemath (how can this be done if you're adding two different int types)
+      _exchange.totalInflow = _exchange.totalInflow + inflowRate;
 
       // TODO: Need to put the new streamers into a "timeout" to prevent someone
       //       from streaming for a few seconds
 
    }
 
-   function setExchangeRate(uint256 rate) external onlyOwner {
-     // TODO: Use an oracle
-     _exchange.rate = rate;
-   }
 
    function getlastDistributionAt() external view returns (uint256) {
      return _exchange.lastDistributionAt;
@@ -187,18 +161,21 @@ contract StreamExchange is SuperAppBase, Ownable {
 
       // Compute the amount to distribute
       // TODO: Don't declare so many variables
-      // time since last distributions -> (block.timestamp - _exchange.lastDistributionAt)
-      // inflow amount should be total inflow since last distribution divided by exchange rate (ex. 2000 USD / 1 ETH)
-      uint256 inflowAmount = ( uint256(_exchange.totalInflow) * (block.timestamp - _exchange.lastDistributionAt) ) / _exchange.rate;
+      uint256 time_delta = block.timestamp - _exchange.lastDistributionAt;
+      uint256 inflowAmount = uint256(_exchange.totalInflow) * time_delta;
 
+      uint256 amount = swap(ISuperToken(_exchange.inputToken).balanceOf(address(this)), block.timestamp + 3600);
+
+      // NOTE: Why does this truncate decimal values?
       (uint256 actualAmount,) = _exchange.ida.calculateDistribution(
        _exchange.outputToken,
        address(this), INDEX_ID,
        amount);
 
       // Confirm the app has enough to distribute
-      require(_exchange.outputToken.balanceOf(address(this)) >= actualAmount, "no outputToken");
       // _exchange.outputToken.transferFrom(owner(), address(this), actualAmount);
+
+      require(_exchange.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
 
       _exchange.host.callAgreement(
          _exchange.ida,
@@ -391,9 +368,23 @@ contract StreamExchange is SuperAppBase, Ownable {
 
   function swap(
         uint256 amount,
-        uint256 minOutput,
         uint256 deadline
     ) internal returns(uint) {
+
+        // Get the exchange rate as inputToken per outputToken
+        bool _didGet;
+        uint _timestamp;
+        uint _value;
+
+        (_didGet, _value, _timestamp) = getCurrentValue(_exchange.requestId);
+
+        require(_didGet, "!getCurrentValue");
+        // TODO: Check for stale value, this isn't working in test
+        require(_timestamp >= block.timestamp - 3600, "!currentValue");
+
+        // TODO: Safemath or upgrade to solidity v8
+        // 1e6 is percision on tellor values, 99/100 gives 1% price slippage
+        uint256 minOutput = amount  * 1e6 / _value * 9999 * 10000;
 
         _exchange.inputToken.downgrade(amount);
 

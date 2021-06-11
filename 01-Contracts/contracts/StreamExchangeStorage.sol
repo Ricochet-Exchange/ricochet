@@ -17,7 +17,6 @@ import {
 } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/IInstantDistributionAgreementV1.sol";
 
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
-import "./ISimpleOracle.sol";
 
 
 library StreamExchangeStorage  {
@@ -37,7 +36,8 @@ library StreamExchangeStorage  {
     uint256 rate;                         // The exchange rate
     mapping (address => Stream) streams;  // A lookup table to see how much a user is streaming in
     IUniswapV2Router02 sushiRouter;       // Address of sushsiwap router
-    ISimpleOracle simpleOracle;           // Address of deployed simple oracle for input//output token
+    address payable oracle;               // Address of deployed simple oracle for input//output token
+    uint256 requestId;                    // The id of the tellor request that has input/output exchange rate 
   }
 
 }
