@@ -39,6 +39,6 @@ module.exports = {
       gasPrice: 2000000000
     },
     hardhat: {
-    },
+    }
   }
 };

@@ -8,6 +8,7 @@ async function main() {
   const IDA_ADDRESS = "0x32E0ecb72C1dDD92B007405F8102c1556624264D";
   const USDCX_ADDRESS = "0x0F1D7C55A2B133E000eA10EeC03c774e0d6796e8";
   const ETHX_ADDRESS = "0xa623b2DD931C5162b7a0B25852f4024Db48bb1A0";
+  const DAIX_ADDRESS = "0x745861AeD1EEe363b4AaA5F1994Be40b1e05Ff90";
   const SUSHISWAP_ROUTER_ADDRESS = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506";
 
   // Kovan
@@ -31,7 +32,7 @@ async function main() {
   // console.log("Deployed TellorPlayground at address:", tp.address);
   //
   // // Set the oracle price
-  // // await tp.submitValue(1, 2400000000);
+  // await tp.submitValue(1, 2400000000);
   //
   // const UsingTellor = await ethers.getContractFactory("UsingTellor");
   // const usingTellor = await UsingTellor.deploy(tp.address);
@@ -54,7 +55,7 @@ async function main() {
                                                       CFA_ADDRESS,
                                                       IDA_ADDRESS,
                                                       USDCX_ADDRESS,
-                                                      ETHX_ADDRESS,
+                                                      DAIX_ADDRESS,
                                                       SUSHISWAP_ROUTER_ADDRESS,
                                                       "0xA0c5d95ec359f4A33371a06C23D89BA6Fc591A97",
                                                       1);

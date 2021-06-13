@@ -380,7 +380,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         );
     }
 
-
   function swap(
         uint256 amount,
         uint256 deadline
@@ -395,19 +394,26 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
         require(_didGet, "!getCurrentValue");
         require(_timestamp >= block.timestamp - 3600, "!currentValue");
+        console.log("Value:", _value);
 
         // TODO: Safemath or upgrade to solidity v8
         // 1e6 is percision on tellor values, 99/100 gives 1% price slippage
-        uint256 minOutput = amount  * 1e6 / _value * 9999 * 10000;
+        // TODO: Fix this
+        uint256 minOutput = amount  * 1e6 / _value * 9999 / 10000;
 
+        console.log("minOutput:", minOutput);
         _exchange.inputToken.downgrade(amount);
         console.log("Downgraded", amount);
 
         address inputToken = _exchange.inputToken.getUnderlyingToken();
         address outputToken = _exchange.outputToken.getUnderlyingToken();
 
+        console.log("inputToken", inputToken);
+        console.log("outputToken", outputToken);
+
         address[] memory path = new address[](2);
-        path[0] = address(inputToken);
+        // TODO: For eth we have to check of the under
+        path[0] = inputToken;
         path[1] = outputToken;
 
         // approve the router to spend
@@ -424,6 +430,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         ERC20(outputToken).safeIncreaseAllowance(address(_exchange.outputToken), amounts[1]);
         _exchange.outputToken.upgrade(amounts[1]);
         console.log("Upgrade", amounts[1]);
+
+        // TODO: Take a small fee
 
         return amounts[1];
     }

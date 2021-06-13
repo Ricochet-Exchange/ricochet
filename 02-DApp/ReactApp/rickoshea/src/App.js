@@ -264,11 +264,11 @@ class App extends Component {
                     {/* <!-- "Total Inflow":Balance of USDCx in wallet --> */}
                     <td><div id='balance-0x0F1D7C55A2B133E000eA10EeC03c774e0d6796e8'>0</div> USDCx</td>
                     {/* <!-- "Total Outflow":Balance of DCA asset in wallet --> */}
-                    <td><span id="balance-0xa623b2DD931C5162b7a0B25852f4024Db48bb1A0">0</span> ETHx</td>
+                    <td><span id="balance-0x745861AeD1EEe363b4AaA5F1994Be40b1e05Ff90">0</span> DAIx</td>
                     {/* <!-- Stream Initiation --> */}
                     {/* <!-- EVENTUALLY, we want to make approve() to happen onClick, kick off interfacing with SuperApp --> */}
                     {/* <td><button id="approve-0xa623b2DD931C5162b7a0B25852f4024Db48bb1A0" placeholder="Please approve first" onClick={this.approve}>Approve</button> </td>  */}
-                    <td><input type="text" id="input-amt-0xa623b2DD931C5162b7a0B25852f4024Db48bb1A0" placeholder={"Current Flow: "+ ( -( this.state.flowAmt*(30*24*60*60) )/Math.pow(10,18) ).toFixed(4)  }/> USDCx/month</td>
+                    <td><input type="text" id="input-amt-0x745861AeD1EEe363b4AaA5F1994Be40b1e05Ff90" placeholder={"Current Flow: "+ ( -( this.state.flowAmt*(30*24*60*60) )/Math.pow(10,18) ).toFixed(4)  }/> USDCx/month</td>
                     {/* <td><button id="start-0x5943F705aBb6834Cad767e6E4bB258Bc48D9C947" disabled>Stream</button> </td> */}
                     <td><button id="startFlowButton" onClick={this.startFlow}>Start Flow</button> </td>
                     <td><button id="approveDistButton" onClick={this.approve}>Approve</button> </td>
