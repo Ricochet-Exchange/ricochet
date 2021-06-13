@@ -29,6 +29,12 @@ module.exports = {
     rinkeby: {
       url: "https://rinkeby.infura.io/v3/" + process.env.INFURA_KEY,
       accounts: [process.env.PRIVATE_KEY],
+      // gas: 2000000000,
+      // gasPrice: 2000000000
+    },
+    kovan: {
+      url: "https://kovan.infura.io/v3/" + process.env.INFURA_KEY,
+      accounts: [process.env.PRIVATE_KEY],
       gas: 2000000,
       gasPrice: 2000000000
     },

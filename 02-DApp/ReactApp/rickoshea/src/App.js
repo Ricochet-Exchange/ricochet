@@ -83,6 +83,7 @@ class App extends Component {
       // this.setState({
       //   flowAmt: this.getOnlySuperAppFlows()
       // })
+      console.log(this.stat.sfUser)
       this.getOnlySuperAppFlows()
       console.log( "Net flow", this.state.flowAmt )
 
@@ -180,10 +181,6 @@ class App extends Component {
   async approve() {
     let indexId = "0";
     let subscriber = this.state.sfUser.address;
-
-    // sf.agreements.ida.contract.methods
-    //     .approveSubscription(ethx.address, app.address, 0, "0x")
-    //     .encodeABI()
     // await this.state.sf.agreements.ida.approveSubscription({
     //     superToken: ETHxAddress,
     //     indexId: indexId,
@@ -191,9 +188,6 @@ class App extends Component {
     //     subscriber: subscriber,
     //     userData: "0x"});
     // //     TODO: refreshSupscription
-    console.log("IDA!:", this.state.sf.agreements.ida.contract.methods
-        .approveSubscription(ETHxAddress, rickosheaAppAddress, 0, new bytes(0))
-        .encodeABI())
 
     await web3tx(
         this.state.sf.host.callAgreement,
@@ -201,7 +195,7 @@ class App extends Component {
     )(
         this.state.sf.agreements.ida.address,
         this.state.sf.agreements.ida.contract.methods
-            .approveSubscription(ETHxAddress, rickosheaAppAddress, 0, new bytes(0))
+            .approveSubscription(ETHxAddress, rickosheaAppAddress, 0, "0x")
             .encodeABI(),
         "0x", // user data
         {
