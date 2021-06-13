@@ -20,10 +20,18 @@ task("accounts", "Prints the list of accounts", async () => {
 module.exports = {
   solidity: "0.7.3",
   networks: {
-    // kovan: {
-    //   url: `https://kovan.infura.io/v3/` + process.env.INFURA_PROJECT_ID,
-    //   accounts: [`0x` + process.env.PRIVATE_KEY]
+    // polygon: {
+    //   url: process.env.POLYGON_QUIKNODE_URL,
+    //   accounts: [process.env.PRIVATE_KEY],
+    //   gas: 2000000,
+    //   gasPrice: 2000000000
     // },
+    rinkeby: {
+      url: "https://rinkeby.infura.io/v3/" + process.env.INFURA_KEY,
+      accounts: [process.env.PRIVATE_KEY],
+      gas: 2000000,
+      gasPrice: 2000000000
+    },
     hardhat: {
     },
   }

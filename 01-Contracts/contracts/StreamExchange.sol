@@ -153,6 +153,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
      return _exchange.lastDistributionAt;
    }
 
+
    // @dev Distribute a single `amount` of outputToken among all streamers
    // @dev Calculates the amount to distribute
    function distribute() external onlyOwner {
@@ -176,6 +177,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       // _exchange.outputToken.transferFrom(owner(), address(this), actualAmount);
 
       require(_exchange.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
+
+      console.log("Distributing", actualAmount);
 
       _exchange.host.callAgreement(
          _exchange.ida,
@@ -242,17 +245,26 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         returns (bytes memory newCtx)
     {
         // According to the app basic law, we should never revert in a termination callback
-        if (!_isSameToken(_superToken) || !_isCFAv1(_agreementClass)) return _ctx;
+        if (!_isInputToken(_superToken) || !_isCFAv1(_agreementClass)) return _ctx;
         return _updateOutflow(_ctx);
     }
 
-    function _isSameToken(ISuperToken superToken) internal view returns (bool) {
+    function _isInputToken(ISuperToken superToken) internal view returns (bool) {
         return address(superToken) == address(_exchange.inputToken);
+    }
+
+    function _isOutputToken(ISuperToken superToken) internal view returns (bool) {
+        return address(superToken) == address(_exchange.outputToken);
     }
 
     function _isCFAv1(address agreementClass) internal view returns (bool) {
         return ISuperAgreement(agreementClass).agreementType()
             == keccak256("org.superfluid-finance.agreements.ConstantFlowAgreement.v1");
+    }
+
+    function _isIDAv1(address agreementClass) internal view returns (bool) {
+        return ISuperAgreement(agreementClass).agreementType()
+            == keccak256("org.superfluid-finance.agreements.InstantDistributionAgreement.v1");
     }
 
     modifier onlyHost() {
@@ -261,9 +273,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     }
 
     modifier onlyExpected(ISuperToken superToken, address agreementClass) {
-        require(_isSameToken(superToken), "not accepted");
-        require(_isCFAv1(agreementClass), "v1 supported");
-        _;
+      if (_isCFAv1(agreementClass)) {
+        require(_isInputToken(superToken), "!inputAccepted");
+      } else if (_isIDAv1(agreementClass)) {
+        require(_isOutputToken(superToken), "!outputAccepted");
+      }
+      _;
     }
 
     function _createFlow(address to, int96 flowRate) internal {
@@ -386,6 +401,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         uint256 minOutput = amount  * 1e6 / _value * 9999 * 10000;
 
         _exchange.inputToken.downgrade(amount);
+        console.log("Downgraded", amount);
 
         address inputToken = _exchange.inputToken.getUnderlyingToken();
         address outputToken = _exchange.outputToken.getUnderlyingToken();
@@ -407,6 +423,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
         ERC20(outputToken).safeIncreaseAllowance(address(_exchange.outputToken), amounts[1]);
         _exchange.outputToken.upgrade(amounts[1]);
+        console.log("Upgrade", amounts[1]);
 
         return amounts[1];
     }
