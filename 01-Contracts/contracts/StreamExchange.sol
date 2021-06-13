@@ -379,7 +379,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         (_didGet, _value, _timestamp) = getCurrentValue(_exchange.requestId);
 
         require(_didGet, "!getCurrentValue");
-        // TODO: Check for stale value, this isn't working in test
         require(_timestamp >= block.timestamp - 3600, "!currentValue");
 
         // TODO: Safemath or upgrade to solidity v8
@@ -405,6 +404,9 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
             address(this),
             deadline
         );
+
+        ERC20(outputToken).safeIncreaseAllowance(address(_exchange.outputToken), amounts[1]);
+        _exchange.outputToken.upgrade(amounts[1]);
 
         return amounts[1];
     }
