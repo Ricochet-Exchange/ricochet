@@ -4,13 +4,14 @@ import React, { useState, Component } from 'react';
 import './App.css';
 import { fUSDCxAddress, ETHxAddress, hostAddress, idaAddress, rickosheaAppAddress } from "./rinkeby_config";
 import { erc20ABI, sfABI, idaABI } from "./abis"
+const { web3tx, toWad, wad4human } = require("@decentral.ee/web3-helpers");
+
 
 const SuperfluidSDK = require("@superfluid-finance/js-sdk");
 
 // @ethersproject/providers npm install didn't work
 const { Web3Provider } = require("@ethersproject/providers");
 
-const fakeRickosheaAppAddress = "0xf40C0a8D9bCf57548a6afF14374ac02D2824660A" // Pretending my second account is the rickosheaAppAddress until it's deployed
 // Account 3 (for reference): 0xcf4b5f6ccd39a2b5555ddd9e23f3d0b11843086e
 
 // TODO: catch if user is not on Goerli
@@ -31,7 +32,7 @@ class App extends Component {
       host:null,                   // Superfluid host contract instance
       ida:null,                    // Superfluid Instant Distribution Agreement contract instance
       flowAmt:""                   // How much the user has streaming (storing as instance variable so it can be shown on front end)
-    }; 
+    };
 
     this.startFlow = this.startFlow.bind(this);
     this.approve = this.approve.bind(this);
@@ -62,13 +63,13 @@ class App extends Component {
       // Initializing Superfluid framework
       const sf = new SuperfluidSDK.Framework({
         ethers: new Web3Provider(window.ethereum),
-        tokens: ['fUSDCx']
+        tokens: ['fUSDC','ETH']
       });
       await sf.initialize()
 
-      // Setting some Superfluid instance variables 
+      // Setting some Superfluid instance variables
       // NOTE: this part could be adjusted if working with different input tokens (not just USDCx)
-      this.setState({ 
+      this.setState({
         sf: sf,
         sfUser: sf.user({
           address: this.state.account,
@@ -78,13 +79,13 @@ class App extends Component {
       // this.setState({userFlowDetails:await this.state.sfUser.details()})
       // this.setState({
       //   flowAmt: parseInt( ( await this.state.sfUser.details() ).cfa.netFlow ) // TODO: Figure out how to make userFlowDetails a one-stop-shop and not have to pull netflow out of it everytime
-      // })  
+      // })
       // this.setState({
       //   flowAmt: this.getOnlySuperAppFlows()
-      // })  
+      // })
       this.getOnlySuperAppFlows()
       console.log( "Net flow", this.state.flowAmt )
-      
+
       // Initializing Superfluid SuperApp components
       this.setState({
         host: await new web3.eth.Contract(
@@ -99,7 +100,7 @@ class App extends Component {
           idaAddress
         )
       })
-      console.log("IDA Address:",this.state.ida.methods)
+      console.log("IDA Address:",this.state.ida._address)
 
     } catch {
       console.log("ERROR IN WEB3 SET UP")
@@ -140,7 +141,7 @@ class App extends Component {
     let flowInput = Math.round( ( document.getElementById("input-amt-"+ETHxAddress).value * Math.pow(10,18) ) / 2592000 ) // Say I start a stream of 10 USDCx per month. Is the flow in gwei (which is registered as to the second) calculated as [ (10 USDCx) *(10^18) ] / [30 * 24 * 60 * 60]  = 3858024691358.025 -> round to nearest int
     console.log("Would flow:",flowInput)
     await sfUser.flow({
-      recipient: await sf.user({ address: fakeRickosheaAppAddress, token: fUSDCxAddress }), // address: would be rickosheaAppaddress, currently not deployed
+      recipient: await sf.user({ address: rickosheaAppAddress, token: fUSDCxAddress }), // address: would be rickosheaAppaddress, currently not deployed
       flowRate: flowInput.toString(),
       options: {
         userData
@@ -155,17 +156,17 @@ class App extends Component {
         flowAmt: 0
       })
     } else {
-      this.getOnlySuperAppFlows()     
+      this.getOnlySuperAppFlows()
     }
   }
-  
+
 
   async getOnlySuperAppFlows() {
     let details = (await this.state.sfUser.details()).cfa.flows.outFlows
 
     var i
     for (i=0; i<details.length;i++) {
-      if (details[i].receiver === fakeRickosheaAppAddress) {
+      if (details[i].receiver === rickosheaAppAddress) {
         console.log("Here's the stream to the superapp",details[i].flowRate)
         this.setState({
           flowAmt: -details[i].flowRate
@@ -177,17 +178,36 @@ class App extends Component {
   // Approving SuperApp to send us ETHx
   // NOT USABLE YET - rickoshea app hasn't been deployed, address is fake
   async approve() {
-    await this.state.host.methods.callAgreement(
-      idaAddress,
-      this.state.ida.methods.approveSubscription(
-        ETHxAddress,
-        rickosheaAppAddress,
-        0,
-        "0x"
-      ).encodeABI(),
-      "0x"
-    ).send({from:this.state.sfUser})
-    // TODO: refreshSupscription
+    let indexId = "0";
+    let subscriber = this.state.sfUser.address;
+
+    // sf.agreements.ida.contract.methods
+    //     .approveSubscription(ethx.address, app.address, 0, "0x")
+    //     .encodeABI()
+    // await this.state.sf.agreements.ida.approveSubscription({
+    //     superToken: ETHxAddress,
+    //     indexId: indexId,
+    //     publisher: rickosheaAppAddress,
+    //     subscriber: subscriber,
+    //     userData: "0x"});
+    // //     TODO: refreshSupscription
+    console.log("IDA!:", this.state.sf.agreements.ida.contract.methods
+        .approveSubscription(ETHxAddress, rickosheaAppAddress, 0, new bytes(0))
+        .encodeABI())
+
+    await web3tx(
+        this.state.sf.host.callAgreement,
+        "Bob approves subscription to the app"
+    )(
+        this.state.sf.agreements.ida.address,
+        this.state.sf.agreements.ida.contract.methods
+            .approveSubscription(ETHxAddress, rickosheaAppAddress, 0, new bytes(0))
+            .encodeABI(),
+        "0x", // user data
+        {
+            from: subscriber
+        }
+    );
   }
 
   // Refreshing to see if user has already approved ETHx subscription
@@ -198,7 +218,7 @@ class App extends Component {
       ETHxAddress,
       rickosheaAppAddress,
       0,
-      this.state.sfUser
+      this.state.sfUser.address
     ).call()
     // console.log(sub)
     if (sub.approved) {
@@ -212,7 +232,7 @@ class App extends Component {
     }
   }
 
-  render() { 
+  render() {
     // var flowAmt = parseInt( this.state.userFlowDetails.cfa.netFlow )
     return (
       <body class="indigo lighten-4">
@@ -228,7 +248,7 @@ class App extends Component {
               <strong><span id="wallet-address">Your Address: {this.state.account}</span></strong>
             </div>
           </div>
-  
+
           <div class="col">
             <div class="card grey darken-1">
               <div class="card-content white-text">
@@ -244,7 +264,7 @@ class App extends Component {
                   <tr>
                     <td>ETHx</td>
                     {/* <!-- "App Address":Address of Super App -->                   */}
-                    <td>{fakeRickosheaAppAddress}<br/></td>
+                    <td>{rickosheaAppAddress}<br/></td>
                     {/* <!-- "Inbound Rate":Rate at which you will be recieving the DCA asset -->
                     <td><div id='inbound-rate'>0</div> ETHx/hr</td> */}
                     {/* <!-- "Total Inflow":Balance of USDCx in wallet --> */}
@@ -257,6 +277,7 @@ class App extends Component {
                     <td><input type="text" id="input-amt-0xa623b2DD931C5162b7a0B25852f4024Db48bb1A0" placeholder={"Current Flow: "+ ( -( this.state.flowAmt*(30*24*60*60) )/Math.pow(10,18) ).toFixed(4)  }/> USDCx/month</td>
                     {/* <td><button id="start-0x5943F705aBb6834Cad767e6E4bB258Bc48D9C947" disabled>Stream</button> </td> */}
                     <td><button id="startFlowButton" onClick={this.startFlow}>Start Flow</button> </td>
+                    <td><button id="approveDistButton" onClick={this.approve}>Approve</button> </td>
                   </tr>
                 </table>
               </div>
@@ -279,4 +300,4 @@ export default App;
     //     "netFlow":"-3858024691358"},
     //   "ida":{"subscriptions":[]}}
 
-    // If 
+    // If

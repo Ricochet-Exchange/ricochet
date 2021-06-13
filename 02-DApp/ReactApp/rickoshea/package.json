@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@decentral.ee/web3-helpers": "^0.5.3",
     "@ethersproject/contracts": "^5.3.0",
     "@ethersproject/providers": "^5.3.0",
+    "@openzeppelin/test-helpers": "^0.5.11",
     "@superfluid-finance/js-sdk": "^0.4.3",
     "@testing-library/jest-dom": "^5.11.4",
     "@testing-library/react": "^11.1.0",
