@@ -245,7 +245,7 @@ describe("StreamExchange", () => {
 
     describe("Stream Exchange", async function () {
 
-      it("should distribute output tokens to streamers", async() => {
+      it("should distribute output tokens in correct proportions", async() => {
 
         const inflowRate = toWad(0.00004000);
 
@@ -267,8 +267,8 @@ describe("StreamExchange", () => {
 
         // Alice opens a stream into the app
         // await subscribe(u.alice);  // TODO
-        await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
         await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
+        await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
 
         // Go forward 2 hours
         await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME);
@@ -286,13 +286,10 @@ describe("StreamExchange", () => {
         // expect(appInitialBalance.toString()).to.equal(appInnerBalance.toString(), "app balance changed");
         await tp.submitValue(1, 2400000000);
 
-        console.log("IDA!:", sf.agreements.ida.contract.methods
-            .approveSubscription(ethx.address, app.address, 0, "0x")
-            .encodeABI())
         // Approve
         await web3tx(
             sf.host.callAgreement,
-            "Bob approves subscription to the app"
+            "Alice approves subscription to the app"
         )(
             sf.agreements.ida.address,
             sf.agreements.ida.contract.methods
@@ -317,10 +314,6 @@ describe("StreamExchange", () => {
             }
         );
 
-        // expect(await app.methods.isSubscribing(u.alice.address));
-        // expect(await app.methods.isSubscribing(u.bob.address));
-
-
         // Do a distribution
         await app.distribute({from: u.admin.address})
 
@@ -332,11 +325,13 @@ describe("StreamExchange", () => {
         const adminFinalBalance = await daix.balanceOf(u.admin.address);
         const appFinalBalanceEth = await ethx.balanceOf(app.address);
         const aliceFinalBalanceEth = await ethx.balanceOf(u.alice.address);
+        const bobFinalBalanceEth = await ethx.balanceOf(u.bob.address);
 
-        // Confirm the correct amounts were deducted, added
+        // TODO: Confirm the correct amounts were deducted, added
         expect(parseInt(appFinalBalanceEth - appInitialBalanceEth)).to.be.below(1e15, "app dist amount"); // 1e15 == dust amount?
-        // TODO: approve subscribe test code
+        // TODO: Calculate the right amounts, don't use "above 0"
         expect(parseInt(aliceFinalBalanceEth - aliceInitialBalanceEth)).to.be.above(0, "alice dist amount")
+        expect(parseInt(bobFinalBalanceEth - bobInitialBalanceEth)).to.equal(parseInt(aliceFinalBalanceEth - aliceInitialBalanceEth), "bob != alice")
 
       });
 
@@ -373,20 +368,19 @@ describe("StreamExchange", () => {
         const aliceInnerBalance = await daix.balanceOf(u.alice.address);
         const bobInnerBalance = await daix.balanceOf(u.bob.address);
         const adminInnerBalance = await daix.balanceOf(u.admin.address);
-        const appInnerBalanceEth = await ethx.balanceOf(app.address);
-        const aliceInnerBalanceEth = await ethx.balanceOf(u.alice.address);
 
         await tp.submitValue(1, 2400000000);
-
         // Approve
-        // Already approved
-
-        // expect(await app.isSubscribing(u.alice.address));
-        // expect(await app.isSubscribing(u.bob.address));
-
+        // Already approved?
         // Do a distribution
         await app.distribute({from: u.admin.address})
+
+        const appInnerBalanceEth = await ethx.balanceOf(app.address);
+        const aliceInnerBalanceEth = await ethx.balanceOf(u.alice.address);
+        const bobInnerBalanceEth = await ethx.balanceOf(u.bob.address);
+
         expect((await u.app.details()).cfa.netFlow).to.equal("80000000000000", "app net flow");
+        expect(parseInt(bobInnerBalanceEth - bobInitialBalanceEth)).to.equal(parseInt(aliceInnerBalanceEth - aliceInitialBalanceEth), "bob != alice")
 
         // Cancel Alice's flow
         await u.alice.flow({ flowRate: "0", recipient: u.app });
@@ -406,15 +400,14 @@ describe("StreamExchange", () => {
         const adminFinalBalance = await daix.balanceOf(u.admin.address);
         const appFinalBalanceEth = await ethx.balanceOf(app.address);
         const aliceFinalBalanceEth = await ethx.balanceOf(u.alice.address);
-        // const aliceFinalBalanceEth = await ethx.balanceOf(u.alice.address);
+        const bobFinalBalanceEth = await ethx.balanceOf(u.bob.address);
 
         // Confirm the correct amounts were deducted, added
         // NOTE: These values hard coded are _assumed_ to be correct but need validation
         expect(parseInt(appFinalBalanceEth - appInitialBalanceEth)).to.be.below(1e15, "app dist amount"); // 1e15 == dust amount?
         expect((await u.app.details()).cfa.netFlow).to.equal("40000000000000", "app net flow");
-        // TODO: approve subscribe test code
-
-        expect(parseInt(aliceFinalBalanceEth - aliceInitialBalanceEth)).to.be.above(0, "alice dist amount")
+        // Check Alice's balance has not changed
+        expect(parseInt(aliceFinalBalanceEth - aliceInitialBalanceEth)).to.equal(parseInt(aliceInnerBalanceEth - aliceInitialBalanceEth), "alice dist amount")
 
       });
 

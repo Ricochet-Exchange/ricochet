@@ -104,44 +104,62 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
      *************************************************************************/
 
     /// @dev If a new stream is opened, or an existing one is opened
-    function _updateOutflow(bytes calldata ctx)
+    function _updateOutflow(bytes calldata ctx, bytes calldata agreementData)
         private
         returns (bytes memory newCtx)
     {
 
-      // TODO: Perform a distribution here and reset lastDistributionAt
-
-      // TODO: I believe there is a better way to do this?
       newCtx = ctx;
 
-      // Check for rate change
+      // TODO: (flowSender, flowReceiver) = abi.decode(agreementData, (address, address));
       address requester = _exchange.host.decodeCtx(ctx).msgSender;
-      int96 inflowRate = _exchange.cfa.getNetFlow(_exchange.inputToken, address(this));
-      if (_exchange.streams[requester].rate == inflowRate) {
-        // Rate has not changed, return
+      int96 changeInFlowRate = _exchange.cfa.getNetFlow(_exchange.inputToken, address(this)) - _exchange.totalInflow;
+
+      if (_exchange.streams[requester].rate == changeInFlowRate) { // Rate has not changed, return
         return newCtx;
-      } else {
-        // Add/update the streamer
-        _exchange.streams[requester].rate = _exchange.streams[requester].rate + inflowRate;
+      } else { // Add/update the streamer
+        _exchange.streams[requester].rate = _exchange.streams[requester].rate + changeInFlowRate;
       }
 
-      // TODO: Update the IDA pool to add this user
-      // The inflow rate is the number of shares to issue
-      (newCtx, ) = _exchange.host.callAgreementWithContext(
-        _exchange.ida,
-        abi.encodeWithSelector(
-            _exchange.ida.updateSubscription.selector,
-            _exchange.outputToken,
-            INDEX_ID,
-            requester,
-            uint128(_exchange.streams[requester].rate),  // Number of shares is proportional to their rate
-            new bytes(0)
-        ),
-        new bytes(0), // user data
-        newCtx
-      );
+      console.log("Updating IDA");
 
-      _exchange.totalInflow = _exchange.totalInflow + inflowRate;
+      if (_exchange.streams[requester].rate == 0) {
+        // Delete the subscription
+        // TODO: Move into internal function?
+        (newCtx, ) = _exchange.host.callAgreementWithContext(
+          _exchange.ida,
+          abi.encodeWithSelector(
+              _exchange.ida.deleteSubscription.selector,
+              _exchange.outputToken,
+              address(this),
+              INDEX_ID,
+              requester,
+              new bytes(0)
+          ),
+          new bytes(0), // user data
+          newCtx
+        );
+
+      } else {
+        // Update the subscription
+        // TODO: Move into internal function?
+        (newCtx, ) = _exchange.host.callAgreementWithContext(
+          _exchange.ida,
+          abi.encodeWithSelector(
+              _exchange.ida.updateSubscription.selector,
+              _exchange.outputToken,
+              INDEX_ID,
+              requester,
+              uint128(_exchange.streams[requester].rate),  // Number of shares is proportional to their rate
+              new bytes(0)
+          ),
+          new bytes(0), // user data
+          newCtx
+        );
+      }
+
+      console.log("Done updating IDA");
+      _exchange.totalInflow = _exchange.totalInflow + changeInFlowRate;
 
       // TODO: Need to put the new streamers into a "timeout" to prevent someone
       //       from streaming for a few seconds
@@ -204,7 +222,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         ISuperToken _superToken,
         address _agreementClass,
         bytes32, // _agreementId,
-        bytes calldata /*_agreementData*/,
+        bytes calldata _agreementData,
         bytes calldata ,// _cbdata,
         bytes calldata _ctx
     )
@@ -213,14 +231,14 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         onlyHost
         returns (bytes memory newCtx)
     {
-        return _updateOutflow(_ctx);
+        return _updateOutflow(_ctx, _agreementData);
     }
 
     function afterAgreementUpdated(
         ISuperToken _superToken,
         address _agreementClass,
         bytes32 ,//_agreementId,
-        bytes calldata , //agreementData,
+        bytes calldata _agreementData,
         bytes calldata ,//_cbdata,
         bytes calldata _ctx
     )
@@ -229,14 +247,14 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         onlyHost
         returns (bytes memory newCtx)
     {
-        return _updateOutflow(_ctx);
+        return _updateOutflow(_ctx, _agreementData);
     }
 
     function afterAgreementTerminated(
         ISuperToken _superToken,
         address _agreementClass,
         bytes32 ,//_agreementId,
-        bytes calldata /*_agreementData*/,
+        bytes calldata _agreementData,
         bytes calldata ,//_cbdata,
         bytes calldata _ctx
     )
@@ -246,7 +264,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     {
         // According to the app basic law, we should never revert in a termination callback
         if (!_isInputToken(_superToken) || !_isCFAv1(_agreementClass)) return _ctx;
-        return _updateOutflow(_ctx);
+        return _updateOutflow(_ctx, _agreementData);
     }
 
     function _isInputToken(ISuperToken superToken) internal view returns (bool) {
