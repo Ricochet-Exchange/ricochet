@@ -111,8 +111,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
       newCtx = ctx;
 
-      // TODO: (flowSender, flowReceiver) = abi.decode(agreementData, (address, address));
-      address requester = _exchange.host.decodeCtx(ctx).msgSender;
+      (address requester, address flowReceiver) = abi.decode(agreementData, (address, address));
       int96 changeInFlowRate = _exchange.cfa.getNetFlow(_exchange.inputToken, address(this)) - _exchange.totalInflow;
 
       if (_exchange.streams[requester].rate == changeInFlowRate) { // Rate has not changed, return
@@ -181,8 +180,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       // Compute the amount to distribute
       // TODO: Don't declare so many variables
       uint256 time_delta = block.timestamp - _exchange.lastDistributionAt;
-      uint256 inflowAmount = uint256(_exchange.totalInflow) * time_delta;
 
+      // NOTE: Swaps all inputToken held, which may not be the best idea?
       uint256 amount = swap(ISuperToken(_exchange.inputToken).balanceOf(address(this)), block.timestamp + 3600);
 
       // NOTE: Why does this truncate decimal values?
@@ -192,11 +191,13 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
        amount);
 
       // Confirm the app has enough to distribute
-      // _exchange.outputToken.transferFrom(owner(), address(this), actualAmount);
-
       require(_exchange.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
 
-      console.log("Distributing", actualAmount);
+      // TODO: Make the fee a parameter
+      uint256 distAmount = actualAmount * 997000 / 1000000;
+      uint256 feeCollected = actualAmount * 3000 / 1000000;
+
+      console.log("Distributing", distAmount);
 
       _exchange.host.callAgreement(
          _exchange.ida,
@@ -209,10 +210,67 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
          ),
          new bytes(0) // user data
       );
-
+      // Take a fee and send to the owner
+      ISuperToken(_exchange.outputToken).transfer(owner(), feeCollected); // 30 basis points
       _exchange.lastDistributionAt = block.timestamp;
 
     }
+
+    function swap(
+          uint256 amount,
+          uint256 deadline
+      ) internal returns(uint) {
+
+          // Get the exchange rate as inputToken per outputToken
+          bool _didGet;
+          uint _timestamp;
+          uint _value;
+
+          (_didGet, _value, _timestamp) = getCurrentValue(_exchange.requestId);
+
+          require(_didGet, "!getCurrentValue");
+          require(_timestamp >= block.timestamp - 3600, "!currentValue");
+          console.log("Value:", _value);
+
+          // TODO: Safemath or upgrade to solidity v8
+          // 1e6 is percision on tellor values, 99/100 gives 1% price slippage
+          // TODO: Fix this
+          uint256 minOutput = amount  * 1e6 / _value * 9999 / 10000;
+
+          console.log("minOutput:", minOutput);
+          _exchange.inputToken.downgrade(amount);
+          console.log("Downgraded", amount);
+
+          address inputToken = _exchange.inputToken.getUnderlyingToken();
+          address outputToken = _exchange.outputToken.getUnderlyingToken();
+
+          console.log("inputToken", inputToken);
+          console.log("outputToken", outputToken);
+
+          address[] memory path = new address[](2);
+          // TODO: For eth we have to check of the under
+          path[0] = inputToken;
+          path[1] = outputToken;
+
+          // approve the router to spend
+          ERC20(inputToken).safeIncreaseAllowance(address(_exchange.sushiRouter), amount);
+
+          uint[] memory amounts = _exchange.sushiRouter.swapExactTokensForTokens(
+              amount,
+              minOutput,
+              path,
+              address(this),
+              deadline
+          );
+
+          ERC20(outputToken).safeIncreaseAllowance(address(_exchange.outputToken), amounts[1]);
+          _exchange.outputToken.upgrade(amounts[1]);
+          console.log("Upgrade", amounts[1]);
+
+          // TODO: Take a small fee
+
+          return amounts[1];
+      }
 
     /**************************************************************************
      * SuperApp callbacks
@@ -247,6 +305,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         onlyHost
         returns (bytes memory newCtx)
     {
+        if (!_isInputToken(_superToken) || !_isCFAv1(_agreementClass)) return _ctx;
         return _updateOutflow(_ctx, _agreementData);
     }
 
@@ -398,59 +457,5 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         );
     }
 
-  function swap(
-        uint256 amount,
-        uint256 deadline
-    ) internal returns(uint) {
 
-        // Get the exchange rate as inputToken per outputToken
-        bool _didGet;
-        uint _timestamp;
-        uint _value;
-
-        (_didGet, _value, _timestamp) = getCurrentValue(_exchange.requestId);
-
-        require(_didGet, "!getCurrentValue");
-        require(_timestamp >= block.timestamp - 3600, "!currentValue");
-        console.log("Value:", _value);
-
-        // TODO: Safemath or upgrade to solidity v8
-        // 1e6 is percision on tellor values, 99/100 gives 1% price slippage
-        // TODO: Fix this
-        uint256 minOutput = amount  * 1e6 / _value * 9999 / 10000;
-
-        console.log("minOutput:", minOutput);
-        _exchange.inputToken.downgrade(amount);
-        console.log("Downgraded", amount);
-
-        address inputToken = _exchange.inputToken.getUnderlyingToken();
-        address outputToken = _exchange.outputToken.getUnderlyingToken();
-
-        console.log("inputToken", inputToken);
-        console.log("outputToken", outputToken);
-
-        address[] memory path = new address[](2);
-        // TODO: For eth we have to check of the under
-        path[0] = inputToken;
-        path[1] = outputToken;
-
-        // approve the router to spend
-        ERC20(inputToken).safeIncreaseAllowance(address(_exchange.sushiRouter), amount);
-
-        uint[] memory amounts = _exchange.sushiRouter.swapExactTokensForTokens(
-            amount,
-            minOutput,
-            path,
-            address(this),
-            deadline
-        );
-
-        ERC20(outputToken).safeIncreaseAllowance(address(_exchange.outputToken), amounts[1]);
-        _exchange.outputToken.upgrade(amounts[1]);
-        console.log("Upgrade", amounts[1]);
-
-        // TODO: Take a small fee
-
-        return amounts[1];
-    }
   }
