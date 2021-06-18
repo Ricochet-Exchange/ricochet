@@ -37,8 +37,6 @@ import "./StreamExchangeStorage.sol";
 
 /// @title A contract which provides DCA purchase of ETH using supefluidfinance
 /// @author 
-/// @notice 
-/// @dev 
 contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     uint32 public constant INDEX_ID = 0;
@@ -106,7 +104,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
      * Stream Exchange Logic
      *************************************************************************/
     
-    /// @notice 
+    /// @notice A function which updates an existing flow
     /// @dev If a new stream is opened, or an existing one is opened
     /// @param ctx
     /// @param agreementData
@@ -185,7 +183,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
      return _exchange.lastDistributionAt;
    }
 
-   /// @notice  
+   /// @notice 
    /// @dev 
    /// @param 
    /// @return
@@ -323,7 +321,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     /**************************************************************************
      * SuperApp callbacks
      *************************************************************************/
-    /// @notice  
+    /// @notice Handling the SuperApp callback afterAgreementCreated
     /// @dev 
     /// @param 
     /// @return
@@ -385,53 +383,49 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         return _updateOutflow(_ctx, _agreementData);
     }
 
-    /// @notice  
+    /// @notice A function which verifies if the passed token is an input token that was declared in the constructor
     /// @dev 
-    /// @param 
-    /// @return
+    /// @param superToken Address of the token to be verified
+    /// @return bool
     function _isInputToken(ISuperToken superToken) internal view returns (bool) {
         return address(superToken) == address(_exchange.inputToken);
     }
 
-    /// @notice  
+    /// @notice A function which verifies if the passed token is an output token that was declared in the constructor
     /// @dev 
-    /// @param 
-    /// @return
+    /// @param superToken Address of the token to be verified
+    /// @return bool
     function _isOutputToken(ISuperToken superToken) internal view returns (bool) {
         return address(superToken) == address(_exchange.outputToken);
     }
 
-    /// @notice  
+    /// @notice A function which returns whether an agreement passed to it is a Superfluid Constant Flow Agreement
     /// @dev 
-    /// @param 
-    /// @return
+    /// @param agreementClass The address of the agreement to be verified
+    /// @return boolean
     function _isCFAv1(address agreementClass) internal view returns (bool) {
         return ISuperAgreement(agreementClass).agreementType()
             == keccak256("org.superfluid-finance.agreements.ConstantFlowAgreement.v1");
     }
 
-    /// @notice  
+    /// @notice A function which returns whether an agreement passed to it is a Superfluid Instant Distribution Agreement
     /// @dev 
-    /// @param 
-    /// @return
+    /// @param agreementClass The address of the agreement to be verified
+    /// @return boolean
     function _isIDAv1(address agreementClass) internal view returns (bool) {
         return ISuperAgreement(agreementClass).agreementType()
             == keccak256("org.superfluid-finance.agreements.InstantDistributionAgreement.v1");
     }
 
-    /// @notice  
-    /// @dev 
-    /// @param 
-    /// @return
+    /// @notice A modifier to ensure that the host is calling the function
     modifier onlyHost() {
         require(msg.sender == address(_exchange.host), "one host");
         _;
     }
 
-    /// @notice 
-    /// @dev 
-    /// @param 
-    /// @return
+    /// @notice A modifier to ensure that superToken being passed is compatible with the passed agreement 
+    /// @param superToken
+    /// @param agreementClass
     modifier onlyExpected(ISuperToken superToken, address agreementClass) {
       if (_isCFAv1(agreementClass)) {
         require(_isInputToken(superToken), "!inputAccepted");
