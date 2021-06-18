@@ -163,6 +163,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       // TODO: Need to put the new streamers into a "timeout" to prevent someone
       //       from streaming for a few seconds
 
+      // NOTE: Trigger a distribution if there's any inputToken
+      console.log("Need to swap this before open new flow",ISuperToken(_exchange.inputToken).balanceOf(address(this)));
+      if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0) {
+        newCtx = distribute(newCtx);
+      }
+
    }
 
 
@@ -170,12 +176,15 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
      return _exchange.lastDistributionAt;
    }
 
+   function distributeWithContext() internal {
+
+   }
 
    // @dev Distribute a single `amount` of outputToken among all streamers
    // @dev Calculates the amount to distribute
-   function distribute() external onlyOwner {
+   function distribute(bytes memory ctx) public returns (bytes memory newCtx){
 
-      // TODO: Swap USDCx to ETH to aWETH to aWETHx
+      newCtx = ctx;
 
       // Compute the amount to distribute
       // TODO: Don't declare so many variables
@@ -199,20 +208,38 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
       console.log("Distributing", distAmount);
 
-      _exchange.host.callAgreement(
-         _exchange.ida,
-         abi.encodeWithSelector(
-             _exchange.ida.distribute.selector,
-             _exchange.outputToken,
-             INDEX_ID,
-             actualAmount,
-             new bytes(0) // placeholder ctx
-         ),
-         new bytes(0) // user data
-      );
+      if (newCtx.length == 0) { // No context provided
+        _exchange.host.callAgreement(
+           _exchange.ida,
+           abi.encodeWithSelector(
+               _exchange.ida.distribute.selector,
+               _exchange.outputToken,
+               INDEX_ID,
+               actualAmount,
+               new bytes(0) // placeholder ctx
+           ),
+           new bytes(0) // user data
+        );
+      } else {
+      (newCtx, ) = _exchange.host.callAgreementWithContext(
+           _exchange.ida,
+           abi.encodeWithSelector(
+               _exchange.ida.distribute.selector,
+               _exchange.outputToken,
+               INDEX_ID,
+               actualAmount,
+               new bytes(0) // placeholder ctx
+           ),
+           new bytes(0), // user data
+           newCtx
+        );
+      }
+
       // Take a fee and send to the owner
       ISuperToken(_exchange.outputToken).transfer(owner(), feeCollected); // 30 basis points
       _exchange.lastDistributionAt = block.timestamp;
+
+      return newCtx;
 
     }
 

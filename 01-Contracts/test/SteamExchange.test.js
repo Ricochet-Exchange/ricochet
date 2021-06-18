@@ -315,7 +315,7 @@ describe("StreamExchange", () => {
         );
 
         // Do a distribution
-        await app.distribute({from: u.admin.address})
+        await app.distribute(0, {from: u.admin.address})
 
         await appStatus();
         await logUsers();
@@ -354,6 +354,8 @@ describe("StreamExchange", () => {
         const appInitialBalanceEth = await ethx.balanceOf(app.address);
         const aliceInitialBalanceEth = await ethx.balanceOf(u.alice.address);
         const bobInitialBalanceEth = await ethx.balanceOf(u.bob.address);
+        const adminInitialBalanceEth = await ethx.balanceOf(u.admin.address);
+
 
         // Alice opens a stream into the app
         // await subscribe(u.alice);  // TODO
@@ -373,7 +375,7 @@ describe("StreamExchange", () => {
         // Approve
         // Already approved?
         // Do a distribution
-        await app.distribute({from: u.admin.address})
+        await app.distribute(0, {from: u.admin.address})
 
         const appInnerBalanceEth = await ethx.balanceOf(app.address);
         const aliceInnerBalanceEth = await ethx.balanceOf(u.alice.address);
@@ -390,7 +392,7 @@ describe("StreamExchange", () => {
 
         await tp.submitValue(1, 2400000000);
         // Do a distribution
-        await app.distribute({from: u.admin.address})
+        await app.distribute(0, {from: u.admin.address})
 
         await appStatus();
         await logUsers();
