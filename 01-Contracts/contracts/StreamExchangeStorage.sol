@@ -18,13 +18,17 @@ import {
 
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 
-
+/// @title Library for defining the storage structures for streamexchange
+/// @author 
 library StreamExchangeStorage  {
 
+  /// @title Structure for storing Stream rate
+  /// @author 
   struct Stream {
     int96 rate;
   }
-
+  /// @title Structure for storing Stream Exchange variables
+  /// @author 
   struct StreamExchange {                 // An exchange generate when StreamExchange is deployed
     ISuperfluid host;                     // Superfluid host contract
     IConstantFlowAgreementV1 cfa;         // The stored constant flow agreement class address

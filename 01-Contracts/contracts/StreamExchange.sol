@@ -35,7 +35,10 @@ import "./tellor/UsingTellor.sol";
 
 import "./StreamExchangeStorage.sol";
 
-
+/// @title A contract which provides DCA purchase of ETH using supefluidfinance
+/// @author 
+/// @notice 
+/// @dev 
 contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     uint32 public constant INDEX_ID = 0;
@@ -102,8 +105,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     /**************************************************************************
      * Stream Exchange Logic
      *************************************************************************/
-
+    
+    /// @notice 
     /// @dev If a new stream is opened, or an existing one is opened
+    /// @param ctx
+    /// @param agreementData
+    /// @return newCtx 
     function _updateOutflow(bytes calldata ctx, bytes calldata agreementData)
         private
         returns (bytes memory newCtx)
@@ -171,17 +178,26 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
    }
 
-
+   /// @notice Returns the time when the last distribution was made
+   /// @dev 
+   /// @return A Unix time stamp
    function getlastDistributionAt() external view returns (uint256) {
      return _exchange.lastDistributionAt;
    }
 
+   /// @notice  
+   /// @dev 
+   /// @param 
+   /// @return
    function distributeWithContext() internal {
 
    }
 
-   // @dev Distribute a single `amount` of outputToken among all streamers
-   // @dev Calculates the amount to distribute
+   /// @notice Function used to distribute a single amount of token to all the streamers
+   /// @param ctx 
+   /// @return newCtx 
+   /// @dev Distribute a single `amount` of outputToken among all streamers
+   /// @dev Calculates the amount to distribute
    function distribute(bytes memory ctx) public returns (bytes memory newCtx){
 
       newCtx = ctx;
@@ -243,6 +259,11 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     }
 
+    /// @notice Swap the passed amount of inputToken to to get outputToken
+    /// @dev 
+    /// @param amount Amount of input token you are looking to swap
+    /// @param deadline Time you are willing to wait for transaction to finish
+    /// @return Amount of swapped token received
     function swap(
           uint256 amount,
           uint256 deadline
@@ -302,7 +323,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     /**************************************************************************
      * SuperApp callbacks
      *************************************************************************/
-
+    /// @notice  
+    /// @dev 
+    /// @param 
+    /// @return
     function afterAgreementCreated(
         ISuperToken _superToken,
         address _agreementClass,
@@ -319,6 +343,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         return _updateOutflow(_ctx, _agreementData);
     }
 
+    /// @notice Handling the SuperApp callback afterAgreementUpdated
+    /// @dev 
+    /// @param 
+    /// @return
     function afterAgreementUpdated(
         ISuperToken _superToken,
         address _agreementClass,
@@ -336,6 +364,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         return _updateOutflow(_ctx, _agreementData);
     }
 
+    /// @notice  
+    /// @dev 
+    /// @param 
+    /// @return
     function afterAgreementTerminated(
         ISuperToken _superToken,
         address _agreementClass,
@@ -353,29 +385,53 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         return _updateOutflow(_ctx, _agreementData);
     }
 
+    /// @notice  
+    /// @dev 
+    /// @param 
+    /// @return
     function _isInputToken(ISuperToken superToken) internal view returns (bool) {
         return address(superToken) == address(_exchange.inputToken);
     }
 
+    /// @notice  
+    /// @dev 
+    /// @param 
+    /// @return
     function _isOutputToken(ISuperToken superToken) internal view returns (bool) {
         return address(superToken) == address(_exchange.outputToken);
     }
 
+    /// @notice  
+    /// @dev 
+    /// @param 
+    /// @return
     function _isCFAv1(address agreementClass) internal view returns (bool) {
         return ISuperAgreement(agreementClass).agreementType()
             == keccak256("org.superfluid-finance.agreements.ConstantFlowAgreement.v1");
     }
 
+    /// @notice  
+    /// @dev 
+    /// @param 
+    /// @return
     function _isIDAv1(address agreementClass) internal view returns (bool) {
         return ISuperAgreement(agreementClass).agreementType()
             == keccak256("org.superfluid-finance.agreements.InstantDistributionAgreement.v1");
     }
 
+    /// @notice  
+    /// @dev 
+    /// @param 
+    /// @return
     modifier onlyHost() {
         require(msg.sender == address(_exchange.host), "one host");
         _;
     }
 
+    /// @notice 
+    /// @dev 
+    /// @param 
+    /// @return
     modifier onlyExpected(ISuperToken superToken, address agreementClass) {
       if (_isCFAv1(agreementClass)) {
         require(_isInputToken(superToken), "!inputAccepted");
@@ -385,6 +441,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       _;
     }
 
+    /// @notice  
+    /// @dev 
+    /// @param 
+    /// @return
     function _createFlow(address to, int96 flowRate) internal {
        _exchange.host.callAgreement(
            _exchange.cfa,
@@ -399,6 +459,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
        );
     }
 
+    /// @notice  
+    /// @dev 
+    /// @param 
+    /// @return
     function _createFlow(
         address to,
         int96 flowRate,
@@ -418,6 +482,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         );
     }
 
+    /// @notice  
+    /// @dev 
+    /// @param 
+    /// @return
     function _updateFlow(address to, int96 flowRate) internal {
         _exchange.host.callAgreement(
             _exchange.cfa,
@@ -432,6 +500,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         );
     }
 
+    /// @notice  
+    /// @dev 
+    /// @param to the address to which the stream is going
+    /// @param flowRate The updated rate at which the user wants the funds to flow
+    /// @param ctx 
+    /// @return
     function _updateFlow(
         address to,
         int96 flowRate,
@@ -451,6 +525,11 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         );
     }
 
+    /// @notice  
+    /// @dev 
+    /// @param from the address from which the stream is starting
+    /// @param to the address to which the stream is going
+    /// @return
     function _deleteFlow(address from, address to) internal {
         _exchange.host.callAgreement(
             _exchange.cfa,
@@ -465,6 +544,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         );
     }
 
+    /// @notice Deletes a flow  
+    /// @dev 
+    /// @param from the address from which the stream is starting
+    /// @param to the address to which the stream is going
+    /// @param ctx
+    /// @return newCtx 
     function _deleteFlow(
         address from,
         address to,
