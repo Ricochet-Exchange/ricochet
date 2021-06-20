@@ -106,8 +106,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     
     /// @notice A function which updates an existing flow
     /// @dev If a new stream is opened, or an existing one is opened
-    /// @param ctx
-    /// @param agreementData
+    /// @param ctx The context data.
+    /// @param agreementData Encoded addresses of the requester & the flow receiver
     /// @return newCtx 
     function _updateOutflow(bytes calldata ctx, bytes calldata agreementData)
         private
@@ -192,7 +192,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
    }
 
    /// @notice Function used to distribute a single amount of token to all the streamers
-   /// @param ctx 
+   /// @param ctx The context data.
    /// @return newCtx 
    /// @dev Distribute a single `amount` of outputToken among all streamers
    /// @dev Calculates the amount to distribute
@@ -323,8 +323,13 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
      *************************************************************************/
     /// @notice Handling the SuperApp callback afterAgreementCreated
     /// @dev 
-    /// @param 
-    /// @return
+    /// @param superToken The super token used for the agreement.
+    /// @param agreementClass The agreement class address.
+    /// @param agreementId The agreementId
+    /// @param agreementData The agreement data (non-compressed)
+    /// @param cbdata The data returned from the before-hook callback.
+    /// @param ctx The context data.
+    /// @return newCtx The current context of the transaction.
     function afterAgreementCreated(
         ISuperToken _superToken,
         address _agreementClass,
@@ -341,10 +346,15 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         return _updateOutflow(_ctx, _agreementData);
     }
 
-    /// @notice Handling the SuperApp callback afterAgreementUpdated
+    /// @notice Callback after a new agreement is updated.
     /// @dev 
-    /// @param 
-    /// @return
+    /// @param superToken The super token used for the agreement.
+    /// @param agreementClass The agreement class address.
+    /// @param agreementId The agreementId
+    /// @param agreementData The agreement data (non-compressed)
+    /// @param cbdata The data returned from the before-hook callback.
+    /// @param ctx The context data.
+    /// @return newCtx The current context of the transaction.
     function afterAgreementUpdated(
         ISuperToken _superToken,
         address _agreementClass,
@@ -364,8 +374,13 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     /// @notice  
     /// @dev 
-    /// @param 
-    /// @return
+    /// @param superToken The super token used for the agreement.
+    /// @param agreementClass The agreement class address.
+    /// @param agreementId The agreementId
+    /// @param agreementData The agreement data (non-compressed)
+    /// @param cbdata The data returned from the before-hook callback.
+    /// @param ctx The context data.
+    /// @return newCtx The current context of the transaction.
     function afterAgreementTerminated(
         ISuperToken _superToken,
         address _agreementClass,
@@ -435,10 +450,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       _;
     }
 
-    /// @notice  
+    /// @notice Creates a flow to an address
     /// @dev 
-    /// @param 
-    /// @return
+    /// @param to Address to which the flow is going to
+    /// @param flowRate The amount of flow
     function _createFlow(address to, int96 flowRate) internal {
        _exchange.host.callAgreement(
            _exchange.cfa,
@@ -453,10 +468,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
        );
     }
 
-    /// @notice  
+    /// @notice Creates a flow to an address
     /// @dev 
-    /// @param 
-    /// @return
+    /// @param to Address to which the flow is going to
+    /// @param flowRate The amount of flow
+    /// @param ctx The context data.
+    /// @return newCtx Context of the updated agreement
     function _createFlow(
         address to,
         int96 flowRate,
@@ -476,10 +493,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         );
     }
 
-    /// @notice  
+    /// @notice Updates the flow rate of an existing flow
     /// @dev 
-    /// @param 
-    /// @return
+    /// @param to Address to which the flow is going to
+    /// @param flowRate The amount of flow
     function _updateFlow(address to, int96 flowRate) internal {
         _exchange.host.callAgreement(
             _exchange.cfa,
@@ -494,12 +511,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         );
     }
 
-    /// @notice  
+    /// @notice Updates the flow rate of an existing flow
     /// @dev 
     /// @param to the address to which the stream is going
     /// @param flowRate The updated rate at which the user wants the funds to flow
-    /// @param ctx 
-    /// @return
+    /// @param ctx The context data.
+    /// @return newCtx Context of the updated agreement
     function _updateFlow(
         address to,
         int96 flowRate,
@@ -519,7 +536,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         );
     }
 
-    /// @notice  
+    /// @notice Deletes an existing flow between 2 provided addresses
     /// @dev 
     /// @param from the address from which the stream is starting
     /// @param to the address to which the stream is going
@@ -538,11 +555,11 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         );
     }
 
-    /// @notice Deletes a flow  
+    /// @notice Deletes an existing flow between 2 provided addresses
     /// @dev 
     /// @param from the address from which the stream is starting
     /// @param to the address to which the stream is going
-    /// @param ctx
+    /// @param ctx The context data.
     /// @return newCtx 
     function _deleteFlow(
         address from,
