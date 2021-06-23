@@ -95,6 +95,21 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
            ),
            new bytes(0) // user data
          );
+
+         _exchange.host.callAgreement(
+            _exchange.ida,
+            abi.encodeWithSelector(
+                _exchange.ida.updateSubscription.selector,
+                _exchange.outputToken,
+                INDEX_ID,
+                // one share for the contract to get it started
+                msg.sender,
+                1,
+                new bytes(0) // placeholder ctx
+            ),
+            new bytes(0) // user data
+        );
+
         _exchange.lastDistributionAt = block.timestamp;
     }
 
@@ -110,6 +125,13 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     {
 
       newCtx = ctx;
+
+      // NOTE: Trigger a distribution if there's any inputToken
+      console.log("Need to swap this before open new flow",ISuperToken(_exchange.inputToken).balanceOf(address(this)));
+      if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0) {
+        newCtx = _distribute(newCtx);
+      }
+      console.log("Updated context");
 
       (address requester, address flowReceiver) = abi.decode(agreementData, (address, address));
       int96 changeInFlowRate = _exchange.cfa.getNetFlow(_exchange.inputToken, address(this)) - _exchange.totalInflow;
@@ -163,11 +185,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       // TODO: Need to put the new streamers into a "timeout" to prevent someone
       //       from streaming for a few seconds
 
-      // NOTE: Trigger a distribution if there's any inputToken
-      console.log("Need to swap this before open new flow",ISuperToken(_exchange.inputToken).balanceOf(address(this)));
-      if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0) {
-        newCtx = distribute(newCtx);
-      }
 
    }
 
@@ -180,11 +197,17 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
    }
 
+   function distribute() external {
+     _distribute(new bytes(0));
+   }
+
    // @dev Distribute a single `amount` of outputToken among all streamers
    // @dev Calculates the amount to distribute
-   function distribute(bytes memory ctx) public returns (bytes memory newCtx){
+   function _distribute(bytes memory ctx) internal returns (bytes memory newCtx){
 
       newCtx = ctx;
+      require(_exchange.host.isCtxValid(newCtx) || newCtx.length == 0, "!distributeCtx");
+
 
       // Compute the amount to distribute
       // TODO: Don't declare so many variables
@@ -193,11 +216,14 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       // NOTE: Swaps all inputToken held, which may not be the best idea?
       uint256 amount = swap(ISuperToken(_exchange.inputToken).balanceOf(address(this)), block.timestamp + 3600);
 
-      // NOTE: Why does this truncate decimal values?
+      console.log("Done swap", amount);
+
       (uint256 actualAmount,) = _exchange.ida.calculateDistribution(
        _exchange.outputToken,
        address(this), INDEX_ID,
        amount);
+
+       console.log("Actual Amount", actualAmount);
 
       // Confirm the app has enough to distribute
       require(_exchange.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
@@ -221,7 +247,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
            new bytes(0) // user data
         );
       } else {
-      (newCtx, ) = _exchange.host.callAgreementWithContext(
+        require(_exchange.host.isCtxValid(newCtx) || newCtx.length == 0, "!distribute");
+       (newCtx, ) = _exchange.host.callAgreementWithContext(
            _exchange.ida,
            abi.encodeWithSelector(
                _exchange.ida.distribute.selector,
@@ -316,6 +343,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         onlyHost
         returns (bytes memory newCtx)
     {
+        if (!_isInputToken(_superToken) || !_isCFAv1(_agreementClass)) return _ctx;
         return _updateOutflow(_ctx, _agreementData);
     }
 
