@@ -137,11 +137,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       (address requester, address flowReceiver) = abi.decode(agreementData, (address, address));
       int96 changeInFlowRate = _exchange.cfa.getNetFlow(_exchange.inputToken, address(this)) - _exchange.totalInflow;
 
-      if (_exchange.streams[requester].rate == changeInFlowRate) { // Rate has not changed, return
-        return newCtx;
-      } else { // Add/update the streamer
-        _exchange.streams[requester].rate = _exchange.streams[requester].rate + changeInFlowRate;
-      }
+      _exchange.streams[requester].rate = _exchange.streams[requester].rate + changeInFlowRate;
 
       console.log("Updating IDA");
 
@@ -242,12 +238,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       // Confirm the app has enough to distribute
       require(_exchange.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
 
-      // TODO: Make the fee a parameter
-      uint256 distAmount = actualAmount * 997000 / 1000000;
-      uint256 feeCollected = actualAmount * 3000 / 1000000;
-
-      console.log("Distributing", distAmount);
-
       if (newCtx.length == 0) { // No context provided
         _exchange.host.callAgreement(
            _exchange.ida,
@@ -276,8 +266,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         );
       }
 
-      // Take a fee and send to the owner
-      ISuperToken(_exchange.outputToken).transfer(owner(), feeCollected); // 30 basis points
       _exchange.lastDistributionAt = block.timestamp;
 
       return newCtx;
