@@ -231,52 +231,56 @@ class App extends Component {
     return (
       <body class="indigo lighten-4">
           <div class="row">
-            <div class = "col">
-              <p>[Rick's Face]</p>
+            <div class = "col-2">
+              <img src="logo.jpg" style={{width:75, height:50, float:"right"}}></img>
             </div>
-            <div class = "col">
-              <h3>Rickoshea</h3>
+            <div class = "col-4">
+              <h3>Ricochet</h3>
               <p>Scaling and simplifying Dollar-cost Averaging (DCA)</p>
             </div>
-            <div class= "col">
-              <strong><span id="wallet-address">Your Address: {this.state.account}</span></strong>
+            <div class= "col-6">
+              <p><span id="wallet-address" class="badge bg-secondary">{this.state.account}</span></p>
             </div>
-          </div>
-
-          <div class="col">
-            <div class="card grey darken-1">
-              <div class="card-content white-text">
-                <table style={{width:100}}>
-                  <tr>
-                    <th></th>
-                    <th>App Address (fake)</th>
-                    {/* <th>Inbound Rate</th> */}
-                    <th>Balance</th>
-                    <th>DCA Asset Balance</th>
-                    <th colspan="3">Start a DCA Flow</th>
-                  </tr>
-                  <tr>
-                    <td>ETHx</td>
-                    {/* <!-- "App Address":Address of Super App -->                   */}
-                    <td>{rickosheaAppAddress}<br/></td>
-                    {/* <!-- "Inbound Rate":Rate at which you will be recieving the DCA asset -->
-                    <td><div id='inbound-rate'>0</div> ETHx/hr</td> */}
-                    {/* <!-- "Total Inflow":Balance of USDCx in wallet --> */}
-                    <td><div id='balance-0x0F1D7C55A2B133E000eA10EeC03c774e0d6796e8'>0</div> USDCx</td>
-                    {/* <!-- "Total Outflow":Balance of DCA asset in wallet --> */}
-                    <td><span id="balance-0x745861AeD1EEe363b4AaA5F1994Be40b1e05Ff90">0</span> DAIx</td>
-                    {/* <!-- Stream Initiation --> */}
-                    {/* <!-- EVENTUALLY, we want to make approve() to happen onClick, kick off interfacing with SuperApp --> */}
-                    {/* <td><button id="approve-0xa623b2DD931C5162b7a0B25852f4024Db48bb1A0" placeholder="Please approve first" onClick={this.approve}>Approve</button> </td>  */}
-                    <td><input type="text" id="input-amt-0x745861AeD1EEe363b4AaA5F1994Be40b1e05Ff90" placeholder={"Current Flow: "+ ( -( this.state.flowAmt*(30*24*60*60) )/Math.pow(10,18) ).toFixed(4)  }/> USDCx/month</td>
-                    {/* <td><button id="start-0x5943F705aBb6834Cad767e6E4bB258Bc48D9C947" disabled>Stream</button> </td> */}
-                    <td><button id="startFlowButton" onClick={this.startFlow}>Start Flow</button> </td>
-                    <td><button id="approveDistButton" onClick={this.approve}>Approve</button> </td>
-                  </tr>
-                </table>
+            <div class= "col-1">
+              <p></p>
+            </div>
+            <div class="col-5">
+            <div class="card">
+              <div class="card-body">
+                <h5 class="card-title">USDCx to ETHx</h5>
+                <p>Inbound Rate: <span id='balance-0x0F1D7C55A2B133E000eA10EeC03c774e0d6796e8'>0</span> USDCx</p>
+                <p>Balance: <span id="balance-0x745861AeD1EEe363b4AaA5F1994Be40b1e05Ff90">0</span> ETHx</p>
+                <div>
+                <input type="text" id="input-amt-0x745861AeD1EEe363b4AaA5F1994Be40b1e05Ff90" placeholder={"Current Flow: "+ ( -( this.state.flowAmt*(30*24*60*60) )/Math.pow(10,18) ).toFixed(4)  }/>
+                <button id="startFlowButton" onClick={this.startFlow}>Start Flow</button>
+                <button id="approveDistButton" onClick={this.approve}>Approve</button>
+                </div>
+                <p> USDCx/month</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-4">
+            <div class="card">
+              <div class="card-body">
+                <h5 class="card-title">USDCx to UWLx</h5>
+                <p>Inbound Rate: <span id='balance-0x0F1D7C55A2B133E000eA10EeC03c774e0d6796e8'>0</span> USDCx</p>
+                <p>Balance: <span id="balance-0x745861AeD1EEe363b4AaA5F1994Be40b1e05Ff90">0</span> UWLx</p>
+                <div>
+                <input type="text" id="input-amt-0x745861AeD1EEe363b4AaA5F1994Be40b1e05Ff90" placeholder={"Current Flow: "+ ( -( this.state.flowAmt*(30*24*60*60) )/Math.pow(10,18) ).toFixed(4)  }/>
+                <button id="startFlowButton" onClick={this.startFlow}>Start Flow</button>
+                <button id="approveDistButton" onClick={this.approve}>Approve</button>
+                </div>
+                <p> USDCx/month</p>
+                </div>
               </div>
             </div>
           </div>
+
+
+          <div class= "col-2">
+          <p></p>
+          </div>
+
       </body>
     );
   }
