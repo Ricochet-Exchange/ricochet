@@ -75,6 +75,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         _exchange.outputToken = outputToken;
         _exchange.oracle = oracle;
         _exchange.requestId = requestId;
+        _exchange.feeRate = 30000;
 
         uint256 configWord =
             SuperAppDefinitions.APP_LEVEL_FINAL |
@@ -181,9 +182,22 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
       console.log("Done updating IDA");
       _exchange.totalInflow = _exchange.totalInflow + changeInFlowRate;
+      uint256 netInflow = (1e6 * uint128(_exchange.totalInflow) / (1e6 - _exchange.feeRate)) - uint128(_exchange.totalInflow);
 
-      // TODO: Need to put the new streamers into a "timeout" to prevent someone
-      //       from streaming for a few seconds
+      // Update the owners share to feeRate
+      (newCtx, ) = _exchange.host.callAgreementWithContext(
+        _exchange.ida,
+        abi.encodeWithSelector(
+            _exchange.ida.updateSubscription.selector,
+            _exchange.outputToken,
+            INDEX_ID,
+            owner(),
+            netInflow * _exchange.feeRate / 1e6, // only the fee shares for the owner
+            new bytes(0)
+        ),
+        new bytes(0), // user data
+        newCtx
+      );
 
 
    }
@@ -289,7 +303,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
           // TODO: Safemath or upgrade to solidity v8
           // 1e6 is percision on tellor values, 99/100 gives 1% price slippage
           // TODO: Fix this
-          uint256 minOutput = amount  * 1e6 / _value * 9999 / 10000;
+          uint256 minOutput = amount  * 1e6 / _value;
 
           console.log("minOutput:", minOutput);
           _exchange.inputToken.downgrade(amount);

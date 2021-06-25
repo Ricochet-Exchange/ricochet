@@ -37,7 +37,8 @@ library StreamExchangeStorage  {
     mapping (address => Stream) streams;  // A lookup table to see how much a user is streaming in
     IUniswapV2Router02 sushiRouter;       // Address of sushsiwap router
     address payable oracle;               // Address of deployed simple oracle for input//output token
-    uint256 requestId;                    // The id of the tellor request that has input/output exchange rate 
+    uint256 requestId;                    // The id of the tellor request that has input/output exchange rate
+    uint128 feeRate;                      // The fee takens as a
   }
 
 }
