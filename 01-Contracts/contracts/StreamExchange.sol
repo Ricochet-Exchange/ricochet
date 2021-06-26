@@ -75,7 +75,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         _exchange.outputToken = outputToken;
         _exchange.oracle = oracle;
         _exchange.requestId = requestId;
-        _exchange.feeRate = 30000;
+        _exchange.feeRate = 3000;
 
         uint256 configWord =
             SuperAppDefinitions.APP_LEVEL_FINAL |
@@ -141,9 +141,11 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
       console.log("Updating IDA");
 
+      console.log("Current Rate", uint256(_exchange.streams[requester].rate));
+      console.log("Change in rate", uint256(changeInFlowRate));
+
       if (_exchange.streams[requester].rate == 0) {
         // Delete the subscription
-        // TODO: Move into internal function?
         (newCtx, ) = _exchange.host.callAgreementWithContext(
           _exchange.ida,
           abi.encodeWithSelector(
@@ -174,12 +176,18 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
           new bytes(0), // user data
           newCtx
         );
+        console.log("Updated share", uint256(_exchange.streams[requester].rate));
       }
 
-      console.log("Done updating IDA");
       _exchange.totalInflow = _exchange.totalInflow + changeInFlowRate;
-      uint256 netInflow = (1e6 * uint128(_exchange.totalInflow) / (1e6 - _exchange.feeRate)) - uint128(_exchange.totalInflow);
 
+      // totalInflow / x = (1e6 - feeRate) / 1e6
+      // totalInflow * 1e6 = (1e6 - feeRate) * x
+      // totalInflow * 1e6 / (1e6 - feeRate) = x
+
+      uint128 ownerShare = (uint128(_exchange.totalInflow) * 1e6 / ( 1e6 - _exchange.feeRate)) - uint128(_exchange.totalInflow);
+      console.log("totalInflow", uint256(_exchange.totalInflow));
+      console.log("ownerShare", ownerShare);
       // Update the owners share to feeRate
       (newCtx, ) = _exchange.host.callAgreementWithContext(
         _exchange.ida,
@@ -188,7 +196,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
             _exchange.outputToken,
             INDEX_ID,
             owner(),
-            netInflow * _exchange.feeRate / 1e6, // only the fee shares for the owner
+            ownerShare, // only the fee shares for the owner
             new bytes(0)
         ),
         new bytes(0), // user data
@@ -226,14 +234,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       // NOTE: Swaps all inputToken held, which may not be the best idea?
       uint256 amount = swap(ISuperToken(_exchange.inputToken).balanceOf(address(this)), block.timestamp + 3600);
 
-      console.log("Done swap", amount);
-
       (uint256 actualAmount,) = _exchange.ida.calculateDistribution(
        _exchange.outputToken,
        address(this), INDEX_ID,
        amount);
-
-       console.log("Actual Amount", actualAmount);
 
       // Confirm the app has enough to distribute
       require(_exchange.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
@@ -266,6 +270,9 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         );
       }
 
+      console.log("Distribution amount", actualAmount);
+      console.log("Amount", amount);
+
       _exchange.lastDistributionAt = block.timestamp;
 
       return newCtx;
@@ -286,25 +293,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
           require(_didGet, "!getCurrentValue");
           require(_timestamp >= block.timestamp - 3600, "!currentValue");
-          console.log("Value:", _value);
-
-          // TODO: Safemath or upgrade to solidity v8
-          // 1e6 is percision on tellor values, 99/100 gives 1% price slippage
-          // TODO: Fix this
           uint256 minOutput = amount  * 1e6 / _value;
 
-          console.log("minOutput:", minOutput);
           _exchange.inputToken.downgrade(amount);
-          console.log("Downgraded", amount);
-
           address inputToken = _exchange.inputToken.getUnderlyingToken();
           address outputToken = _exchange.outputToken.getUnderlyingToken();
-
-          console.log("inputToken", inputToken);
-          console.log("outputToken", outputToken);
-
           address[] memory path = new address[](2);
-          // TODO: For eth we have to check of the under
           path[0] = inputToken;
           path[1] = outputToken;
 
@@ -321,7 +315,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
           ERC20(outputToken).safeIncreaseAllowance(address(_exchange.outputToken), amounts[1]);
           _exchange.outputToken.upgrade(amounts[1]);
-          console.log("Upgrade", amounts[1]);
 
           // TODO: Take a small fee
 

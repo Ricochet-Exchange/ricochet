@@ -232,25 +232,6 @@ describe("StreamExchange", () => {
         return owner.toString();
     }
 
-    async function transferNFT(to) {
-        const receiver = to.address || to;
-        const owner = await checkOwner();
-        console.log("got owner from checkOwner(): ", owner);
-        console.log("receiver: ", receiver);
-        if (receiver === owner) {
-            console.log("user === owner");
-            return false;
-        }
-        await app.transferFrom(owner, receiver, 1, { from: owner });
-        console.log(
-            "token transferred, new owner: ",
-            receiver,
-            " = ",
-            aliases[receiver]
-        );
-        return true;
-    }
-
     async function subscribe(user) {
       // Alice approves a subscription to the app
       console.log(sf.host.callAgreement)
@@ -289,7 +270,9 @@ describe("StreamExchange", () => {
         // Take measurements
         const appInitialBalance = await daix.balanceOf(app.address);
         const bobInitialBalance = await daix.balanceOf(u.bob.address);
+        const bobInitialBalanceEth = await ethx.balanceOf(u.bob.address);
         const aliceInitialBalance = await daix.balanceOf(u.alice.address);
+        const aliceInitialBalanceEth = await ethx.balanceOf(u.alice.address);
         const appInitialBalanceEth = await ethx.balanceOf(app.address);
 
 
@@ -302,10 +285,6 @@ describe("StreamExchange", () => {
         await tp.submitValue(1, 2400000000);
 
 
-        // Take measurements
-        const appInnerBalance = await daix.balanceOf(app.address);
-        const aliceInitialBalanceEth = await ethx.balanceOf(u.alice.address);
-        const bobInitialBalanceEth = await ethx.balanceOf(u.bob.address);
 
         // First distribution
         await app.distribute({from: u.admin.address})
@@ -317,9 +296,13 @@ describe("StreamExchange", () => {
         const aliceInnerBalanceEth = await ethx.balanceOf(u.alice.address);
         const bobInnerBalanceEth = await ethx.balanceOf(u.bob.address);
 
+        console.log("Bob bal eth", parseInt(bobInnerBalanceEth - bobInitialBalanceEth))
+        console.log("Alice bal eth", parseInt(aliceInnerBalanceEth - aliceInitialBalanceEth))
+        console.log("App bal eth", parseInt(appInnerBalanceEth - appInitialBalanceEth))
+        expect(parseInt(appInnerBalanceEth - appInitialBalanceEth)).to.equal(parseInt(inflowRate * TEST_TRAVEL_TIME / 2400 * 0.003) )
         expect(parseInt((await u.app.details()).cfa.netFlow)).to.equal(inflowRate.toNumber() * 2, "app net flow");
         // Bob an Alice paid the same amount of DAI to 3 significant figures
-        expect(parseInt((aliceInnerBalance - aliceInitialBalance)/1e15)).to.equal(parseInt((bobInnerBalance - bobInitialBalance)/1e15), "bob != alice DAI")
+        expect(parseInt((aliceInnerBalance - aliceInitialBalance))).to.equal(parseInt((bobInnerBalance - bobInitialBalance)), "bob != alice DAI")
         // Bob an Alice were paid the same amount of ETH
         expect(parseInt(bobInnerBalanceEth - bobInitialBalanceEth)).to.equal(parseInt(aliceInnerBalanceEth - aliceInitialBalanceEth), "bob != alice ETH")
 

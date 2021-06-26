@@ -46,8 +46,9 @@ async function main() {
   console.log("HOST_ADDRESS", HOST_ADDRESS)
   console.log("CFA_ADDRESS", CFA_ADDRESS)
   console.log("IDA_ADDRESS", IDA_ADDRESS)
+  // Use USDCx-> DAI on rinkeby
   console.log("USDCX_ADDRESS", USDCX_ADDRESS)
-  console.log("ETHX_ADDRESS", ETHX_ADDRESS)
+  console.log("DAIX_ADDRESS", DAIX_ADDRESS)
   console.log("SUSHISWAP_ROUTER_ADDRESS", SUSHISWAP_ROUTER_ADDRESS)
   console.log("tp.address", "0xA0c5d95ec359f4A33371a06C23D89BA6Fc591A97")
   console.log("requestId", 1)
