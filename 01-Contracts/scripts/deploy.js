@@ -42,6 +42,7 @@ async function main() {
 
   console.log("Deploying StreamExchange")
   const StreamExchange = await ethers.getContractFactory("StreamExchange");
+  const streamExchange = await StreamExchange.deploy();
 
   console.log("HOST_ADDRESS", HOST_ADDRESS)
   console.log("CFA_ADDRESS", CFA_ADDRESS)
@@ -52,14 +53,16 @@ async function main() {
   console.log("SUSHISWAP_ROUTER_ADDRESS", SUSHISWAP_ROUTER_ADDRESS)
   console.log("tp.address", "0xA0c5d95ec359f4A33371a06C23D89BA6Fc591A97")
   console.log("requestId", 1)
-  const streamExchange = await StreamExchange.deploy( HOST_ADDRESS,
-                                                      CFA_ADDRESS,
-                                                      IDA_ADDRESS,
-                                                      USDCX_ADDRESS,
-                                                      DAIX_ADDRESS,
-                                                      SUSHISWAP_ROUTER_ADDRESS,
-                                                      "0xA0c5d95ec359f4A33371a06C23D89BA6Fc591A97",
-                                                      1);
+
+  var abiCoder = ethers.utils.defaultAbiCoder;
+  var types = ["address", "address", "address", "address", "address", "address", "address", "uint256"];
+  var values = [HOST_ADDRESS, CFA_ADDRESS, IDA_ADDRESS, USDCX_ADDRESS, DAIX_ADDRESS, SUSHISWAP_ROUTER_ADDRESS, "0xA0c5d95ec359f4A33371a06C23D89BA6Fc591A97", 1]
+  var _data = abiCoder.encode(types, values);
+
+  console.log("Deploying StreamExchangeProxy")
+  const StreamExchangeProxy = await ethers.getContractFactory("StreamExchangeProxy");
+  const streamExchangeProxy = await StreamExchangeProxy.deploy(streamExchange.address, deployer.address, _data)
+
   console.log(streamExchange);
 
   await streamExchange.deployed();

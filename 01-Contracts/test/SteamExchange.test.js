@@ -124,16 +124,19 @@ describe("StreamExchange", () => {
         const MockUniswapRouter = await ethers.getContractFactory("MockUniswapRouter");
         sr = await MockUniswapRouter.deploy(tp.address, 1, eth.address);
 
+        var abiCoder = ethers.utils.defaultAbiCoder;
+        var types = ["address", "address", "address", "address", "address", "address"];
+        var values = [sf.host.address,sf.agreements.cfa.address,sf.agreements.ida.address,daix.address,ethx.address,sr.address]
+        var _data = abiCoder.encode(types, values);
 
         const StreamExchange = await ethers.getContractFactory("StreamExchange");
-        app = await StreamExchange.deploy(sf.host.address,
-                                          sf.agreements.cfa.address,
-                                          sf.agreements.ida.address,
-                                          daix.address,
-                                          ethx.address,
-                                          sr.address,
-                                          tp.address,
-                                          1);
+        app = await StreamExchange.deploy(tp.address,1);
+
+        console.log("Deploying StreamExchangeProxy")
+        const StreamExchangeProxy = await ethers.getContractFactory("StreamExchangeProxy");
+        app = await StreamExchangeProxy.deploy(app.address, u.admin.address, _data)
+
+
         console.log("App made")
         u.app = sf.user({ address: app.address, token: daix.address });
         u.app.alias = "App";
