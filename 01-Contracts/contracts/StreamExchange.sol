@@ -211,7 +211,7 @@ contract StreamExchange is Ownable, Initializable, SuperAppBase, UsingTellor {
    function getlastDistributionAt() external view returns (uint256) {
      return _exchange.lastDistributionAt;
    }
-   
+
 
    function distribute() external {
      _distribute(new bytes(0));
@@ -406,104 +406,6 @@ contract StreamExchange is Ownable, Initializable, SuperAppBase, UsingTellor {
       _;
     }
 
-    function _createFlow(address to, int96 flowRate) internal {
-       _exchange.host.callAgreement(
-           _exchange.cfa,
-           abi.encodeWithSelector(
-               _exchange.cfa.createFlow.selector,
-               _exchange.inputToken,
-               to,
-               flowRate,
-               new bytes(0) // placeholder
-           ),
-           "0x"
-       );
-    }
-
-    function _createFlow(
-        address to,
-        int96 flowRate,
-        bytes memory ctx
-    ) internal returns (bytes memory newCtx) {
-        (newCtx, ) = _exchange.host.callAgreementWithContext(
-            _exchange.cfa,
-            abi.encodeWithSelector(
-                _exchange.cfa.createFlow.selector,
-                _exchange.inputToken,
-                to,
-                flowRate,
-                new bytes(0) // placeholder
-            ),
-            "0x",
-            ctx
-        );
-    }
-
-    function _updateFlow(address to, int96 flowRate) internal {
-        _exchange.host.callAgreement(
-            _exchange.cfa,
-            abi.encodeWithSelector(
-                _exchange.cfa.updateFlow.selector,
-                _exchange.inputToken,
-                to,
-                flowRate,
-                new bytes(0) // placeholder
-            ),
-            "0x"
-        );
-    }
-
-    function _updateFlow(
-        address to,
-        int96 flowRate,
-        bytes memory ctx
-    ) internal returns (bytes memory newCtx) {
-        (newCtx, ) = _exchange.host.callAgreementWithContext(
-            _exchange.cfa,
-            abi.encodeWithSelector(
-                _exchange.cfa.updateFlow.selector,
-                _exchange.inputToken,
-                to,
-                flowRate,
-                new bytes(0) // placeholder
-            ),
-            "0x",
-            ctx
-        );
-    }
-
-    function _deleteFlow(address from, address to) internal {
-        _exchange.host.callAgreement(
-            _exchange.cfa,
-            abi.encodeWithSelector(
-                _exchange.cfa.deleteFlow.selector,
-                _exchange.inputToken,
-                from,
-                to,
-                new bytes(0) // placeholder
-            ),
-            "0x"
-        );
-    }
-
-    function _deleteFlow(
-        address from,
-        address to,
-        bytes memory ctx
-    ) internal returns (bytes memory newCtx) {
-        (newCtx, ) = _exchange.host.callAgreementWithContext(
-            _exchange.cfa,
-            abi.encodeWithSelector(
-                _exchange.cfa.deleteFlow.selector,
-                _exchange.inputToken,
-                from,
-                to,
-                new bytes(0) // placeholder
-            ),
-            "0x",
-            ctx
-        );
-    }
 
 
   }
