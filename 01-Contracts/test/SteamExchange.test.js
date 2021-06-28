@@ -1,5 +1,7 @@
 const { web3tx, toWad, wad4human } = require("@decentral.ee/web3-helpers");
 const { expect } = require("chai");
+const { ethers, upgrades } = require('hardhat');
+
 
 const deployFramework = require("@superfluid-finance/ethereum-contracts/scripts/deploy-framework");
 const deployTestToken = require("@superfluid-finance/ethereum-contracts/scripts/deploy-test-token");
@@ -124,17 +126,17 @@ describe("StreamExchange", () => {
         const MockUniswapRouter = await ethers.getContractFactory("MockUniswapRouter");
         sr = await MockUniswapRouter.deploy(tp.address, 1, eth.address);
 
-        var abiCoder = ethers.utils.defaultAbiCoder;
-        var types = ["address", "address", "address", "address", "address", "address"];
-        var values = [sf.host.address,sf.agreements.cfa.address,sf.agreements.ida.address,daix.address,ethx.address,sr.address]
-        var _data = abiCoder.encode(types, values);
+        const StreamExchangeDistribute = await ethers.getContractFactory("StreamExchangeDistribute");
+        let sed = await StreamExchangeDistribute.deploy();
 
-        const StreamExchange = await ethers.getContractFactory("StreamExchange");
-        app = await StreamExchange.deploy(tp.address,1);
+        const StreamExchange = await ethers.getContractFactory("StreamExchange", {
+          libraries: {
+            StreamExchangeDistribute: sed.address,
+          },
+        });
+        app = await upgrades.deployProxy(StreamExchange, sf.host.address,sf.agreements.cfa.address,sf.agreements.ida.address, { kind: 'uups' });
+        await app.initialize(daix.address,ethx.address, 3000, 1, sr.address, tp.address, 1)
 
-        console.log("Deploying StreamExchangeProxy")
-        const StreamExchangeProxy = await ethers.getContractFactory("StreamExchangeProxy");
-        app = await StreamExchangeProxy.deploy(app.address, u.admin.address, _data)
 
 
         console.log("App made")
@@ -150,7 +152,7 @@ describe("StreamExchange", () => {
         )(
             sf.agreements.ida.address,
             sf.agreements.ida.contract.methods
-                .approveSubscription(ethx.address, app.address, 0, "0x")
+                .approveSubscription(ethx.address, _app.address, 1, "0x")
                 .encodeABI(),
             "0x", // user data
             {
@@ -163,7 +165,7 @@ describe("StreamExchange", () => {
         )(
             sf.agreements.ida.address,
             sf.agreements.ida.contract.methods
-                .approveSubscription(ethx.address, app.address, 0, "0x")
+                .approveSubscription(ethx.address, _app.address, 1, "0x")
                 .encodeABI(),
             "0x", // user data
             {

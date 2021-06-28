@@ -9,7 +9,9 @@ interface IStreamExchange {
         address  ida,
         address inputToken,
         address outputToken,
-        address sushiRouter)
-        external ;
+        address sushiRouter,
+        address oracle,
+        uint256 requestId
+    ) external ;
 
 }

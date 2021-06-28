@@ -27,19 +27,17 @@ import {
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-
-import "./tellor/UsingTellor.sol";
+// import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 import "./StreamExchangeStorage.sol";
 import "./SuperfluidHelpers.sol";
 import "./StreamExchangeDistribute.sol";
 
 
-contract StreamExchange is Ownable, Initializable, SuperAppBase, UsingTellor {
+contract StreamExchange is Initializable, OwnableUpgradeable, SuperAppBase {
 
     // TODO: uint256 public constant RATE_PERCISION = 1000000;
     using SafeERC20 for ERC20;
@@ -48,43 +46,49 @@ contract StreamExchange is Ownable, Initializable, SuperAppBase, UsingTellor {
     using StreamExchangeStorage for StreamExchangeStorage.StreamExchange;
     StreamExchangeStorage.StreamExchange internal _exchange;
 
-    constructor(address payable oracle) UsingTellor(oracle) {
-      _exchange.oracle = ITellor(oracle);
+
+    constructor(address host, address cfa, address ida) {
+
+      require(address(host) != address(0), "host");
+      require(address(cfa) != address(0), "cfa");
+      require(address(ida) != address(0), "ida");
+      require(!ISuperfluid(host).isApp(ISuperApp(msg.sender)), "owner SA");
+
+      _exchange.host = ISuperfluid(host);
+      _exchange.cfa = IConstantFlowAgreementV1(cfa);
+      _exchange.ida = IInstantDistributionAgreementV1(ida);
+
+      uint256 configWord =
+          SuperAppDefinitions.APP_LEVEL_FINAL |
+          SuperAppDefinitions.BEFORE_AGREEMENT_CREATED_NOOP |
+          SuperAppDefinitions.BEFORE_AGREEMENT_UPDATED_NOOP |
+          SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP;
+
+      _exchange.host.registerApp(configWord);
+
     }
 
     function initialize(
-        address host,
-        address cfa,
-        address ida,
         address inputToken,
         address outputToken,
+        uint128 feeRate,
+        uint32 idaIndexId,
         address sushiRouter,
-        uint256 requestId)
-        public initializer {
-        require(address(host) != address(0), "host");
-        require(address(cfa) != address(0), "cfa");
-        require(address(ida) != address(0), "ida");
+        address oracle,
+        uint256 requestId
+    )
+        external initializer
+    {
         require(address(inputToken) != address(0), "inputToken");
         require(address(outputToken) != address(0), "output");
-        require(!ISuperfluid(host).isApp(ISuperApp(msg.sender)), "owner SA");
 
-        _exchange.host = ISuperfluid(host);
-        _exchange.cfa = IConstantFlowAgreementV1(cfa);
-        _exchange.ida = IInstantDistributionAgreementV1(ida);
         _exchange.inputToken = ISuperToken(inputToken);
         _exchange.outputToken = ISuperToken(outputToken);
         _exchange.sushiRouter = IUniswapV2Router02(sushiRouter);
+        _exchange.oracle = ITellor(oracle);
         _exchange.requestId = requestId;
-        _exchange.feeRate = 3000; // 0.3%
-        _exchange.indexId = 1;
-
-        uint256 configWord =
-            SuperAppDefinitions.APP_LEVEL_FINAL |
-            SuperAppDefinitions.BEFORE_AGREEMENT_CREATED_NOOP |
-            SuperAppDefinitions.BEFORE_AGREEMENT_UPDATED_NOOP |
-            SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP;
-
-        _exchange.host.registerApp(configWord);
+        _exchange.feeRate = feeRate; // 0.3%
+        _exchange.indexId = idaIndexId;
 
         // Set up the IDA for sending tokens back
         _exchange._createIndex(_exchange.indexId);
@@ -159,73 +163,76 @@ contract StreamExchange is Ownable, Initializable, SuperAppBase, UsingTellor {
      _exchange._distribute(new bytes(0));
    }
 
-    /**************************************************************************
-     * SuperApp callbacks
-     *************************************************************************/
+   function setOracle(address oracle) external onlyOwner {
+     _exchange.oracle = ITellor(oracle);
+   }
 
-    function afterAgreementCreated(
-        ISuperToken _superToken,
-        address _agreementClass,
-        bytes32, // _agreementId,
-        bytes calldata _agreementData,
-        bytes calldata ,// _cbdata,
-        bytes calldata _ctx
-    )
-        external override
-        onlyExpected(_superToken, _agreementClass)
-        onlyHost
-        returns (bytes memory newCtx)
-    {
-        if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
-        return _updateOutflow(_ctx, _agreementData);
-    }
+  /**************************************************************************
+   * SuperApp callbacks
+   *************************************************************************/
 
-    function afterAgreementUpdated(
-        ISuperToken _superToken,
-        address _agreementClass,
-        bytes32 ,//_agreementId,
-        bytes calldata _agreementData,
-        bytes calldata ,//_cbdata,
-        bytes calldata _ctx
-    )
-        external override
-        onlyExpected(_superToken, _agreementClass)
-        onlyHost
-        returns (bytes memory newCtx)
-    {
-        if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
-        return _updateOutflow(_ctx, _agreementData);
-    }
-
-    function afterAgreementTerminated(
-        ISuperToken _superToken,
-        address _agreementClass,
-        bytes32 ,//_agreementId,
-        bytes calldata _agreementData,
-        bytes calldata ,//_cbdata,
-        bytes calldata _ctx
-    )
-        external override
-        onlyHost
-        returns (bytes memory newCtx)
-    {
-        // According to the app basic law, we should never revert in a termination callback
-        if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
-        return _updateOutflow(_ctx, _agreementData);
-    }
-
-    modifier onlyHost() {
-        require(msg.sender == address(_exchange.host), "one host");
-        _;
-    }
-
-    modifier onlyExpected(ISuperToken superToken, address agreementClass) {
-      if (_exchange._isCFAv1(agreementClass)) {
-        require(_exchange._isInputToken(superToken), "!inputAccepted");
-      } else if (_exchange._isIDAv1(agreementClass)) {
-        require(_exchange._isOutputToken(superToken), "!outputAccepted");
-      }
-      _;
-    }
-
+  function afterAgreementCreated(
+      ISuperToken _superToken,
+      address _agreementClass,
+      bytes32, // _agreementId,
+      bytes calldata _agreementData,
+      bytes calldata ,// _cbdata,
+      bytes calldata _ctx
+  )
+      external override
+      onlyExpected(_superToken, _agreementClass)
+      onlyHost
+      returns (bytes memory newCtx)
+  {
+      if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
+      return _updateOutflow(_ctx, _agreementData);
   }
+
+  function afterAgreementUpdated(
+      ISuperToken _superToken,
+      address _agreementClass,
+      bytes32 ,//_agreementId,
+      bytes calldata _agreementData,
+      bytes calldata ,//_cbdata,
+      bytes calldata _ctx
+  )
+      external override
+      onlyExpected(_superToken, _agreementClass)
+      onlyHost
+      returns (bytes memory newCtx)
+  {
+      if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
+      return _updateOutflow(_ctx, _agreementData);
+  }
+
+  function afterAgreementTerminated(
+      ISuperToken _superToken,
+      address _agreementClass,
+      bytes32 ,//_agreementId,
+      bytes calldata _agreementData,
+      bytes calldata ,//_cbdata,
+      bytes calldata _ctx
+  )
+      external override
+      onlyHost
+      returns (bytes memory newCtx)
+  {
+      // According to the app basic law, we should never revert in a termination callback
+      if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
+      return _updateOutflow(_ctx, _agreementData);
+  }
+
+  modifier onlyHost() {
+      require(msg.sender == address(_exchange.host), "one host");
+      _;
+  }
+
+  modifier onlyExpected(ISuperToken superToken, address agreementClass) {
+    if (_exchange._isCFAv1(agreementClass)) {
+      require(_exchange._isInputToken(superToken), "!inputAccepted");
+    } else if (_exchange._isIDAv1(agreementClass)) {
+      require(_exchange._isOutputToken(superToken), "!outputAccepted");
+    }
+    _;
+  }
+}

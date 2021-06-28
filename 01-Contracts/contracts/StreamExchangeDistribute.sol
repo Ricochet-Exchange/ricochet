@@ -13,13 +13,16 @@ library StreamExchangeDistribute {
 
     using SafeERC20 for ERC20;
 
-    function _ownerShare(StreamExchangeStorage.StreamExchange storage self) internal returns (uint128) {
-
+    function _ownerShare(StreamExchangeStorage.StreamExchange storage self)
+      external returns (uint128)
+    {
       return uint128((uint(int(self.totalInflow)) * 1e6 / ( 1e6 - self.feeRate)) - uint(int(self.totalInflow)));
-
     }
 
-    function _getCurrentValue(StreamExchangeStorage.StreamExchange storage self, uint256 _requestId)
+    function _getCurrentValue(
+      StreamExchangeStorage.StreamExchange storage self,
+      uint256 _requestId
+    )
         public
         view
         returns (
@@ -41,8 +44,10 @@ library StreamExchangeDistribute {
     // @dev Calculates the amount to distribute
     function _distribute(
       StreamExchangeStorage.StreamExchange storage self,
-      bytes memory ctx)
-      internal returns (bytes memory newCtx) {
+      bytes memory ctx
+    )
+      external returns (bytes memory newCtx)
+    {
 
        newCtx = ctx;
        require(self.host.isCtxValid(newCtx) || newCtx.length == 0, "!distributeCtx");
@@ -114,7 +119,7 @@ library StreamExchangeDistribute {
            uint256 amount,
            uint256 exchangeRate,
            uint256 deadline
-       ) internal returns(uint) {
+       ) public returns(uint) {
 
 
        uint256 minOutput = amount  * 1e6 / exchangeRate;
