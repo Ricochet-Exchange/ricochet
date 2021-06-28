@@ -262,8 +262,8 @@ describe("StreamExchange", () => {
 
         // Give the app a bit of each token to start
         await upgrade([u.alice, u.bob, u.admin]);
-        await daix.transfer(app.address, toWad(10), {from: u.admin.address});
-        await ethx.transfer(app.address, toWad(10), {from: u.admin.address});
+        await daix.transfer(app.address, toWad(0.00004000), {from: u.admin.address});
+        await ethx.transfer(app.address, toWad(0.00004000), {from: u.admin.address});
         await ethx.downgrade(toWad(5), {from: u.admin.address})
         await eth.transfer(sr.address, toWad(5), {from: u.admin.address});
 
@@ -281,7 +281,7 @@ describe("StreamExchange", () => {
         await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
 
         // Go forward 2 hours and update oracle price
-        await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME);
+        await traveler.advanceTimeAndBlock(10 * TEST_TRAVEL_TIME);
         await tp.submitValue(1, 2400000000);
 
 
@@ -295,7 +295,7 @@ describe("StreamExchange", () => {
         const appInnerBalanceEth = await ethx.balanceOf(app.address);
         const aliceInnerBalanceEth = await ethx.balanceOf(u.alice.address);
         const bobInnerBalanceEth = await ethx.balanceOf(u.bob.address);
-
+        // Mostly checking manually
         console.log("Bob bal eth", parseInt(bobInnerBalanceEth - bobInitialBalanceEth))
         console.log("Alice bal eth", parseInt(aliceInnerBalanceEth - aliceInitialBalanceEth))
         console.log("App bal eth", parseInt(appInnerBalanceEth - appInitialBalanceEth))

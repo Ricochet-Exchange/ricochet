@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.1;
+pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
 import "hardhat/console.sol";
@@ -28,7 +28,7 @@ import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import "./tellor/UsingTellor.sol";
@@ -141,8 +141,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
       console.log("Updating IDA");
 
-      console.log("Current Rate", uint256(_exchange.streams[requester].rate));
-      console.log("Change in rate", uint256(changeInFlowRate));
+      console.log("Current Rate", uint(int(_exchange.streams[requester].rate)));
+      console.log("Change in rate", uint(int(changeInFlowRate)));
 
       if (_exchange.streams[requester].rate == 0) {
         // Delete the subscription
@@ -170,13 +170,13 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
               _exchange.outputToken,
               INDEX_ID,
               requester,
-              uint128(_exchange.streams[requester].rate),  // Number of shares is proportional to their rate
+              uint(int(_exchange.streams[requester].rate)),  // Number of shares is proportional to their rate
               new bytes(0)
           ),
           new bytes(0), // user data
           newCtx
         );
-        console.log("Updated share", uint256(_exchange.streams[requester].rate));
+        console.log("Updated share", uint(int(_exchange.streams[requester].rate)));
       }
 
       _exchange.totalInflow = _exchange.totalInflow + changeInFlowRate;
@@ -185,8 +185,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       // totalInflow * 1e6 = (1e6 - feeRate) * x
       // totalInflow * 1e6 / (1e6 - feeRate) = x
 
-      uint128 ownerShare = (uint128(_exchange.totalInflow) * 1e6 / ( 1e6 - _exchange.feeRate)) - uint128(_exchange.totalInflow);
-      console.log("totalInflow", uint256(_exchange.totalInflow));
+      uint128 ownerShare = uint128((uint(int(_exchange.totalInflow)) * 1e6 / ( 1e6 - _exchange.feeRate)) - uint(int(_exchange.totalInflow)));
+      console.log("totalInflow", uint(int(_exchange.totalInflow)));
       console.log("ownerShare", ownerShare);
       // Update the owners share to feeRate
       (newCtx, ) = _exchange.host.callAgreementWithContext(
