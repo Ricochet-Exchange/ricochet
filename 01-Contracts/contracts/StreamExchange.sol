@@ -325,6 +325,22 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
           return amounts[1];
       }
+  function emergencyCloseStream(address streamer) public {
+    // Allows anyone to close any stream iff the app is jailed
+    bool isJailed = ISuperfluid(msg.sender).isAppJailed(ISuperApp(address(this)));
+    require(isJailed, "!jailed");
+    _exchange.host.callAgreement(
+        _exchange.cfa,
+        abi.encodeWithSelector(
+            _exchange.cfa.deleteFlow.selector,
+            _exchange.inputToken,
+            streamer,
+            address(this),
+            new bytes(0) // placeholder
+        ),
+        "0x"
+    );
+  }
 
     /**************************************************************************
      * SuperApp callbacks
