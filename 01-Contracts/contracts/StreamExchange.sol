@@ -125,7 +125,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
      *************************************************************************/
 
     /// @dev If a new stream is opened, or an existing one is opened
-    function _updateOutflow(bytes calldata ctx, bytes calldata agreementData)
+    function _updateOutflow(bytes calldata ctx, bytes calldata agreementData, bool doDistribution)
         private
         returns (bytes memory newCtx)
     {
@@ -134,7 +134,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
       // NOTE: Trigger a distribution if there's any inputToken
       console.log("Need to swap this before open new flow",ISuperToken(_exchange.inputToken).balanceOf(address(this)));
-      if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0) {
+      if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0 && doDistribution) {
         newCtx = _distribute(newCtx);
       }
       console.log("Updated context");
@@ -344,7 +344,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         returns (bytes memory newCtx)
     {
         if (!_isInputToken(_superToken) || !_isCFAv1(_agreementClass)) return _ctx;
-        return _updateOutflow(_ctx, _agreementData);
+        return _updateOutflow(_ctx, _agreementData, true);
     }
 
     function afterAgreementUpdated(
@@ -361,7 +361,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         returns (bytes memory newCtx)
     {
         if (!_isInputToken(_superToken) || !_isCFAv1(_agreementClass)) return _ctx;
-        return _updateOutflow(_ctx, _agreementData);
+        return _updateOutflow(_ctx, _agreementData, true);
     }
 
     function afterAgreementTerminated(
@@ -378,7 +378,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     {
         // According to the app basic law, we should never revert in a termination callback
         if (!_isInputToken(_superToken) || !_isCFAv1(_agreementClass)) return _ctx;
-        return _updateOutflow(_ctx, _agreementData);
+        // Skip distribution when terminating to avoid reverts
+        return _updateOutflow(_ctx, _agreementData, false);
     }
 
     function _isInputToken(ISuperToken superToken) internal view returns (bool) {
