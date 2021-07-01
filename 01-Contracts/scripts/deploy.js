@@ -10,15 +10,8 @@ async function main() {
   const ETHX_ADDRESS = "0xa623b2DD931C5162b7a0B25852f4024Db48bb1A0";
   const DAIX_ADDRESS = "0x745861AeD1EEe363b4AaA5F1994Be40b1e05Ff90";
   const SUSHISWAP_ROUTER_ADDRESS = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506";
-
-  // Kovan
-  // const HOST_ADDRESS = "0xF0d7d1D47109bA426B9D8A3Cde1941327af1eea3";
-  // const CFA_ADDRESS = "0xECa8056809e7e8db04A8fF6e4E82cD889a46FE2F";
-  // const IDA_ADDRESS = "0x556ba0b3296027Dd7BCEb603aE53dEc3Ac283d2b";
-  // const USDCX_ADDRESS = "0x25b5cd2e6ebaedaa5e21d0ecf25a567ee9704aa7";
-  // const ETHX_ADDRESS = "0xdd5462a7db7856c9128bc77bd65c2919ee23c6e1";
-  // const SUSHISWAP_ROUTER_ADDRESS = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506";
-  // const TELLOR_ADDRESS = ""
+  const TELLOR_ORACLE_ADDRESS = "0xA0c5d95ec359f4A33371a06C23D89BA6Fc591A97";
+  const TELLOR_REQUEST_ID = 1;
 
 
   console.log("Deploying contracts with the account:", deployer.address);
@@ -50,20 +43,18 @@ async function main() {
   console.log("USDCX_ADDRESS", USDCX_ADDRESS)
   console.log("DAIX_ADDRESS", DAIX_ADDRESS)
   console.log("SUSHISWAP_ROUTER_ADDRESS", SUSHISWAP_ROUTER_ADDRESS)
-  console.log("tp.address", "0xA0c5d95ec359f4A33371a06C23D89BA6Fc591A97")
-  console.log("requestId", 1)
+  console.log("TELLOR_ORACLE_ADDRESS", TELLOR_ORACLE_ADDRESS)
+  console.log("TELLOR_REQUEST_ID", TELLOR_REQUEST_ID)
   const streamExchange = await StreamExchange.deploy( HOST_ADDRESS,
                                                       CFA_ADDRESS,
                                                       IDA_ADDRESS,
                                                       USDCX_ADDRESS,
                                                       DAIX_ADDRESS,
                                                       SUSHISWAP_ROUTER_ADDRESS,
-                                                      "0xA0c5d95ec359f4A33371a06C23D89BA6Fc591A97",
-                                                      1);
-  console.log(streamExchange);
-
+                                                      TELLOR_ORACLE_ADDRESS,
+                                                      TELLOR_REQUEST_ID,
+                                                      "" ); // No SF Reg. Key
   await streamExchange.deployed();
-
   console.log("Deployed StreamExchange at address:", streamExchange.address);
 }
 
