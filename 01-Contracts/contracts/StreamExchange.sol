@@ -58,7 +58,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         ISuperToken outputToken,
         IUniswapV2Router02 sushiRouter,
         address payable oracle,
-        uint256 requestId)
+        uint256 requestId,
+        string memory registrationKey)
         UsingTellor(oracle) {
         require(address(host) != address(0), "host");
         require(address(cfa) != address(0), "cfa");
@@ -83,7 +84,11 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
             SuperAppDefinitions.BEFORE_AGREEMENT_UPDATED_NOOP |
             SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP;
 
-        _exchange.host.registerApp(configWord);
+        if(bytes(registrationKey).length > 0) {
+            _exchange.host.registerAppWithKey(configWord, registrationKey);
+        } else {
+            _exchange.host.registerApp(configWord);
+        }
 
         // Set up the IDA for sending tokens back
         _exchange.host.callAgreement(

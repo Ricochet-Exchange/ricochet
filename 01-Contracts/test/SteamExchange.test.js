@@ -133,7 +133,7 @@ describe("StreamExchange", () => {
                                           ethx.address,
                                           sr.address,
                                           tp.address,
-                                          1);
+                                          1,"");
         console.log("App made")
         u.app = sf.user({ address: app.address, token: daix.address });
         u.app.alias = "App";
