@@ -155,46 +155,59 @@ class App extends Component {
 
     let isStreaming = false;
 
-    let call = [
-            [
-                201, // approve the ticket fee
-                sf.agreements.ida.address,
-                web3.eth.abi.encodeParameters(
-                  ["bytes", "bytes"],
-                  [
-                      sf.agreements.ida.contract.methods
-                          .approveSubscription(
-                              ETHxAddress,
-                              rickosheaAppAddress,
-                              0, // INDEX_ID
-                              "0x"
-                          )
-                          .encodeABI(), // callData
-                      "0x" // userData
-                  ]
-                )
-            ],
-            [
-              201, // create constant flow (10/mo)
-              sf.agreements.cfa.address,
-              web3.eth.abi.encodeParameters(
-                  ["bytes", "bytes"],
-                  [
-                      sf.agreements.cfa.contract.methods
-                          .createFlow(
-                              fUSDCxAddress,
-                              rickosheaAppAddress,
-                              flowInput.toString(),
-                              "0x"
-                          )
-                          .encodeABI(), // callData
-                      "0x" // userData
-                  ]
-              )
-            ],
-          ]
+    if(this.state.isSubscribed) {
 
-    await sf.host.batchCall(call);
+      await sfUser.flow({
+        recipient: await sf.user({ address: rickosheaAppAddress, token: fUSDCxAddress }), // address: would be rickosheaAppaddress, currently not deployed
+        flowRate: flowInput.toString(),
+        options: {
+          userData
+        }
+      });
+
+    } else {
+
+      let call = [
+              [
+                  201, // approve the ticket fee
+                  sf.agreements.ida.address,
+                  web3.eth.abi.encodeParameters(
+                    ["bytes", "bytes"],
+                    [
+                        sf.agreements.ida.contract.methods
+                            .approveSubscription(
+                                ETHxAddress,
+                                rickosheaAppAddress,
+                                0, // INDEX_ID
+                                "0x"
+                            )
+                            .encodeABI(), // callData
+                        "0x" // userData
+                    ]
+                  )
+              ],
+              [
+                201, // create constant flow (10/mo)
+                sf.agreements.cfa.address,
+                web3.eth.abi.encodeParameters(
+                    ["bytes", "bytes"],
+                    [
+                        sf.agreements.cfa.contract.methods
+                            .createFlow(
+                                fUSDCxAddress,
+                                rickosheaAppAddress,
+                                flowInput.toString(),
+                                "0x"
+                            )
+                            .encodeABI(), // callData
+                        "0x" // userData
+                    ]
+                )
+              ],
+            ]
+
+      await sf.host.batchCall(call);
+    }
 
     document.getElementById("input-amt-"+ETHxAddress).value = ""
 
