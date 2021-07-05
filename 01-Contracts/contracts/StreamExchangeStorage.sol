@@ -18,6 +18,7 @@ import {
 
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 
+import "./tellor/ITellor.sol";
 
 library StreamExchangeStorage  {
 
@@ -31,14 +32,19 @@ library StreamExchangeStorage  {
     IInstantDistributionAgreementV1 ida;  // The stored instant dist. agreement class address
     ISuperToken inputToken;               // The input token (e.g. DAIx)
     ISuperToken outputToken;              // The output token (e.g. ETHx)
+    uint32 outputIndexId;
+    ISuperToken subsidyToken;             // The token to use as the subsidy
+    uint256 subsidyRate;              // The number of tokens to distribute subsidy in units per hour
+    uint32 subsidyIndexId;
     int96 totalInflow;                    // The current inflow flow rate for the superapp
     uint256 lastDistributionAt;           // The last time a distribution was made
     uint256 rate;                         // The exchange rate
     mapping (address => Stream) streams;  // A lookup table to see how much a user is streaming in
     IUniswapV2Router02 sushiRouter;       // Address of sushsiwap router
-    address payable oracle;               // Address of deployed simple oracle for input//output token
+    ITellor oracle;                       // Address of deployed simple oracle for input//output token
     uint256 requestId;                    // The id of the tellor request that has input/output exchange rate
-    uint128 feeRate;                      // The fee takens as a
+    uint128 feeRate;                      // The fee taken as a % with 6 decimals
+    address owner;                        // The owner of the exchange
   }
 
 }

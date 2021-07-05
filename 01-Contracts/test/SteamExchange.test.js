@@ -19,6 +19,7 @@ describe("StreamExchange", () => {
     let sf;
     let dai;
     let daix;
+    let ric;
     let app;
     let tp; // Tellor playground
     let usingTellor;
@@ -79,7 +80,7 @@ describe("StreamExchange", () => {
         sf = new SuperfluidSDK.Framework({
             web3,
             resolverAddress: "0x659635Fab0A0cef1293f7eb3c7934542B6A6B31A",
-            tokens: ["fDAI", "fUSDC"],
+            tokens: ["fDAI", "fUSDC", "ETHx"],
         });
         await sf.initialize();
         daix = sf.tokens.fUSDCx;
@@ -148,18 +149,36 @@ describe("StreamExchange", () => {
         sr = await MockUniswapRouter.deploy(tp.address, 1, eth.address);
 
 
-        const StreamExchange = await ethers.getContractFactory("StreamExchange");
+        const StreamExchangeHelper = await ethers.getContractFactory("StreamExchangeHelper");
+        let sed = await StreamExchangeHelper.deploy();
+
+        const StreamExchange = await ethers.getContractFactory("StreamExchange", {
+          libraries: {
+            StreamExchangeHelper: sed.address,
+          },
+        });
+
+        const ERC20 = await ethers.getContractFactory("ERC20");
+        ric = await ERC20.attach("0x724ba178fb7be76893a5496975f12ff755426218");
+        console.log("Get owner ric balance....");
+        console.log((await ric.balanceOf(u.admin.address)).toString())
+        console.log(await ric.getHost())
+
         app = await StreamExchange.deploy(sf.host.address,
                                           sf.agreements.cfa.address,
                                           sf.agreements.ida.address,
                                           daix.address,
                                           ethx.address,
+                                          ric.address,
                                           "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506", //sr.address,
                                           tp.address,
                                           1,"");
         await app.transferOwnership(u.admin.address)
         app = app.connect(owner)
         console.log("App made")
+
+
+
         u.app = sf.user({ address: app.address, token: daix.address });
         u.app.alias = "App";
         await checkBalance(u.app);
@@ -391,19 +410,19 @@ describe("StreamExchange", () => {
 
         // Distribution, Restart Alice's flow
         await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
-        await web3tx(
-            sf.host.callAgreement,
-            "Alice approves subscription to the app"
-        )(
-            sf.agreements.ida.address,
-            sf.agreements.ida.contract.methods
-                .approveSubscription(ethx.address, app.address, 0, "0x")
-                .encodeABI(),
-            "0x", // user data
-            {
-                from: u.alice.address
-            }
-        );
+        // await web3tx(
+        //     sf.host.callAgreement,
+        //     "Alice approves subscription to the app"
+        // )(
+        //     sf.agreements.ida.address,
+        //     sf.agreements.ida.contract.methods
+        //         .approveSubscription(ethx.address, app.address, 0, "0x")
+        //         .encodeABI(),
+        //     "0x", // user data
+        //     {
+        //         from: u.alice.address
+        //     }
+        // );
         // Distribution - Everyone
         await app.distribute({from: u.admin.address})
 

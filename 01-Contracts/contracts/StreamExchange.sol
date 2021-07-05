@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 import {
     ISuperfluid,
@@ -34,20 +34,22 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./tellor/UsingTellor.sol";
 
 import "./StreamExchangeStorage.sol";
+import "./StreamExchangeHelper.sol";
+import "./tellor/ITellor.sol";
 
 
 contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
-    uint32 public constant INDEX_ID = 0;
     // TODO: uint256 public constant RATE_PERCISION = 1000000;
     using SafeERC20 for ERC20;
+    using StreamExchangeHelper for StreamExchangeStorage.StreamExchange;
     using StreamExchangeStorage for StreamExchangeStorage.StreamExchange;
     StreamExchangeStorage.StreamExchange internal _exchange;
 
-    // TODO: Emit these events where appropriate
-    event NewInboundStream(address to, address token, uint96 rate);
-    event NewOutboundStream(address to, address token, uint96 rate);
-    event Distribution(address token, uint256 totalAmount);  // TODO: Implement triggered distribution
+    // // TODO: Emit these events where appropriate
+    // event NewInboundStream(address to, address token, uint96 rate);
+    // event NewOutboundStream(address to, address token, uint96 rate);
+    // event Distribution(address token, uint256 totalAmount);  // TODO: Implement triggered distribution
 
 
     constructor(
@@ -56,6 +58,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         IInstantDistributionAgreementV1  ida,
         ISuperToken inputToken,
         ISuperToken outputToken,
+        ISuperToken subsidyToken,
         IUniswapV2Router02 sushiRouter,
         address payable oracle,
         uint256 requestId,
@@ -74,9 +77,13 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         _exchange.ida = ida;
         _exchange.inputToken = inputToken;
         _exchange.outputToken = outputToken;
-        _exchange.oracle = oracle;
+        _exchange.subsidyToken = subsidyToken;
+        _exchange.oracle = ITellor(oracle);
         _exchange.requestId = requestId;
         _exchange.feeRate = 3000;
+        _exchange.subsidyIndexId = 1;
+        _exchange.subsidyRate = 1400 * 1e18; // 1400 tokens perday ~ 1,000,000 tokens in a month
+        _exchange.owner = msg.sender;
 
         uint256 configWord =
             SuperAppDefinitions.APP_LEVEL_FINAL |
@@ -91,34 +98,16 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         }
 
         // Set up the IDA for sending tokens back
-        _exchange.host.callAgreement(
-           _exchange.ida,
-           abi.encodeWithSelector(
-               _exchange.ida.createIndex.selector,
-               _exchange.outputToken,
-               INDEX_ID,
-               new bytes(0) // placeholder ctx
-           ),
-           new bytes(0) // user data
-         );
+        _exchange._createIndex(_exchange.outputIndexId, _exchange.outputToken);
 
-         _exchange.host.callAgreement(
-            _exchange.ida,
-            abi.encodeWithSelector(
-                _exchange.ida.updateSubscription.selector,
-                _exchange.outputToken,
-                INDEX_ID,
-                // one share for the contract to get it started
-                msg.sender,
-                1,
-                new bytes(0) // placeholder ctx
-            ),
-            new bytes(0) // user data
-        );
+        // Give the owner 1 share just to start up the contract
+        _exchange._updateSubscription(_exchange.outputIndexId, msg.sender, 1, _exchange.outputToken);
+
+        // Setup Liquidity Mining
+        _exchange._initalizeLiquidityMining();
 
         _exchange.lastDistributionAt = block.timestamp;
     }
-
 
     /**************************************************************************
      * Stream Exchange Logic
@@ -133,198 +122,38 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       newCtx = ctx;
 
       // NOTE: Trigger a distribution if there's any inputToken
-      console.log("Need to swap this before open new flow",ISuperToken(_exchange.inputToken).balanceOf(address(this)));
-      if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0 && doDistribution) {
-        newCtx = _distribute(newCtx);
+      // console.log("Need to swap this before open new flow",ISuperToken(_exchange.inputToken).balanceOf(address(this)));
+      if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0) {
+        newCtx = _exchange._distribute(newCtx);
       }
-      console.log("Updated context");
 
       (address requester, address flowReceiver) = abi.decode(agreementData, (address, address));
       int96 changeInFlowRate = _exchange.cfa.getNetFlow(_exchange.inputToken, address(this)) - _exchange.totalInflow;
 
       _exchange.streams[requester].rate = _exchange.streams[requester].rate + changeInFlowRate;
 
-      console.log("Updating IDA");
-
-      console.log("Current Rate", uint(int(_exchange.streams[requester].rate)));
-      console.log("Change in rate", uint(int(changeInFlowRate)));
-
-      if (_exchange.streams[requester].rate == 0) {
-        // Delete the subscription
-        (newCtx, ) = _exchange.host.callAgreementWithContext(
-          _exchange.ida,
-          abi.encodeWithSelector(
-              _exchange.ida.deleteSubscription.selector,
-              _exchange.outputToken,
-              address(this),
-              INDEX_ID,
-              requester,
-              new bytes(0)
-          ),
-          new bytes(0), // user data
-          newCtx
-        );
-
+      if (_exchange.streams[requester].rate == 0 && changeInFlowRate < 0) {
+      // Delete the subscription
+        newCtx = _exchange._deleteSubscriptionWithContext(newCtx, address(this), _exchange.outputIndexId, requester, _exchange.outputToken);
+        newCtx = _exchange._deleteSubscriptionWithContext(newCtx, address(this), _exchange.subsidyIndexId, requester, _exchange.subsidyToken);
       } else {
         // Update the subscription
         // TODO: Move into internal function?
-        (newCtx, ) = _exchange.host.callAgreementWithContext(
-          _exchange.ida,
-          abi.encodeWithSelector(
-              _exchange.ida.updateSubscription.selector,
-              _exchange.outputToken,
-              INDEX_ID,
-              requester,
-              uint(int(_exchange.streams[requester].rate)),  // Number of shares is proportional to their rate
-              new bytes(0)
-          ),
-          new bytes(0), // user data
-          newCtx
-        );
-        console.log("Updated share", uint(int(_exchange.streams[requester].rate)));
+        newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.outputIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.outputToken);
+        newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.subsidyIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.subsidyToken);
       }
 
       _exchange.totalInflow = _exchange.totalInflow + changeInFlowRate;
 
-      // totalInflow / x = (1e6 - feeRate) / 1e6
-      // totalInflow * 1e6 = (1e6 - feeRate) * x
-      // totalInflow * 1e6 / (1e6 - feeRate) = x
-
-      uint128 ownerShare = uint128((uint(int(_exchange.totalInflow)) * 1e6 / ( 1e6 - _exchange.feeRate)) - uint(int(_exchange.totalInflow)));
-      console.log("totalInflow", uint(int(_exchange.totalInflow)));
-      console.log("ownerShare", ownerShare);
-      // Update the owners share to feeRate
-      (newCtx, ) = _exchange.host.callAgreementWithContext(
-        _exchange.ida,
-        abi.encodeWithSelector(
-            _exchange.ida.updateSubscription.selector,
-            _exchange.outputToken,
-            INDEX_ID,
-            owner(),
-            ownerShare, // only the fee shares for the owner
-            new bytes(0)
-        ),
-        new bytes(0), // user data
-        newCtx
-      );
-
-
    }
 
-
-   function getlastDistributionAt() external view returns (uint256) {
-     return _exchange.lastDistributionAt;
-   }
-
-   function distributeWithContext() internal {
-
-   }
 
    function distribute() external {
-     _distribute(new bytes(0));
+     _exchange._distribute(new bytes(0));
    }
 
-   // @dev Distribute a single `amount` of outputToken among all streamers
-   // @dev Calculates the amount to distribute
-   function _distribute(bytes memory ctx) internal returns (bytes memory newCtx){
-
-      newCtx = ctx;
-      require(_exchange.host.isCtxValid(newCtx) || newCtx.length == 0, "!distributeCtx");
 
 
-      // Compute the amount to distribute
-      // TODO: Don't declare so many variables
-      uint256 time_delta = block.timestamp - _exchange.lastDistributionAt;
-
-      // NOTE: Swaps all inputToken held, which may not be the best idea?
-      uint256 amount = swap(ISuperToken(_exchange.inputToken).balanceOf(address(this)), block.timestamp + 3600);
-
-      (uint256 actualAmount,) = _exchange.ida.calculateDistribution(
-       _exchange.outputToken,
-       address(this), INDEX_ID,
-       amount);
-
-      // Confirm the app has enough to distribute
-      require(_exchange.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
-
-      if (newCtx.length == 0) { // No context provided
-        _exchange.host.callAgreement(
-           _exchange.ida,
-           abi.encodeWithSelector(
-               _exchange.ida.distribute.selector,
-               _exchange.outputToken,
-               INDEX_ID,
-               actualAmount,
-               new bytes(0) // placeholder ctx
-           ),
-           new bytes(0) // user data
-        );
-      } else {
-        require(_exchange.host.isCtxValid(newCtx) || newCtx.length == 0, "!distribute");
-       (newCtx, ) = _exchange.host.callAgreementWithContext(
-           _exchange.ida,
-           abi.encodeWithSelector(
-               _exchange.ida.distribute.selector,
-               _exchange.outputToken,
-               INDEX_ID,
-               actualAmount,
-               new bytes(0) // placeholder ctx
-           ),
-           new bytes(0), // user data
-           newCtx
-        );
-      }
-
-      console.log("Distribution amount", actualAmount);
-      console.log("Amount", amount);
-
-      _exchange.lastDistributionAt = block.timestamp;
-
-      return newCtx;
-
-    }
-
-    function swap(
-          uint256 amount,
-          uint256 deadline
-      ) internal returns(uint) {
-
-          // Get the exchange rate as inputToken per outputToken
-          bool _didGet;
-          uint _timestamp;
-          uint _value;
-
-          (_didGet, _value, _timestamp) = getCurrentValue(_exchange.requestId);
-
-          require(_didGet, "!getCurrentValue");
-          require(_timestamp >= block.timestamp - 3600, "!currentValue");
-          uint256 minOutput = amount  * 1e6 / _value;
-
-          _exchange.inputToken.downgrade(amount);
-          address inputToken = _exchange.inputToken.getUnderlyingToken();
-          address outputToken = _exchange.outputToken.getUnderlyingToken();
-          address[] memory path = new address[](2);
-          path[0] = inputToken;
-          path[1] = outputToken;
-
-          // approve the router to spend
-          ERC20(inputToken).safeIncreaseAllowance(address(_exchange.sushiRouter), amount);
-
-          uint[] memory amounts = _exchange.sushiRouter.swapExactTokensForTokens(
-              amount,
-              minOutput,
-              path,
-              address(this),
-              deadline
-          );
-
-          ERC20(outputToken).safeIncreaseAllowance(address(_exchange.outputToken), amounts[1]);
-          _exchange.outputToken.upgrade(amounts[1]);
-
-          // TODO: Take a small fee
-
-          return amounts[1];
-      }
   function emergencyCloseStream(address streamer) public {
     // Allows anyone to close any stream iff the app is jailed
     bool isJailed = ISuperfluid(msg.sender).isAppJailed(ISuperApp(address(this)));
@@ -342,93 +171,87 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     );
   }
 
-    /**************************************************************************
-     * SuperApp callbacks
-     *************************************************************************/
-
-    function afterAgreementCreated(
-        ISuperToken _superToken,
-        address _agreementClass,
-        bytes32, // _agreementId,
-        bytes calldata _agreementData,
-        bytes calldata ,// _cbdata,
-        bytes calldata _ctx
-    )
-        external override
-        onlyExpected(_superToken, _agreementClass)
-        onlyHost
-        returns (bytes memory newCtx)
-    {
-        if (!_isInputToken(_superToken) || !_isCFAv1(_agreementClass)) return _ctx;
-        return _updateOutflow(_ctx, _agreementData, true);
+  /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Can only be called by the current owner.
+     * NOTE: Override this to add changing the
+     */
+    function transferOwnership(address newOwner) public virtual override onlyOwner {
+        super.transferOwnership(newOwner);
+        _exchange.owner = newOwner;
     }
 
-    function afterAgreementUpdated(
-        ISuperToken _superToken,
-        address _agreementClass,
-        bytes32 ,//_agreementId,
-        bytes calldata _agreementData,
-        bytes calldata ,//_cbdata,
-        bytes calldata _ctx
-    )
-        external override
-        onlyExpected(_superToken, _agreementClass)
-        onlyHost
-        returns (bytes memory newCtx)
-    {
-        if (!_isInputToken(_superToken) || !_isCFAv1(_agreementClass)) return _ctx;
-        return _updateOutflow(_ctx, _agreementData, true);
-    }
+  /**************************************************************************
+   * SuperApp callbacks
+   *************************************************************************/
 
-    function afterAgreementTerminated(
-        ISuperToken _superToken,
-        address _agreementClass,
-        bytes32 ,//_agreementId,
-        bytes calldata _agreementData,
-        bytes calldata ,//_cbdata,
-        bytes calldata _ctx
-    )
-        external override
-        onlyHost
-        returns (bytes memory newCtx)
-    {
-        // According to the app basic law, we should never revert in a termination callback
-        if (!_isInputToken(_superToken) || !_isCFAv1(_agreementClass)) return _ctx;
-        // Skip distribution when terminating to avoid reverts
-        return _updateOutflow(_ctx, _agreementData, false);
-    }
+  function afterAgreementCreated(
+      ISuperToken _superToken,
+      address _agreementClass,
+      bytes32, // _agreementId,
+      bytes calldata _agreementData,
+      bytes calldata ,// _cbdata,
+      bytes calldata _ctx
+  )
+      external override
+      onlyExpected(_superToken, _agreementClass)
+      onlyHost
+      returns (bytes memory newCtx)
+  {
+      if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
+      return _updateOutflow(_ctx, _agreementData, true);
+  }
 
-    function _isInputToken(ISuperToken superToken) internal view returns (bool) {
-        return address(superToken) == address(_exchange.inputToken);
-    }
+  function afterAgreementUpdated(
+      ISuperToken _superToken,
+      address _agreementClass,
+      bytes32 ,//_agreementId,
+      bytes calldata _agreementData,
+      bytes calldata ,//_cbdata,
+      bytes calldata _ctx
+  )
+      external override
+      onlyExpected(_superToken, _agreementClass)
+      onlyHost
+      returns (bytes memory newCtx)
+  {
+      if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
+      return _updateOutflow(_ctx, _agreementData, true);
+  }
 
-    function _isOutputToken(ISuperToken superToken) internal view returns (bool) {
-        return address(superToken) == address(_exchange.outputToken);
-    }
+  function afterAgreementTerminated(
+      ISuperToken _superToken,
+      address _agreementClass,
+      bytes32 ,//_agreementId,
+      bytes calldata _agreementData,
+      bytes calldata ,//_cbdata,
+      bytes calldata _ctx
+  )
+      external override
+      onlyHost
+      returns (bytes memory newCtx)
+  {
+      // According to the app basic law, we should never revert in a termination callback
+      if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
+      // Skip distribution when terminating to avoid reverts
+      return _updateOutflow(_ctx, _agreementData, false);
+  }
 
-    function _isCFAv1(address agreementClass) internal view returns (bool) {
-        return ISuperAgreement(agreementClass).agreementType()
-            == keccak256("org.superfluid-finance.agreements.ConstantFlowAgreement.v1");
-    }
 
-    function _isIDAv1(address agreementClass) internal view returns (bool) {
-        return ISuperAgreement(agreementClass).agreementType()
-            == keccak256("org.superfluid-finance.agreements.InstantDistributionAgreement.v1");
-    }
 
-    modifier onlyHost() {
-        require(msg.sender == address(_exchange.host), "one host");
-        _;
-    }
-
-    modifier onlyExpected(ISuperToken superToken, address agreementClass) {
-      if (_isCFAv1(agreementClass)) {
-        require(_isInputToken(superToken), "!inputAccepted");
-      } else if (_isIDAv1(agreementClass)) {
-        require(_isOutputToken(superToken), "!outputAccepted");
-      }
+  modifier onlyHost() {
+      require(msg.sender == address(_exchange.host), "one host");
       _;
+  }
+
+  modifier onlyExpected(ISuperToken superToken, address agreementClass) {
+    if (_exchange._isCFAv1(agreementClass)) {
+      require(_exchange._isInputToken(superToken), "!inputAccepted");
+    } else if (_exchange._isIDAv1(agreementClass)) {
+      require(_exchange._isOutputToken(superToken), "!outputAccepted");
     }
+    _;
+  }
 
 
   }

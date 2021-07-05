@@ -6,12 +6,12 @@ async function main() {
   const TellorPlayground = await ethers.getContractFactory("TellorPlayground");
   const tp = await TellorPlayground.attach("0xA0c5d95ec359f4A33371a06C23D89BA6Fc591A97");
 
-  let o = await tp.submitValue(1, 1020000);
+  let o = await tp.submitValue(1, 1050000);
   console.log("submitValue:", o);
 
   // Get the StreamExchange contracts
   const StreamExchange = await ethers.getContractFactory("StreamExchange")
-  const rickoshea = await StreamExchange.attach("0x3B3775eB7D4EFb5122Bde89B52E9A1a3813bB4F9")
+  const rickoshea = await StreamExchange.attach("0x2a615424e10Ae40A9BE63c90ab15B0a7729b138C")
 
 
   let dr = await rickoshea.distribute({
