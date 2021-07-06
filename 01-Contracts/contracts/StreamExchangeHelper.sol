@@ -88,7 +88,7 @@ library StreamExchangeHelper {
      newCtx = _idaDistribute(self, self.outputIndexId, uint128(distAmount), self.outputToken, newCtx);
 
      // Distribute a subsidy if possible
-     if (self.subsidyToken.balanceOf(address(this)) >= subsidyAmount) {
+     if(self.subsidyToken.balanceOf(address(this)) >= subsidyAmount) {
        newCtx = _idaDistribute(self, self.subsidyIndexId, uint128(subsidyAmount), self.subsidyToken, newCtx);
      }
 
@@ -279,6 +279,10 @@ library StreamExchangeHelper {
 
   function _isOutputToken(StreamExchangeStorage.StreamExchange storage self, ISuperToken superToken) internal view returns (bool) {
       return address(superToken) == address(self.outputToken);
+  }
+
+  function _isSubsidyToken(StreamExchangeStorage.StreamExchange storage self, ISuperToken superToken) internal view returns (bool) {
+      return address(superToken) == address(self.subsidyToken);
   }
 
   function _isCFAv1(StreamExchangeStorage.StreamExchange storage self, address agreementClass) internal view returns (bool) {

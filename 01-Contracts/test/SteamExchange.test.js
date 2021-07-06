@@ -19,6 +19,10 @@ describe("StreamExchange", () => {
     let sf;
     let dai;
     let daix;
+    let usd;
+    let usdcx;
+    let tusd;
+    let tusdx;
     let ric;
     let app;
     let tp; // Tellor playground
@@ -80,25 +84,35 @@ describe("StreamExchange", () => {
         sf = new SuperfluidSDK.Framework({
             web3,
             resolverAddress: "0x659635Fab0A0cef1293f7eb3c7934542B6A6B31A",
-            tokens: ["fDAI", "fUSDC", "ETHx"],
+            tokens: ["fDAI", "fUSDC", "fTUSD"],
         });
         await sf.initialize();
-        daix = sf.tokens.fUSDCx;
-        ethx = sf.tokens.fDAIx;
-        dai = await sf.contracts.TestToken.at(await sf.tokens.fUSDC.address);
-        eth = await sf.contracts.TestToken.at(await sf.tokens.fDAI.address);
+        usdcx = sf.tokens.fUSDCx;
+        daix = sf.tokens.fDAIx;
+        tusdx = sf.tokens.fTUSDx;
+        usd = await sf.contracts.TestToken.at(await sf.tokens.fUSDC.address);
+        dai = await sf.contracts.TestToken.at(await sf.tokens.fDAI.address);
+        tusd = await sf.contracts.TestToken.at(await sf.tokens.fTUSD.address);
+        // eth = await sf.contracts.TestToken.at(await sf.tokens.fETH.address);
         console.log(accounts[0]._address)
         for (var i = 0; i < names.length; i++) {
           console.log(accounts[i]._address)
             u[names[i].toLowerCase()] = sf.user({
                 address: accounts[i]._address || accounts[i].address,
-                token: daix.address,
+                token: usdcx.address,
             });
             u[names[i].toLowerCase()].alias = names[i];
             aliases[u[names[i].toLowerCase()].address] = names[i];
         }
         for (const [, user] of Object.entries(u)) {
             if (user.alias === "App") return;
+            await web3tx(usd.mint, `${user.alias} mints many usd`)(
+                user.address,
+                toWad(100000000),
+                {
+                    from: user.address,
+                }
+            );
             await web3tx(dai.mint, `${user.alias} mints many dai`)(
                 user.address,
                 toWad(100000000),
@@ -106,13 +120,21 @@ describe("StreamExchange", () => {
                     from: user.address,
                 }
             );
-            await web3tx(eth.mint, `${user.alias} mints many eth`)(
+            await web3tx(tusd.mint, `${user.alias} mints many tusd`)(
                 user.address,
                 toWad(100000000),
                 {
                     from: user.address,
                 }
             );
+            await web3tx(usd.approve, `${user.alias} approves usdcx`)(
+                usdcx.address,
+                toWad(100000000),
+                {
+                    from: user.address,
+                }
+            );
+
             await web3tx(dai.approve, `${user.alias} approves daix`)(
                 daix.address,
                 toWad(100000000),
@@ -121,8 +143,8 @@ describe("StreamExchange", () => {
                 }
             );
 
-            await web3tx(eth.approve, `${user.alias} approves ethx`)(
-                ethx.address,
+            await web3tx(tusd.approve, `${user.alias} approves tusdx`)(
+                tusdx.address,
                 toWad(100000000),
                 {
                     from: user.address,
@@ -133,20 +155,20 @@ describe("StreamExchange", () => {
         console.log("Admin:", u.admin.address);
         console.log("Host:", sf.host.address);
         console.log(sf.agreements.cfa.address);
-        console.log(daix.address);
+        console.log(usdcx.address);
 
         // Deploy Tellor Oracle contracts
         const TellorPlayground = await ethers.getContractFactory("TellorPlayground");
         tp = await TellorPlayground.deploy("Tellor oracle", "TRB");
 
-        await tp.submitValue(1, 1010000);
+        await tp.submitValue(1, 1050000);
 
         const UsingTellor = await ethers.getContractFactory("UsingTellor");
         usingTellor = await UsingTellor.deploy(tp.address);
 
         // Mocking Sushiswap Router
         const MockUniswapRouter = await ethers.getContractFactory("MockUniswapRouter");
-        sr = await MockUniswapRouter.deploy(tp.address, 1, eth.address);
+        sr = await MockUniswapRouter.deploy(tp.address, 1, dai.address);
 
 
         const StreamExchangeHelper = await ethers.getContractFactory("StreamExchangeHelper");
@@ -158,18 +180,13 @@ describe("StreamExchange", () => {
           },
         });
 
-        const ERC20 = await ethers.getContractFactory("ERC20");
-        ric = await ERC20.attach("0x724ba178fb7be76893a5496975f12ff755426218");
-        console.log("Get owner ric balance....");
-        console.log((await ric.balanceOf(u.admin.address)).toString())
-        // console.log(await ric.getHost())
 
         app = await StreamExchange.deploy(sf.host.address,
                                           sf.agreements.cfa.address,
                                           sf.agreements.ida.address,
+                                          usdcx.address,
                                           daix.address,
-                                          ethx.address,
-                                          ric.address,
+                                          tusdx.address,
                                           "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506", //sr.address,
                                           tp.address,
                                           1,"");
@@ -180,7 +197,7 @@ describe("StreamExchange", () => {
 
 
 
-        u.app = sf.user({ address: app.address, token: daix.address });
+        u.app = sf.user({ address: app.address, token: usdcx.address });
         u.app.alias = "App";
         await checkBalance(u.app);
 
@@ -192,7 +209,7 @@ describe("StreamExchange", () => {
         )(
             sf.agreements.ida.address,
             sf.agreements.ida.contract.methods
-                .approveSubscription(ethx.address, app.address, 0, "0x")
+                .approveSubscription(daix.address, app.address, 0, "0x")
                 .encodeABI(),
             "0x", // user data
             {
@@ -205,7 +222,7 @@ describe("StreamExchange", () => {
         )(
             sf.agreements.ida.address,
             sf.agreements.ida.contract.methods
-                .approveSubscription(ethx.address, app.address, 0, "0x")
+                .approveSubscription(daix.address, app.address, 0, "0x")
                 .encodeABI(),
             "0x", // user data
             {
@@ -219,7 +236,50 @@ describe("StreamExchange", () => {
         )(
             sf.agreements.ida.address,
             sf.agreements.ida.contract.methods
-                .approveSubscription(ethx.address, app.address, 0, "0x")
+                .approveSubscription(daix.address, app.address, 0, "0x")
+                .encodeABI(),
+            "0x", // user data
+            {
+                from: u.admin.address
+            }
+        );
+
+        // Do approvals
+        // Already approved?
+        await web3tx(
+            sf.host.callAgreement,
+            "Alice approves subscription to the app"
+        )(
+            sf.agreements.ida.address,
+            sf.agreements.ida.contract.methods
+                .approveSubscription(tusdx.address, app.address, 1, "0x")
+                .encodeABI(),
+            "0x", // user data
+            {
+                from: u.alice.address
+            }
+        );
+        await web3tx(
+            sf.host.callAgreement,
+            "Bob approves subscription to the app"
+        )(
+            sf.agreements.ida.address,
+            sf.agreements.ida.contract.methods
+                .approveSubscription(tusdx.address, app.address, 1, "0x")
+                .encodeABI(),
+            "0x", // user data
+            {
+                from: u.bob.address
+            }
+        );
+
+        await web3tx(
+            sf.host.callAgreement,
+            "Admin approves subscription to the app"
+        )(
+            sf.agreements.ida.address,
+            sf.agreements.ida.contract.methods
+                .approveSubscription(tusdx.address, app.address, 1, "0x")
                 .encodeABI(),
             "0x", // user data
             {
@@ -230,7 +290,7 @@ describe("StreamExchange", () => {
 
     async function checkBalance(user) {
         console.log("Balance of ", user.alias);
-        console.log("DAIx: ", (await daix.balanceOf(user.address)).toString());
+        console.log("DAIx: ", (await usdcx.balanceOf(user.address)).toString());
     }
 
     async function checkBalances(accounts) {
@@ -242,13 +302,18 @@ describe("StreamExchange", () => {
     async function upgrade(accounts) {
         for (let i = 0; i < accounts.length; ++i) {
             await web3tx(
+                usdcx.upgrade,
+                `${accounts[i].alias} upgrades many USDCx`
+            )(toWad(100000000), { from: accounts[i].address });
+            await web3tx(
                 daix.upgrade,
                 `${accounts[i].alias} upgrades many DAIx`
             )(toWad(100000000), { from: accounts[i].address });
             await web3tx(
-                ethx.upgrade,
-                `${accounts[i].alias} upgrades many ETHx`
+                tusdx.upgrade,
+                `${accounts[i].alias} upgrades many TUSDx`
             )(toWad(100000000), { from: accounts[i].address });
+
 
             await checkBalance(accounts[i]);
         }
@@ -261,7 +326,7 @@ describe("StreamExchange", () => {
             if (await hasFlows(user)) {
                 p++;
                 string += `${user.alias}\t\t${wad4human(
-                    await daix.balanceOf(user.address)
+                    await usdcx.balanceOf(user.address)
                 )}\t\t${wad4human((await user.details()).cfa.netFlow)}
             `;
             }
@@ -295,7 +360,7 @@ describe("StreamExchange", () => {
       // Alice approves a subscription to the app
       console.log(sf.host.callAgreement)
       console.log(sf.agreements.ida.address)
-      console.log(daix.address)
+      console.log(usdcx.address)
       console.log(app.address)
       await web3tx(
           sf.host.callAgreement,
@@ -303,7 +368,7 @@ describe("StreamExchange", () => {
       )(
           sf.agreements.ida.address,
           sf.agreements.ida.contract.methods
-              .approveSubscription(daix.address, app.address, 0, "0x")
+              .approveSubscription(usdcx.address, app.address, 0, "0x")
               .encodeABI(),
           "0x", // user data
           {
@@ -320,30 +385,37 @@ describe("StreamExchange", () => {
 
       it("should distribute tokens to streamers correctly", async function() {
 
-        var appBalances = {usd: [], eth: []}
-        var aliceBalances = {usd: [], eth: []}
-        var bobBalances = {usd: [], eth: []}
+        var appBalances = {usd: [], daix: [], tusdx: []}
+        var aliceBalances = {usd: [], daix: [], tusdx: []}
+        var bobBalances = {usd: [], daix: [], tusdx: []}
 
         const inflowRate = toWad(0.00004000);
 
         // Give the app a bit of each token to start
-        // await upgrade([u.alice, u.bob, u.admin, u.carl]);
+        await upgrade([u.alice, u.bob, u.admin, u.carl]);
         console.log("DAIx Address", u.admin.address)
-        console.log("admin USDCx", (await daix.balanceOf(u.admin.address)).toString())
+        console.log("admin USDCx", (await usdcx.balanceOf(u.admin.address)).toString())
+        await usdcx.transfer(app.address, toWad(0.0004000), {from: u.alice.address});
+        console.log("admin DAIx", (await daix.balanceOf(u.admin.address)).toString())
+        console.log("admin tusdx", (await tusdx.balanceOf(u.admin.address)).toString())
         await daix.transfer(app.address, toWad(0.0004000), {from: u.alice.address});
-        console.log("admin DAIx", (await ethx.balanceOf(u.admin.address)).toString())
-        await ethx.transfer(app.address, toWad(0.0004000), {from: u.alice.address});
-        // await ethx.downgrade(toWad(5), {from: u.alice.address})
+        await tusdx.transfer(app.address, toWad(1000000), {from: u.admin.address});
+        console.log("app balance", (await tusdx.balanceOf(app.address)).toString())
+        // await daix.downgrade(toWad(5), {from: u.alice.address})
         // await eth.transfer(sr.address, toWad(5), {from: u.carl.address});
 
         // Take measurements
-        appBalances.usd.push((await daix.balanceOf(u.admin.address)).toString());
-        aliceBalances.usd.push((await daix.balanceOf(u.alice.address)).toString());
-        bobBalances.usd.push((await daix.balanceOf(u.bob.address)).toString());
+        appBalances.usd.push((await usdcx.balanceOf(u.admin.address)).toString());
+        aliceBalances.usd.push((await usdcx.balanceOf(u.alice.address)).toString());
+        bobBalances.usd.push((await usdcx.balanceOf(u.bob.address)).toString());
 
-        appBalances.eth.push((await ethx.balanceOf(u.admin.address)).toString());
-        aliceBalances.eth.push((await ethx.balanceOf(u.alice.address)).toString());
-        bobBalances.eth.push((await ethx.balanceOf(u.bob.address)).toString());
+        appBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
+        aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
+        bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
+
+        appBalances.tusdx.push((await tusdx.balanceOf(u.admin.address)).toString());
+        aliceBalances.tusdx.push((await tusdx.balanceOf(u.alice.address)).toString());
+        bobBalances.tusdx.push((await tusdx.balanceOf(u.bob.address)).toString());
 
         console.log("Bob bal eth", bobBalances)
         console.log("Alice bal eth", aliceBalances)
@@ -356,23 +428,27 @@ describe("StreamExchange", () => {
         // Go forward
         console.log("Go forward")
         await traveler.advanceTimeAndBlock(10 * TEST_TRAVEL_TIME);
-        await tp.submitValue(1, 1010000);
+        await tp.submitValue(1, 1050000);
 
         // Distribution - Everyone
-        await app.distribute({from: u.admin.address})
+        await app.distribute()
 
         // Take measurements
-        appBalances.usd.push((await daix.balanceOf(u.admin.address)).toString());
-        aliceBalances.usd.push((await daix.balanceOf(u.alice.address)).toString());
-        bobBalances.usd.push((await daix.balanceOf(u.bob.address)).toString());
+        appBalances.usd.push((await usdcx.balanceOf(u.admin.address)).toString());
+        aliceBalances.usd.push((await usdcx.balanceOf(u.alice.address)).toString());
+        bobBalances.usd.push((await usdcx.balanceOf(u.bob.address)).toString());
 
-        appBalances.eth.push((await ethx.balanceOf(u.admin.address)).toString());
-        aliceBalances.eth.push((await ethx.balanceOf(u.alice.address)).toString());
-        bobBalances.eth.push((await ethx.balanceOf(u.bob.address)).toString());
+        appBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
+        aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
+        bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
+
+        appBalances.tusdx.push((await tusdx.balanceOf(u.admin.address)).toString());
+        aliceBalances.tusdx.push((await tusdx.balanceOf(u.alice.address)).toString());
+        bobBalances.tusdx.push((await tusdx.balanceOf(u.bob.address)).toString());
 
         // Go forward
         await traveler.advanceTimeAndBlock(10 * TEST_TRAVEL_TIME);
-        await tp.submitValue(1, 1010000);
+        await tp.submitValue(1, 1050000);
 
         // Cancel Alice's flow
         await u.alice.flow({ flowRate: "0", recipient: u.app });
@@ -381,33 +457,41 @@ describe("StreamExchange", () => {
 
 
         // Take measurements
-        appBalances.usd.push((await daix.balanceOf(u.admin.address)).toString());
-        aliceBalances.usd.push((await daix.balanceOf(u.alice.address)).toString());
-        bobBalances.usd.push((await daix.balanceOf(u.bob.address)).toString());
+        appBalances.usd.push((await usdcx.balanceOf(u.admin.address)).toString());
+        aliceBalances.usd.push((await usdcx.balanceOf(u.alice.address)).toString());
+        bobBalances.usd.push((await usdcx.balanceOf(u.bob.address)).toString());
 
-        appBalances.eth.push((await ethx.balanceOf(u.admin.address)).toString());
-        aliceBalances.eth.push((await ethx.balanceOf(u.alice.address)).toString());
-        bobBalances.eth.push((await ethx.balanceOf(u.bob.address)).toString());
+        appBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
+        aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
+        bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
+
+        appBalances.tusdx.push((await tusdx.balanceOf(u.admin.address)).toString());
+        aliceBalances.tusdx.push((await tusdx.balanceOf(u.alice.address)).toString());
+        bobBalances.tusdx.push((await tusdx.balanceOf(u.bob.address)).toString());
 
         // Go forward
         await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME * 10);
-        await tp.submitValue(1, 1010000);
+        await tp.submitValue(1, 1050000);
 
         // Distribution - Just Bob and Admin
-        await app.distribute({from: u.admin.address})
+        await app.distribute()
 
         // Take measurements
-        appBalances.usd.push((await daix.balanceOf(u.admin.address)).toString());
-        aliceBalances.usd.push((await daix.balanceOf(u.alice.address)).toString());
-        bobBalances.usd.push((await daix.balanceOf(u.bob.address)).toString());
+        appBalances.usd.push((await usdcx.balanceOf(u.admin.address)).toString());
+        aliceBalances.usd.push((await usdcx.balanceOf(u.alice.address)).toString());
+        bobBalances.usd.push((await usdcx.balanceOf(u.bob.address)).toString());
 
-        appBalances.eth.push((await ethx.balanceOf(u.admin.address)).toString());
-        aliceBalances.eth.push((await ethx.balanceOf(u.alice.address)).toString());
-        bobBalances.eth.push((await ethx.balanceOf(u.bob.address)).toString());
+        appBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
+        aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
+        bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
+
+        appBalances.tusdx.push((await tusdx.balanceOf(u.admin.address)).toString());
+        aliceBalances.tusdx.push((await tusdx.balanceOf(u.alice.address)).toString());
+        bobBalances.tusdx.push((await tusdx.balanceOf(u.bob.address)).toString());
 
         // Go forward
         await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME * 10);
-        await tp.submitValue(1, 1010000);
+        await tp.submitValue(1, 1050000);
 
         // Distribution, Restart Alice's flow
         await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
@@ -417,7 +501,7 @@ describe("StreamExchange", () => {
         // )(
         //     sf.agreements.ida.address,
         //     sf.agreements.ida.contract.methods
-        //         .approveSubscription(ethx.address, app.address, 0, "0x")
+        //         .approveSubscription(daix.address, app.address, 0, "0x")
         //         .encodeABI(),
         //     "0x", // user data
         //     {
@@ -425,34 +509,37 @@ describe("StreamExchange", () => {
         //     }
         // );
         // Distribution - Everyone
-        await app.distribute({from: u.admin.address})
-
-
-        // Take measurements
-        appBalances.usd.push((await daix.balanceOf(u.admin.address)).toString());
-        aliceBalances.usd.push((await daix.balanceOf(u.alice.address)).toString());
-        bobBalances.usd.push((await daix.balanceOf(u.bob.address)).toString());
-
-        appBalances.eth.push((await ethx.balanceOf(u.admin.address)).toString());
-        aliceBalances.eth.push((await ethx.balanceOf(u.alice.address)).toString());
-        bobBalances.eth.push((await ethx.balanceOf(u.bob.address)).toString());
-
-        await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME * 10);
-        await tp.submitValue(1, 1010000);
-        // Distribution
-        await app.distribute({from: u.admin.address})
-
+        await app.distribute()
 
         // Take measurements
-        appBalances.usd.push((await daix.balanceOf(u.admin.address)).toString());
-        aliceBalances.usd.push((await daix.balanceOf(u.alice.address)).toString());
-        bobBalances.usd.push((await daix.balanceOf(u.bob.address)).toString());
+        appBalances.usd.push((await usdcx.balanceOf(u.admin.address)).toString());
+        aliceBalances.usd.push((await usdcx.balanceOf(u.alice.address)).toString());
+        bobBalances.usd.push((await usdcx.balanceOf(u.bob.address)).toString());
 
-        appBalances.eth.push((await ethx.balanceOf(u.admin.address)).toString());
-        aliceBalances.eth.push((await ethx.balanceOf(u.alice.address)).toString());
-        bobBalances.eth.push((await ethx.balanceOf(u.bob.address)).toString());
+        appBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
+        aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
+        bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
 
+        appBalances.tusdx.push((await tusdx.balanceOf(u.admin.address)).toString());
+        aliceBalances.tusdx.push((await tusdx.balanceOf(u.alice.address)).toString());
+        bobBalances.tusdx.push((await tusdx.balanceOf(u.bob.address)).toString());
 
+        // await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME * 10);
+        // await tp.submitValue(1, 1050000);
+        // // Distribution
+        // await app.distribute({from: u.admin.address})
+        //
+        //
+        // // Take measurements
+        // appBalances.usd.push((await usdcx.balanceOf(u.admin.address)).toString());
+        // aliceBalances.usd.push((await usdcx.balanceOf(u.alice.address)).toString());
+        // bobBalances.usd.push((await usdcx.balanceOf(u.bob.address)).toString());
+        //
+        // appBalances.tusdx.push((await daix.balanceOf(u.admin.address)).toString());
+        // aliceBalances.tusdx.push((await daix.balanceOf(u.alice.address)).toString());
+        // bobBalances.tusdx.push((await daix.balanceOf(u.bob.address)).toString());
+        //
+        //
         console.log("Bob bal eth", bobBalances)
         console.log("Alice bal eth", aliceBalances)
         console.log("App bal eth", appBalances)

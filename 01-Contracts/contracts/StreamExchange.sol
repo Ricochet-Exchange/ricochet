@@ -248,7 +248,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     if (_exchange._isCFAv1(agreementClass)) {
       require(_exchange._isInputToken(superToken), "!inputAccepted");
     } else if (_exchange._isIDAv1(agreementClass)) {
-      require(_exchange._isOutputToken(superToken), "!outputAccepted");
+      require(_exchange._isOutputToken(superToken) || _exchange._isSubsidyToken(superToken), "!outputAccepted");
     }
     _;
   }
