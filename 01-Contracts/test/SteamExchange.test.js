@@ -19,7 +19,7 @@ describe("StreamExchange", () => {
     let sf;
     let dai;
     let daix;
-    let ric;
+    let ricx;
     let app;
     let tp; // Tellor playground
     let usingTellor;
@@ -158,22 +158,46 @@ describe("StreamExchange", () => {
           },
         });
 
-        const ERC20 = await ethers.getContractFactory("ERC20");
-        ric = await ERC20.attach("0x724ba178fb7be76893a5496975f12ff755426218");
-        console.log("Get owner ric balance....");
-        console.log((await ric.balanceOf(u.admin.address)).toString())
-        console.log(await ric.getHost())
+
+        // Deploy Super Ricochet
+        const Ricochet = await ethers.getContractFactory("Ricochet");
+        let ric = await Ricochet.deploy(u.admin.address);
+        let r = (await ric.totalSupply()).toString();
+        console.log("total supply", r);
+
+        const SuperRicochet = await ethers.getContractFactory("SuperRicochet");
+        let superRic = await SuperRicochet.deploy(sf.host.address);
+
+        await superRic.createSuperToken(ric.address);
+        let superRicAddress = await superRic.getSuperToken(ric.address);
+
+        console.log("Ricochet:", ric.address)
+        console.log("SuperRicochet:", superRicAddress)
+
+        const SuperToken = await ethers.getContractFactory("SuperToken");
+        ricx = await SuperToken.attach(superRicAddress);
+
 
         app = await StreamExchange.deploy(sf.host.address,
                                           sf.agreements.cfa.address,
                                           sf.agreements.ida.address,
                                           daix.address,
                                           ethx.address,
-                                          ric.address,
+                                          superRicAddress,
                                           "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506", //sr.address,
                                           tp.address,
                                           1,"");
         await app.transferOwnership(u.admin.address)
+        console.log("Upgrading")
+        console.log((await ric.balanceOf(u.admin.address)).toString())
+        await ric.approve(ricx.address, '10000000000000000000000000');
+        console.log("upgrading")
+        console.log((await ric.allowance(u.admin.address, ricx.address)).toString())
+        await ricx.upgrade('100000000000000000000000');
+        console.log("Get owner ric balance....");
+        console.log("Transfer")
+        await ricx.transfer(app.address, "100000000000000000000000");
+
         app = app.connect(owner)
         console.log("App made")
 
@@ -319,9 +343,9 @@ describe("StreamExchange", () => {
 
       it("should distribute tokens to streamers correctly", async function() {
 
-        var appBalances = {usd: [], eth: []}
-        var aliceBalances = {usd: [], eth: []}
-        var bobBalances = {usd: [], eth: []}
+        var appBalances = {usd: [], eth: [], ricx: []}
+        var aliceBalances = {usd: [], eth: [], ricx: []}
+        var bobBalances = {usd: [], eth: [], ricx: []}
 
         const inflowRate = toWad(0.00004000);
 
@@ -343,6 +367,10 @@ describe("StreamExchange", () => {
         appBalances.eth.push((await ethx.balanceOf(u.admin.address)).toString());
         aliceBalances.eth.push((await ethx.balanceOf(u.alice.address)).toString());
         bobBalances.eth.push((await ethx.balanceOf(u.bob.address)).toString());
+
+        appBalances.ricx.push((await ricx.balanceOf(u.admin.address)).toString());
+        aliceBalances.ricx.push((await ricx.balanceOf(u.alice.address)).toString());
+        bobBalances.ricx.push((await ricx.balanceOf(u.bob.address)).toString());
 
         console.log("Bob bal eth", bobBalances)
         console.log("Alice bal eth", aliceBalances)
@@ -369,6 +397,10 @@ describe("StreamExchange", () => {
         aliceBalances.eth.push((await ethx.balanceOf(u.alice.address)).toString());
         bobBalances.eth.push((await ethx.balanceOf(u.bob.address)).toString());
 
+        appBalances.ricx.push((await ricx.balanceOf(u.admin.address)).toString());
+        aliceBalances.ricx.push((await ricx.balanceOf(u.alice.address)).toString());
+        bobBalances.ricx.push((await ricx.balanceOf(u.bob.address)).toString());
+
         // Go forward
         await traveler.advanceTimeAndBlock(10 * TEST_TRAVEL_TIME);
         await tp.submitValue(1, 1010000);
@@ -388,6 +420,10 @@ describe("StreamExchange", () => {
         aliceBalances.eth.push((await ethx.balanceOf(u.alice.address)).toString());
         bobBalances.eth.push((await ethx.balanceOf(u.bob.address)).toString());
 
+        appBalances.ricx.push((await ricx.balanceOf(u.admin.address)).toString());
+        aliceBalances.ricx.push((await ricx.balanceOf(u.alice.address)).toString());
+        bobBalances.ricx.push((await ricx.balanceOf(u.bob.address)).toString());
+
         // Go forward
         await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME * 10);
         await tp.submitValue(1, 1010000);
@@ -403,6 +439,10 @@ describe("StreamExchange", () => {
         appBalances.eth.push((await ethx.balanceOf(u.admin.address)).toString());
         aliceBalances.eth.push((await ethx.balanceOf(u.alice.address)).toString());
         bobBalances.eth.push((await ethx.balanceOf(u.bob.address)).toString());
+
+        appBalances.ricx.push((await ricx.balanceOf(u.admin.address)).toString());
+        aliceBalances.ricx.push((await ricx.balanceOf(u.alice.address)).toString());
+        bobBalances.ricx.push((await ricx.balanceOf(u.bob.address)).toString());
 
         // Go forward
         await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME * 10);
@@ -436,6 +476,11 @@ describe("StreamExchange", () => {
         aliceBalances.eth.push((await ethx.balanceOf(u.alice.address)).toString());
         bobBalances.eth.push((await ethx.balanceOf(u.bob.address)).toString());
 
+        appBalances.ricx.push((await ricx.balanceOf(u.admin.address)).toString());
+        aliceBalances.ricx.push((await ricx.balanceOf(u.alice.address)).toString());
+        bobBalances.ricx.push((await ricx.balanceOf(u.bob.address)).toString());
+
+
         await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME * 10);
         await tp.submitValue(1, 1010000);
         // Distribution
@@ -450,6 +495,10 @@ describe("StreamExchange", () => {
         appBalances.eth.push((await ethx.balanceOf(u.admin.address)).toString());
         aliceBalances.eth.push((await ethx.balanceOf(u.alice.address)).toString());
         bobBalances.eth.push((await ethx.balanceOf(u.bob.address)).toString());
+
+        appBalances.ricx.push((await ricx.balanceOf(u.admin.address)).toString());
+        aliceBalances.ricx.push((await ricx.balanceOf(u.alice.address)).toString());
+        bobBalances.ricx.push((await ricx.balanceOf(u.bob.address)).toString());
 
 
         console.log("Bob bal eth", bobBalances)
