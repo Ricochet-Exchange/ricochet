@@ -162,7 +162,7 @@ describe("StreamExchange", () => {
         ric = await ERC20.attach("0x724ba178fb7be76893a5496975f12ff755426218");
         console.log("Get owner ric balance....");
         console.log((await ric.balanceOf(u.admin.address)).toString())
-        console.log(await ric.getHost())
+        // console.log(await ric.getHost())
 
         app = await StreamExchange.deploy(sf.host.address,
                                           sf.agreements.cfa.address,
@@ -173,8 +173,9 @@ describe("StreamExchange", () => {
                                           "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506", //sr.address,
                                           tp.address,
                                           1,"");
+        console.log("Deployed")
         await app.transferOwnership(u.admin.address)
-        app = app.connect(owner)
+        a01 = app.connect(owner)
         console.log("App made")
 
 
