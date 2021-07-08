@@ -11,6 +11,7 @@ async function main() {
   const DAIX_ADDRESS = "0x745861AeD1EEe363b4AaA5F1994Be40b1e05Ff90";
   const SUSHISWAP_ROUTER_ADDRESS = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506";
   const TELLOR_ORACLE_ADDRESS = "0xA0c5d95ec359f4A33371a06C23D89BA6Fc591A97";
+  const RIC_CONTRACT_ADDRESS = "0x369A77c1A8A38488cc28C2FaF81D2378B9321D8B";
   const TELLOR_REQUEST_ID = 1;
 
 
@@ -34,7 +35,14 @@ async function main() {
 
 
   console.log("Deploying StreamExchange")
-  const StreamExchange = await ethers.getContractFactory("StreamExchange");
+  const StreamExchangeHelper = await ethers.getContractFactory("StreamExchangeHelper");
+  let sed = await StreamExchangeHelper.deploy();
+
+  const StreamExchange = await ethers.getContractFactory("StreamExchange", {
+    libraries: {
+      StreamExchangeHelper: sed.address,
+    },
+  });
 
   console.log("HOST_ADDRESS", HOST_ADDRESS)
   console.log("CFA_ADDRESS", CFA_ADDRESS)
@@ -50,6 +58,7 @@ async function main() {
                                                       IDA_ADDRESS,
                                                       USDCX_ADDRESS,
                                                       DAIX_ADDRESS,
+                                                      RIC_CONTRACT_ADDRESS,
                                                       SUSHISWAP_ROUTER_ADDRESS,
                                                       TELLOR_ORACLE_ADDRESS,
                                                       TELLOR_REQUEST_ID,

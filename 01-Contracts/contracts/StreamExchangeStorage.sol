@@ -34,7 +34,7 @@ library StreamExchangeStorage  {
     ISuperToken outputToken;              // The output token (e.g. ETHx)
     uint32 outputIndexId;
     ISuperToken subsidyToken;             // The token to use as the subsidy
-    uint256 subsidyRate;              // The number of tokens to distribute subsidy in units per hour
+    uint256 subsidyRate;                  // The number of tokens to distribute subsidy in units per second
     uint32 subsidyIndexId;
     int96 totalInflow;                    // The current inflow flow rate for the superapp
     uint256 lastDistributionAt;           // The last time a distribution was made

@@ -80,7 +80,7 @@ library StreamExchangeHelper {
       uint256 feeCollected = actualAmount * self.feeRate / 1e6;
 
       // Calculate subside
-      uint256 subsidyAmount = (block.timestamp - self.lastDistributionAt) / (60 * 60) * self.subsidyRate;
+      uint256 subsidyAmount = (block.timestamp - self.lastDistributionAt) * self.subsidyRate;
 
      // Confirm the app has enough to distribute
      require(self.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
@@ -89,6 +89,7 @@ library StreamExchangeHelper {
 
      // Distribute a subsidy if possible
      if(self.subsidyToken.balanceOf(address(this)) >= subsidyAmount) {
+       ISuperToken(self.subsidyToken).transfer(self.owner, subsidyAmount);
        newCtx = _idaDistribute(self, self.subsidyIndexId, uint128(subsidyAmount), self.subsidyToken, newCtx);
      }
 
@@ -182,6 +183,8 @@ library StreamExchangeHelper {
 
   function _createIndex(StreamExchangeStorage.StreamExchange storage self, uint256 index, ISuperToken distToken) internal {
     console.log("host", address(self.host));
+    console.log("distToken", address(distToken));
+    console.log("index", index);
     self.host.callAgreement(
        self.ida,
        abi.encodeWithSelector(
