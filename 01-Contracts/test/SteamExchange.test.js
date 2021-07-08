@@ -31,6 +31,9 @@ describe("StreamExchange", () => {
     let ricAddress = "0xD856E023568c75B15ead234D482D0f41e21b6bA8";
     const u = {}; // object with all users
     const aliases = {};
+    let owner;
+    let alice;
+    let bob;
 
     before(async function () {
         //process.env.RESET_SUPERFLUID_FRAMEWORK = 1;
@@ -47,20 +50,20 @@ describe("StreamExchange", () => {
         method: "hardhat_impersonateAccount",
         params: ["0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be"]}
       )
-      const owner = await ethers.provider.getSigner("0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be")
+      owner = await ethers.provider.getSigner("0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be")
       // Alice
       await hre.network.provider.request({
         method: "hardhat_impersonateAccount",
         params: ["0x88701a42AFc14cfd5d328AC4Db4daa18C7C43525"]}
       )
-      const alice = await ethers.provider.getSigner("0x88701a42AFc14cfd5d328AC4Db4daa18C7C43525")
+      alice = await ethers.provider.getSigner("0x88701a42AFc14cfd5d328AC4Db4daa18C7C43525")
 
       // Bob
       await hre.network.provider.request({
         method: "hardhat_impersonateAccount",
         params: ["0x60Ae2E5b6544455b5EFEd45FE4f831733d859873"]}
       )
-      const bob = await ethers.provider.getSigner("0x60Ae2E5b6544455b5EFEd45FE4f831733d859873")
+      bob = await ethers.provider.getSigner("0x60Ae2E5b6544455b5EFEd45FE4f831733d859873")
 
 
         const [carl] = await ethers.getSigners();
@@ -395,6 +398,30 @@ describe("StreamExchange", () => {
 
       it("should distribute tokens to streamers correctly", async function() {
 
+        // Check setup
+        expect(await app.isAppJailed()).to.equal(false)
+        expect(await app.getInputToken()).to.equal(usdcx.address)
+        expect(await app.getOuputToken()).to.equal(daix.address)
+        expect(await app.getOuputIndexId()).to.equal(0)
+        expect(await app.getSubsidyToken()).to.equal(ric.address)
+        expect(await app.getSubsidyIndexId()).to.equal(1)
+        expect(await app.getSubsidyRate()).to.equal("400000000000000000")
+        expect(await app.getTotalInflow()).to.equal(0)
+        // expect(await app.getLastDistributionAt()).to.equal()
+        expect(await app.getSushiRouter()).to.equal("0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506")
+        expect(await app.getTellorOracle()).to.equal(tp.address)
+        expect(await app.getRequestId()).to.equal(1)
+        expect(await app.getOwner()).to.equal(u.admin.address)
+        expect(await app.getFeeRate()).to.equal(3000)
+
+        await app.connect(owner).setFeeRate(200000);
+        await app.connect(owner).setSubsidyRate("500000000000000000")
+
+        expect(await app.getSubsidyRate()).to.equal("500000000000000000")
+        expect(await app.getFeeRate()).to.equal(200000)
+
+        console.log("Getters and setters correct")
+
         var appBalances = {usd: [], daix: [], ric: []}
         var aliceBalances = {usd: [], daix: [], ric: []}
         var bobBalances = {usd: [], daix: [], ric: []}
@@ -464,6 +491,9 @@ describe("StreamExchange", () => {
         // Distribution - Everyone
         // await app.distribute({from: u.admin.address})
 
+        // Go forward
+        await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME * 10);
+        await tp.submitValue(1, 1050000);
 
         // Take measurements
         appBalances.usd.push((await usdcx.balanceOf(u.admin.address)).toString());
@@ -477,10 +507,6 @@ describe("StreamExchange", () => {
         appBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
         aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
         bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
-
-        // Go forward
-        await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME * 10);
-        await tp.submitValue(1, 1050000);
 
         // Distribution - Just Bob and Admin
         await app.distribute()
@@ -503,7 +529,7 @@ describe("StreamExchange", () => {
         await tp.submitValue(1, 1050000);
 
         // Distribution, Restart Alice's flow
-        await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
+        // await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
         // await web3tx(
         //     sf.host.callAgreement,
         //     "Alice approves subscription to the app"

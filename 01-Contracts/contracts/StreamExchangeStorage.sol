@@ -38,7 +38,6 @@ library StreamExchangeStorage  {
     uint32 subsidyIndexId;
     int96 totalInflow;                    // The current inflow flow rate for the superapp
     uint256 lastDistributionAt;           // The last time a distribution was made
-    uint256 rate;                         // The exchange rate
     mapping (address => Stream) streams;  // A lookup table to see how much a user is streaming in
     IUniswapV2Router02 sushiRouter;       // Address of sushsiwap router
     ITellor oracle;                       // Address of deployed simple oracle for input//output token

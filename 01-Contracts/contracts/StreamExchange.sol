@@ -46,10 +46,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     using StreamExchangeStorage for StreamExchangeStorage.StreamExchange;
     StreamExchangeStorage.StreamExchange internal _exchange;
 
-    // // TODO: Emit these events where appropriate
-    // event NewInboundStream(address to, address token, uint96 rate);
-    // event NewOutboundStream(address to, address token, uint96 rate);
-    // event Distribution(address token, uint256 totalAmount);  // TODO: Implement triggered distribution
+    // TODO: Emit these events where appropriate
+    // event StartedInboundStream(address from, uint96 rate);
+    // event EndedInboundStream(address from, uint96 rate);
+    // event Distribution(uint256 totalAmount, uint256 feeCollected);
 
 
     constructor(
@@ -114,45 +114,111 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
      *************************************************************************/
 
     /// @dev If a new stream is opened, or an existing one is opened
-    function _updateOutflow(bytes calldata ctx, bytes calldata agreementData, bool doDistribution)
-        private
-        returns (bytes memory newCtx)
-    {
+  function _updateOutflow(bytes calldata ctx, bytes calldata agreementData, bool doDistributeFirst)
+      private
+      returns (bytes memory newCtx)
+  {
 
-      newCtx = ctx;
+    newCtx = ctx;
 
-      // NOTE: Trigger a distribution if there's any inputToken
-      // console.log("Need to swap this before open new flow",ISuperToken(_exchange.inputToken).balanceOf(address(this)));
-      if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0) {
-        newCtx = _exchange._distribute(newCtx);
-      }
+    // NOTE: Trigger a distribution if there's any inputToken
+    // console.log("Need to swap this before open new flow",ISuperToken(_exchange.inputToken).balanceOf(address(this)));
+    if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0 && doDistributeFirst) {
+      newCtx = _exchange._distribute(newCtx);
+    }
 
-      (address requester, address flowReceiver) = abi.decode(agreementData, (address, address));
-      int96 changeInFlowRate = _exchange.cfa.getNetFlow(_exchange.inputToken, address(this)) - _exchange.totalInflow;
+    (address requester, address flowReceiver) = abi.decode(agreementData, (address, address));
+    int96 changeInFlowRate = _exchange.cfa.getNetFlow(_exchange.inputToken, address(this)) - _exchange.totalInflow;
 
-      _exchange.streams[requester].rate = _exchange.streams[requester].rate + changeInFlowRate;
+    _exchange.streams[requester].rate = _exchange.streams[requester].rate + changeInFlowRate;
 
-      if (_exchange.streams[requester].rate == 0 && changeInFlowRate < 0) {
-      // Delete the subscription
-        newCtx = _exchange._deleteSubscriptionWithContext(newCtx, address(this), _exchange.outputIndexId, requester, _exchange.outputToken);
-        newCtx = _exchange._deleteSubscriptionWithContext(newCtx, address(this), _exchange.subsidyIndexId, requester, _exchange.subsidyToken);
-      } else {
-        // Update the subscription
-        // TODO: Move into internal function?
-        newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.outputIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.outputToken);
-        newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.subsidyIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.subsidyToken);
-      }
+    // if (_exchange.streams[requester].rate == 0) {
+    //   // Delete the subscription
+    //   console.log("Deleting subscription");
+    //   newCtx = _exchange._deleteSubscriptionWithContext(newCtx, address(this), _exchange.outputIndexId, requester, _exchange.outputToken);
+    //   newCtx = _exchange._deleteSubscriptionWithContext(newCtx, address(this), _exchange.subsidyIndexId, requester, _exchange.subsidyToken);
+    // } else {
+      // Update the subscription
+      newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.outputIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.outputToken);
+      newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.subsidyIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.subsidyToken);
+    // }
 
-      _exchange.totalInflow = _exchange.totalInflow + changeInFlowRate;
+    _exchange.totalInflow = _exchange.totalInflow + changeInFlowRate;
 
-   }
-
-
-   function distribute() external {
-     _exchange._distribute(new bytes(0));
-   }
+  }
 
 
+  function distribute() external {
+   _exchange._distribute(new bytes(0));
+  }
+
+  function setSubsidyRate(uint128 subsidyRate) external onlyOwner {
+    _exchange.subsidyRate = subsidyRate;
+  }
+
+  function setFeeRate(uint128 feeRate) external onlyOwner {
+    _exchange.feeRate = feeRate;
+  }
+
+  function isAppJailed() external view returns (bool) {
+   return _exchange.host.isAppJailed(this);
+  }
+
+  function getInputToken() external view returns (ISuperToken) {
+   return _exchange.inputToken;
+  }
+
+  function getOuputToken() external view returns (ISuperToken) {
+   return _exchange.outputToken;
+  }
+
+  function getOuputIndexId() external view returns (uint32) {
+   return _exchange.outputIndexId;
+  }
+
+  function getSubsidyToken() external view returns (ISuperToken) {
+   return _exchange.subsidyToken;
+  }
+
+  function getSubsidyIndexId() external view returns (uint32) {
+   return _exchange.subsidyIndexId;
+  }
+
+  function getSubsidyRate() external view returns (uint256) {
+    return _exchange.subsidyRate;
+  }
+
+  function getTotalInflow() external view returns (int96) {
+    return _exchange.totalInflow;
+  }
+
+  function getLastDistributionAt() external view returns (uint256) {
+    return _exchange.lastDistributionAt;
+  }
+
+  function getSushiRouter() external view returns (address) {
+    return address(_exchange.sushiRouter);
+  }
+
+  function getTellorOracle() external view returns (address) {
+    return address(_exchange.oracle);
+  }
+
+  function getRequestId() external view returns (uint256) {
+    return _exchange.requestId;
+  }
+
+  function getOwner() external view returns (address) {
+    return _exchange.owner;
+  }
+
+  function getFeeRate() external view returns (uint128) {
+    return _exchange.feeRate;
+  }
+
+  function getStreamRate(address streamer) external view returns (int96) {
+    return _exchange.streams[streamer].rate;
+  }
 
   function emergencyCloseStream(address streamer) public {
     // Allows anyone to close any stream iff the app is jailed
