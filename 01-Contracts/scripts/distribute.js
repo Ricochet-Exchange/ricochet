@@ -4,20 +4,27 @@ async function main() {
 
   // Update the oracle
   const TellorPlayground = await ethers.getContractFactory("TellorPlayground");
-  const tp = await TellorPlayground.attach("0xA0c5d95ec359f4A33371a06C23D89BA6Fc591A97");
+  const tp = await TellorPlayground.attach("0xC79255821DA1edf8E1a8870ED5cED9099bf2eAAA");
 
-  let o = await tp.submitValue(1, 1050000);
-  console.log("submitValue:", o);
+  // let o = await tp.submitValue(1, 2143000000);
+  // console.log("submitValue:", o);
 
-  // Get the StreamExchange contracts
-  const StreamExchange = await ethers.getContractFactory("StreamExchange")
-  const rickoshea = await StreamExchange.attach("0x2a615424e10Ae40A9BE63c90ab15B0a7729b138C")
+  const StreamExchangeHelper = await ethers.getContractFactory("StreamExchangeHelper")
+  const seh = await StreamExchangeHelper.attach("0x0942570634A80bcd096873afC9b112A900492fd7")
+  console.log("Deployed StreamExchangeHelper ")
 
-
-  let dr = await rickoshea.distribute({
-    gasPrice: 2000000000,
-    gasLimit: 9000000
+  const StreamExchange = await ethers.getContractFactory("StreamExchange", {
+    libraries: {
+      StreamExchangeHelper: seh.address,
+    },
   });
+  const rickoshea = await StreamExchange.attach("0x7E2E5f06e36da0BA58B08940a72Fd6b68FbDfD61")
+
+  console.log("getOuputToken", await rickoshea.getOuputToken())
+  console.log("getInputToken", await rickoshea.getInputToken())
+
+
+  // let dr = await rickoshea.distribute();
 
   console.log("Distribute:", dr);
 

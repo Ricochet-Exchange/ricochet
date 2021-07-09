@@ -150,7 +150,7 @@ class App extends Component {
     let sfUser = this.state.sfUser
     console.log("Creating flow with:",sfUser)
     const userData = { message: "here's a flow account 2", flowId: "1" } // This is just arbitrary
-    let flowInput = Math.round( ( document.getElementById("input-amt-"+ETHxAddress).value * Math.pow(10,18) ) / 2592000 ) // Say I start a stream of 10 USDCx per month. Is the flow in gwei (which is registered as to the second) calculated as [ (10 USDCx) *(10^18) ] / [30 * 24 * 60 * 60]  = 3858024691358.025 -> round to nearest int
+    let flowInput = Math.round( ( document.getElementById("input-amt-"+fUSDCxAddress).value * Math.pow(10,18) ) / 2592000 ) // Say I start a stream of 10 USDCx per month. Is the flow in gwei (which is registered as to the second) calculated as [ (10 USDCx) *(10^18) ] / [30 * 24 * 60 * 60]  = 3858024691358.025 -> round to nearest int
     console.log("Would flow:",flowInput)
 
     let isStreaming = false;
@@ -209,7 +209,7 @@ class App extends Component {
       await sf.host.batchCall(call);
     }
 
-    document.getElementById("input-amt-"+ETHxAddress).value = ""
+    document.getElementById("input-amt-"+fUSDCxAddress).value = ""
 
     // Defensive code: For some reason getOnlySuperAppFlows() doesn't update flowAmt properly when it's zero
     if (flowInput===0) {
