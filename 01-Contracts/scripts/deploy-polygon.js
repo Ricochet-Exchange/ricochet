@@ -8,7 +8,6 @@ async function main() {
   const IDA_ADDRESS = "0xB0aABBA4B2783A72C52956CDEF62d438ecA2d7a1";
   const USDCX_ADDRESS = "0xCAa7349CEA390F89641fe306D93591f87595dc1F";
   const ETHX_ADDRESS = "0x27e1e4E6BC79D93032abef01025811B7E4727e85";
-  const DAIX_ADDRESS = "0x745861AeD1EEe363b4AaA5F1994Be40b1e05Ff90";
   const SUSHISWAP_ROUTER_ADDRESS = "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F";
   const TELLOR_ORACLE_ADDRESS = "";
   const RIC_CONTRACT_ADDRESS = "0x263026e7e53dbfdce5ae55ade22493f828922965";
@@ -18,8 +17,8 @@ async function main() {
   console.log("Deploying contracts with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
 
-
-  Deploy Tellor Oracle contracts
+  // NOTE: Use our own oracle to start, switch to Mesosphere after its ready
+  //  Deploy Tellor Oracle contracts
   const TellorPlayground = await ethers.getContractFactory("TellorPlayground");
   const tp = await TellorPlayground.deploy("Tellor oracle", "TRB");
   await tp.deployed();
@@ -49,7 +48,7 @@ async function main() {
   console.log("\tCFA_ADDRESS", CFA_ADDRESS)
   console.log("\tIDA_ADDRESS", IDA_ADDRESS)
   console.log("\tUSDCX_ADDRESS", USDCX_ADDRESS)
-  console.log("\tETHX_ADDRESS", DAIX_ADDRESS)
+  console.log("\tETHX_ADDRESS", ETHX_ADDRESS)
   console.log("\tSUSHISWAP_ROUTER_ADDRESS", SUSHISWAP_ROUTER_ADDRESS)
   console.log("\tTELLOR_ORACLE_ADDRESS", tp.address)
   console.log("\tTELLOR_REQUEST_ID", TELLOR_REQUEST_ID)
