@@ -80,7 +80,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         _exchange.subsidyToken = subsidyToken;
         _exchange.oracle = ITellor(oracle);
         _exchange.requestId = requestId;
-        _exchange.feeRate = 3000;
+        _exchange.feeRate = 20000;
         _exchange.subsidyIndexId = 1;
         _exchange.subsidyRate = 4e17; // 0.4 tokens/second ~ 1,000,000 tokens in a month
         _exchange.owner = msg.sender;
@@ -158,6 +158,14 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
   function setFeeRate(uint128 feeRate) external onlyOwner {
     _exchange.feeRate = feeRate;
+  }
+
+  function setOracle(address oracle) external onlyOwner {
+    _exchange.oracle = ITellor(oracle);
+  }
+
+  function setRequestId(uint256 requestId) external onlyOwner {
+    _exchange.requestId = requestId;
   }
 
   function isAppJailed() external view returns (bool) {

@@ -89,7 +89,6 @@ library StreamExchangeHelper {
 
      // Distribute a subsidy if possible
      if(self.subsidyToken.balanceOf(address(this)) >= subsidyAmount) {
-       ISuperToken(self.subsidyToken).transfer(self.owner, subsidyAmount);
        newCtx = _idaDistribute(self, self.subsidyIndexId, uint128(subsidyAmount), self.subsidyToken, newCtx);
      }
 

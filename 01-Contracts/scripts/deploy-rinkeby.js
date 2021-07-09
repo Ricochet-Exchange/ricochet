@@ -1,5 +1,9 @@
 async function main() {
 
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   const [deployer] = await ethers.getSigners();
 
   // Rinkeby
@@ -34,25 +38,26 @@ async function main() {
   // console.log("Deployed UsingTellor at address:", usingTellor.address);
 
 
-  console.log("Deploying StreamExchange")
+  console.log("Deploying StreamExchangeHelper")
   const StreamExchangeHelper = await ethers.getContractFactory("StreamExchangeHelper");
   let sed = await StreamExchangeHelper.deploy();
 
+  console.log("Deployed StreamExchangeHelper ")
+  console.log("Deploying StreamExchange with params")
   const StreamExchange = await ethers.getContractFactory("StreamExchange", {
     libraries: {
       StreamExchangeHelper: sed.address,
     },
   });
-
-  console.log("HOST_ADDRESS", HOST_ADDRESS)
-  console.log("CFA_ADDRESS", CFA_ADDRESS)
-  console.log("IDA_ADDRESS", IDA_ADDRESS)
+  console.log("\tHOST_ADDRESS", HOST_ADDRESS)
+  console.log("\tCFA_ADDRESS", CFA_ADDRESS)
+  console.log("\tIDA_ADDRESS", IDA_ADDRESS)
   // Use USDCx-> DAI on rinkeby
-  console.log("USDCX_ADDRESS", USDCX_ADDRESS)
-  console.log("DAIX_ADDRESS", DAIX_ADDRESS)
-  console.log("SUSHISWAP_ROUTER_ADDRESS", SUSHISWAP_ROUTER_ADDRESS)
-  console.log("TELLOR_ORACLE_ADDRESS", TELLOR_ORACLE_ADDRESS)
-  console.log("TELLOR_REQUEST_ID", TELLOR_REQUEST_ID)
+  console.log("\tUSDCX_ADDRESS", USDCX_ADDRESS)
+  console.log("\tDAIX_ADDRESS", DAIX_ADDRESS)
+  console.log("\tSUSHISWAP_ROUTER_ADDRESS", SUSHISWAP_ROUTER_ADDRESS)
+  console.log("\tTELLOR_ORACLE_ADDRESS", TELLOR_ORACLE_ADDRESS)
+  console.log("\tTELLOR_REQUEST_ID", TELLOR_REQUEST_ID)
   const streamExchange = await StreamExchange.deploy( HOST_ADDRESS,
                                                       CFA_ADDRESS,
                                                       IDA_ADDRESS,
@@ -63,7 +68,7 @@ async function main() {
                                                       TELLOR_ORACLE_ADDRESS,
                                                       TELLOR_REQUEST_ID,
                                                       "" ); // No SF Reg. Key
-  await streamExchange.deployed();
+
   console.log("Deployed StreamExchange at address:", streamExchange.address);
 }
 

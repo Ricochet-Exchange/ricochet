@@ -412,7 +412,7 @@ describe("StreamExchange", () => {
         expect(await app.getTellorOracle()).to.equal(tp.address)
         expect(await app.getRequestId()).to.equal(1)
         expect(await app.getOwner()).to.equal(u.admin.address)
-        expect(await app.getFeeRate()).to.equal(3000)
+        expect(await app.getFeeRate()).to.equal(20000)
 
         await app.connect(owner).setFeeRate(200000);
         await app.connect(owner).setSubsidyRate("500000000000000000")
@@ -462,8 +462,8 @@ describe("StreamExchange", () => {
         await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
 
         // Go forward
-        console.log("Go forward")
-        await traveler.advanceTimeAndBlock(10 * TEST_TRAVEL_TIME);
+        console.log("Go forward a little bit")
+        await traveler.advanceTimeAndBlock(30);
         await tp.submitValue(1, 1050000);
 
         // Distribution - Everyone
