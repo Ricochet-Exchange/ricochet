@@ -49,15 +49,12 @@ library StreamExchangeHelper {
   )
     external returns (bytes memory newCtx)
   {
-
+     
      newCtx = ctx;
      require(self.host.isCtxValid(newCtx) || newCtx.length == 0, "!distributeCtx");
-
-
-     // Compute the amount to distribute
-     // TODO: Don't declare so many variables
-     uint256 time_delta = block.timestamp - self.lastDistributionAt;
-
+     
+     uint256 initialBalanceInput = ISuperToken(self.inputToken).balanceOf(address(this));
+     
      // Get the exchange rate as inputToken per outputToken
      bool _didGet;
      uint _timestamp;
@@ -101,6 +98,10 @@ library StreamExchangeHelper {
      // Take the fee
      ISuperToken(self.outputToken).transfer(self.owner, feeCollected);
 
+     // Require that all app funds have been disbursed so the contract holds no tokens
+     require(ISuperToken(self.inputToken).balanceOf(address(this) == 0, "!allInputDistributed");
+     require(ISuperToken(self.outputToken).balanceOf(address(this) == 0, "!allOutputDistributed");
+     
      return newCtx;
 
    }
