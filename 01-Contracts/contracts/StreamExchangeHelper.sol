@@ -67,17 +67,22 @@ library StreamExchangeHelper {
 
      require(_didGet, "!getCurrentValue");
      require(_timestamp >= block.timestamp - 3600, "!currentValue");
-
-     uint256 amount = _swap(self, ISuperToken(self.inputToken).balanceOf(address(this)), _value, block.timestamp + 3600);
-
+     console.log("balance", ISuperToken(self.inputToken).balanceOf(address(this)));
+     _swap(self, ISuperToken(self.inputToken).balanceOf(address(this)), _value, block.timestamp + 3600);
+     uint256 outputBalance = ISuperToken(self.outputToken).balanceOf(address(this));
      (uint256 actualAmount,) = self.ida.calculateDistribution(
-      self.outputToken,
-      address(this), self.outputIndexId,
-      amount);
+        self.outputToken,
+        address(this),
+        self.outputIndexId,
+        outputBalance);
+
+      // Return if there's not anything to actually distribute
+      if (actualAmount == 0) { return newCtx; }
 
       // Calculate the fee for making the distribution
-      uint256 distAmount = actualAmount * (1e6 - self.feeRate) / 1e6;
       uint256 feeCollected = actualAmount * self.feeRate / 1e6;
+      uint256 distAmount = actualAmount - feeCollected;
+
 
       // Calculate subside
       uint256 subsidyAmount = (block.timestamp - self.lastDistributionAt) * self.subsidyRate;
@@ -92,14 +97,16 @@ library StreamExchangeHelper {
        newCtx = _idaDistribute(self, self.subsidyIndexId, uint128(subsidyAmount), self.subsidyToken, newCtx);
      }
 
-     console.log("Distribution amount", actualAmount);
-     console.log("Distribution amount", subsidyAmount);
-     console.log("Amount", amount);
+     console.log("Output Balance amount", outputBalance);
+     console.log("Actual Amount", actualAmount);
+     console.log("Current balance", ISuperToken(self.outputToken).balanceOf(address(this)));
 
      self.lastDistributionAt = block.timestamp;
 
      // Take the fee
      ISuperToken(self.outputToken).transfer(self.owner, feeCollected);
+
+     require(ISuperToken(self.inputToken).balanceOf(address(this)) == 0, "!sellAllInput");
 
      return newCtx;
 
@@ -112,8 +119,8 @@ library StreamExchangeHelper {
          uint256 deadline
      ) public returns(uint) {
 
-
-     uint256 minOutput = amount  * 1e6 / exchangeRate;
+       console.log("Amount to swap", amount);
+     uint256 minOutput = amount  * 1e18 / exchangeRate / 1e12;
 
      self.inputToken.downgrade(amount);
      address inputToken = self.inputToken.getUnderlyingToken();

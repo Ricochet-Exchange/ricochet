@@ -1,6 +1,6 @@
 const { web3tx, toWad, wad4human } = require("@decentral.ee/web3-helpers");
 const { expect } = require("chai");
-
+const axios = require('axios').default;
 const deployFramework = require("@superfluid-finance/ethereum-contracts/scripts/deploy-framework");
 const deployTestToken = require("@superfluid-finance/ethereum-contracts/scripts/deploy-test-token");
 const deploySuperToken = require("@superfluid-finance/ethereum-contracts/scripts/deploy-super-token");
@@ -14,166 +14,108 @@ describe("StreamExchange", () => {
         if (err) throw err;
     };
 
-    const names = ["Admin", "Alice", "Bob", "Carl"];
+    const names = ["Admin", "Alice", "Bob"];
 
     let sf;
     let dai;
-    let daix;
+    let ethx;
     let usd;
     let usdcx;
-    let tusd;
-    let tusdx;
     let ric;
     let app;
     let tp; // Tellor playground
     let usingTellor;
     let sr; // Mock Sushi Router
-    let ricAddress = "0xD856E023568c75B15ead234D482D0f41e21b6bA8";
+    let ricAddress = "0x263026e7e53dbfdce5ae55ade22493f828922965";
     const u = {}; // object with all users
     const aliases = {};
     let owner;
     let alice;
     let bob;
+    const RIC_TOKEN_ADDRESS = "0x263026E7e53DBFDce5ae55Ade22493f828922965"
+    const SUSHISWAP_ROUTER_ADDRESS = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506"
+    const TELLOR_ORACLE_ADDRESS = "0xC79255821DA1edf8E1a8870ED5cED9099bf2eAAA"
+    const TELLOR_REQUEST_ID = 1
+    const BOB_ADDRESS = "0x00Ce20EC71942B41F50fF566287B811bbef46DC8"
+    const ALICE_ADDRESS = "0x8c3bf3EB2639b2326fF937D041292dA2e79aDBbf"
+    const OWNER_ADDRESS = "0x3226C9EaC0379F04Ba2b1E1e1fcD52ac26309aeA"
+    const SF_REG_KEY = process.env.SF_REG_KEY
+    let oraclePrice;
 
     before(async function () {
         //process.env.RESET_SUPERFLUID_FRAMEWORK = 1;
-        const [owner, alice, bob, carl] = await ethers.getSigners();
-        await deployFramework(errorHandler, {
-            web3,
-            from: owner.address,
-        });
+        let response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd')
+        oraclePrice = parseInt(response.data.ethereum.usd * 1.005 * 1000000).toString()
+        console.log("oraclePrice", oraclePrice)
     });
 
     beforeEach(async function () {
       // Admin
       await hre.network.provider.request({
         method: "hardhat_impersonateAccount",
-        params: ["0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be"]}
+        params: [OWNER_ADDRESS]}
       )
-      owner = await ethers.provider.getSigner("0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be")
+      owner = await ethers.provider.getSigner(OWNER_ADDRESS)
+      await deployFramework(errorHandler, {
+          web3,
+          from: owner.address,
+      });
       // Alice
       await hre.network.provider.request({
         method: "hardhat_impersonateAccount",
-        params: ["0x88701a42AFc14cfd5d328AC4Db4daa18C7C43525"]}
+        params: [ALICE_ADDRESS]}
       )
-      alice = await ethers.provider.getSigner("0x88701a42AFc14cfd5d328AC4Db4daa18C7C43525")
+      alice = await ethers.provider.getSigner(ALICE_ADDRESS)
 
       // Bob
       await hre.network.provider.request({
         method: "hardhat_impersonateAccount",
-        params: ["0x60Ae2E5b6544455b5EFEd45FE4f831733d859873"]}
+        params: [BOB_ADDRESS]}
       )
-      bob = await ethers.provider.getSigner("0x60Ae2E5b6544455b5EFEd45FE4f831733d859873")
+      bob = await ethers.provider.getSigner(BOB_ADDRESS)
 
 
-        const [carl] = await ethers.getSigners();
-        const accounts = [owner, alice, bob, carl] ;
-        // await deployTestToken(errorHandler, [":", "fDAI"], {
-        //     web3,
-        //     from: owner.address,
-        // });
-        // await deployTestToken(errorHandler, [":", "ETH"], {
-        //     web3,
-        //     from: owner.address,
-        // });
-        // await deploySuperToken(errorHandler, [":", "fDAI"], {
-        //     web3,
-        //     from: owner.address,
-        // });
-        // await deploySuperToken(errorHandler, [":", "ETH"], {
-        //     web3,
-        //     from: owner.address,
-        // });
+        const accounts = [owner, alice, bob] ;
+
 
         sf = new SuperfluidSDK.Framework({
             web3,
-            resolverAddress: "0x659635Fab0A0cef1293f7eb3c7934542B6A6B31A",
-            tokens: ["fDAI", "fUSDC", "fTUSD"],
+            resolverAddress: "0xE0cc76334405EE8b39213E620587d815967af39C",
+            tokens: ["DAI", "ETH"],
+            version: "v1"
         });
         await sf.initialize();
-        usdcx = sf.tokens.fUSDCx;
-        daix = sf.tokens.fDAIx;
-        tusdx = sf.tokens.fTUSDx;
-        usd = await sf.contracts.TestToken.at(await sf.tokens.fUSDC.address);
-        dai = await sf.contracts.TestToken.at(await sf.tokens.fDAI.address);
-        tusd = await sf.contracts.TestToken.at(await sf.tokens.fTUSD.address);
-        // eth = await sf.contracts.TestToken.at(await sf.tokens.fETH.address);
-        console.log(accounts[0]._address)
+        ethx = sf.tokens.ETHx;
+        daix = sf.tokens.DAIx;
+
         for (var i = 0; i < names.length; i++) {
           console.log(accounts[i]._address)
             u[names[i].toLowerCase()] = sf.user({
                 address: accounts[i]._address || accounts[i].address,
-                token: usdcx.address,
+                token: daix.address,
             });
             u[names[i].toLowerCase()].alias = names[i];
             aliases[u[names[i].toLowerCase()].address] = names[i];
         }
-        for (const [, user] of Object.entries(u)) {
-            if (user.alias === "App") return;
-            await web3tx(usd.mint, `${user.alias} mints many usd`)(
-                user.address,
-                toWad(100000000),
-                {
-                    from: user.address,
-                }
-            );
-            await web3tx(dai.mint, `${user.alias} mints many dai`)(
-                user.address,
-                toWad(100000000),
-                {
-                    from: user.address,
-                }
-            );
-            await web3tx(tusd.mint, `${user.alias} mints many tusd`)(
-                user.address,
-                toWad(100000000),
-                {
-                    from: user.address,
-                }
-            );
-            await web3tx(usd.approve, `${user.alias} approves usdcx`)(
-                usdcx.address,
-                toWad(100000000),
-                {
-                    from: user.address,
-                }
-            );
 
-            await web3tx(dai.approve, `${user.alias} approves daix`)(
-                daix.address,
-                toWad(100000000),
-                {
-                    from: user.address,
-                }
-            );
-
-            await web3tx(tusd.approve, `${user.alias} approves tusdx`)(
-                tusdx.address,
-                toWad(100000000),
-                {
-                    from: user.address,
-                }
-            );
-        }
-        //u.zero = { address: ZERO_ADDRESS, alias: "0x0" };
-        console.log("Admin:", u.admin.address);
+        console.log("Owner:", u.admin.address);
         console.log("Host:", sf.host.address);
-        console.log(sf.agreements.cfa.address);
-        console.log(usdcx.address);
+        console.log("DAIx: ",daix.address);
+        console.log("ETHx: ",ethx.address);
 
+        // NOTE: Assume the oracle is up to date
         // Deploy Tellor Oracle contracts
         const TellorPlayground = await ethers.getContractFactory("TellorPlayground");
-        tp = await TellorPlayground.deploy("Tellor oracle", "TRB");
+        tp = await TellorPlayground.attach(TELLOR_ORACLE_ADDRESS);
+        //
+        // await tp.submitValue(1, 1050000);
 
-        await tp.submitValue(1, 1050000);
-
-        const UsingTellor = await ethers.getContractFactory("UsingTellor");
-        usingTellor = await UsingTellor.deploy(tp.address);
+        // const UsingTellor = await ethers.getContractFactory("UsingTellor");
+        // usingTellor = await UsingTellor.deploy(tp.address);
 
         // Mocking Sushiswap Router
-        const MockUniswapRouter = await ethers.getContractFactory("MockUniswapRouter");
-        sr = await MockUniswapRouter.deploy(tp.address, 1, dai.address);
-
+        // const MockUniswapRouter = await ethers.getContractFactory("MockUniswapRouter");
+        // sr = await MockUniswapRouter.deploy(tp.address, 1, dai.address);
 
         const StreamExchangeHelper = await ethers.getContractFactory("StreamExchangeHelper");
         let sed = await StreamExchangeHelper.deploy();
@@ -182,35 +124,37 @@ describe("StreamExchange", () => {
           libraries: {
             StreamExchangeHelper: sed.address,
           },
+          signer: owner
         });
 
         const ERC20 = await ethers.getContractFactory("ERC20");
-        ric = await ERC20.attach("0xD856E023568c75B15ead234D482D0f41e21b6bA8");
-        // console.log("Get owner ric balance....");
-        // console.log((await ric.balanceOf(u.admin.address)).toString())
-        // console.log(await ric.getHost())
+        ric = await ERC20.attach(RIC_TOKEN_ADDRESS);
         ric = ric.connect(owner)
 
+        // NOTE: To attach to existing SE
+        // let se = await StreamExchange.attach(STREAM_EXCHANGE_ADDRESS);
 
+        console.log("Deploy params:")
+        console.log("SF HOST", sf.host.address)
+        console.log("SF CFA", sf.agreements.cfa.address)
+        console.log("SF IDA", sf.agreements.ida.address)
+        console.log("DAIx", daix.address)
+        console.log("ETHx", ethx.address)
         app = await StreamExchange.deploy(sf.host.address,
                                           sf.agreements.cfa.address,
                                           sf.agreements.ida.address,
-                                          usdcx.address,
                                           daix.address,
-                                          ricAddress,
-                                          "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506", //sr.address,
-                                          tp.address,
-                                          1,"");
+                                          ethx.address,
+                                          RIC_TOKEN_ADDRESS,
+                                          SUSHISWAP_ROUTER_ADDRESS, //sr.address,
+                                          TELLOR_ORACLE_ADDRESS,
+                                          TELLOR_REQUEST_ID,
+                                          SF_REG_KEY);
         console.log("Deployed")
         console.log(await ric.balanceOf(u.admin.address))
-        await ric.transfer(app.address, "1000000000000000000000000")
-        await app.transferOwnership(u.admin.address)
+        // await ric.transfer(app.address, "1000000000000000000000000")
 
-        console.log("App made")
-
-
-
-        u.app = sf.user({ address: app.address, token: usdcx.address });
+        u.app = sf.user({ address: app.address, token: daix.address });
         u.app.alias = "App";
         await checkBalance(u.app);
 
@@ -222,7 +166,7 @@ describe("StreamExchange", () => {
         )(
             sf.agreements.ida.address,
             sf.agreements.ida.contract.methods
-                .approveSubscription(daix.address, app.address, 0, "0x")
+                .approveSubscription(ethx.address, app.address, 0, "0x")
                 .encodeABI(),
             "0x", // user data
             {
@@ -235,7 +179,7 @@ describe("StreamExchange", () => {
         )(
             sf.agreements.ida.address,
             sf.agreements.ida.contract.methods
-                .approveSubscription(daix.address, app.address, 0, "0x")
+                .approveSubscription(ethx.address, app.address, 0, "0x")
                 .encodeABI(),
             "0x", // user data
             {
@@ -249,7 +193,7 @@ describe("StreamExchange", () => {
         )(
             sf.agreements.ida.address,
             sf.agreements.ida.contract.methods
-                .approveSubscription(daix.address, app.address, 0, "0x")
+                .approveSubscription(ethx.address, app.address, 0, "0x")
                 .encodeABI(),
             "0x", // user data
             {
@@ -303,7 +247,8 @@ describe("StreamExchange", () => {
 
     async function checkBalance(user) {
         console.log("Balance of ", user.alias);
-        console.log("DAIx: ", (await usdcx.balanceOf(user.address)).toString());
+        console.log("DAIx: ", (await daix.balanceOf(user.address)).toString());
+        console.log("ETHx: ", (await ethx.balanceOf(user.address)).toString());
     }
 
     async function checkBalances(accounts) {
@@ -321,10 +266,6 @@ describe("StreamExchange", () => {
             await web3tx(
                 daix.upgrade,
                 `${accounts[i].alias} upgrades many DAIx`
-            )(toWad(100000000), { from: accounts[i].address });
-            await web3tx(
-                tusdx.upgrade,
-                `${accounts[i].alias} upgrades many TUSDx`
             )(toWad(100000000), { from: accounts[i].address });
 
 
@@ -381,7 +322,7 @@ describe("StreamExchange", () => {
       )(
           sf.agreements.ida.address,
           sf.agreements.ida.contract.methods
-              .approveSubscription(usdcx.address, app.address, 0, "0x")
+              .approveSubscription(ethx.address, app.address, 0, "0x")
               .encodeABI(),
           "0x", // user data
           {
@@ -400,56 +341,64 @@ describe("StreamExchange", () => {
 
         // Check setup
         expect(await app.isAppJailed()).to.equal(false)
-        expect(await app.getInputToken()).to.equal(usdcx.address)
-        expect(await app.getOuputToken()).to.equal(daix.address)
+        expect(await app.getInputToken()).to.equal(daix.address)
+        expect(await app.getOuputToken()).to.equal(ethx.address)
         expect(await app.getOuputIndexId()).to.equal(0)
         expect(await app.getSubsidyToken()).to.equal(ric.address)
         expect(await app.getSubsidyIndexId()).to.equal(1)
         expect(await app.getSubsidyRate()).to.equal("400000000000000000")
         expect(await app.getTotalInflow()).to.equal(0)
         // expect(await app.getLastDistributionAt()).to.equal()
-        expect(await app.getSushiRouter()).to.equal("0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506")
-        expect(await app.getTellorOracle()).to.equal(tp.address)
+        expect(await app.getSushiRouter()).to.equal(SUSHISWAP_ROUTER_ADDRESS)
+        expect(await app.getTellorOracle()).to.equal(TELLOR_ORACLE_ADDRESS)
         expect(await app.getRequestId()).to.equal(1)
         expect(await app.getOwner()).to.equal(u.admin.address)
         expect(await app.getFeeRate()).to.equal(20000)
 
-        await app.connect(owner).setFeeRate(200000);
+        await app.connect(owner).setFeeRate(20000);
         await app.connect(owner).setSubsidyRate("500000000000000000")
 
         expect(await app.getSubsidyRate()).to.equal("500000000000000000")
-        expect(await app.getFeeRate()).to.equal(200000)
-
+        expect(await app.getFeeRate()).to.equal(20000)
         console.log("Getters and setters correct")
 
-        var appBalances = {usd: [], daix: [], ric: []}
-        var aliceBalances = {usd: [], daix: [], ric: []}
-        var bobBalances = {usd: [], daix: [], ric: []}
+        var appBalances = {ethx: [], daix: [], ric: []}
+        var ownerBalances = {ethx: [], daix: [], ric: []}
+        var aliceBalances = {ethx: [], daix: [], ric: []}
+        var bobBalances = {ethx: [], daix: [], ric: []}
 
         const inflowRate = toWad(0.00004000);
 
         // Give the app a bit of each token to start
-        await upgrade([u.alice, u.bob, u.admin, u.carl]);
-        console.log("DAIx Address", u.admin.address)
-        console.log("admin USDCx", (await usdcx.balanceOf(u.admin.address)).toString())
-        await usdcx.transfer(app.address, toWad(0.0004000), {from: u.alice.address});
-        console.log("admin DAIx", (await daix.balanceOf(u.admin.address)).toString())
-        console.log("admin RIC", (await ric.balanceOf(u.admin.address)).toString())
-        await ric.transfer(app.address, 1000);
-        console.log("app balance", (await ric.balanceOf(app.address)).toString())
+        // await upgrade([u.alice, u.bob, u.admin]);
+        // console.log("DAIx Address", u.admin.address)
+        // console.log("admin USDCx", (await usdcx.balanceOf(u.admin.address)).toString())
+        // await ethx.transfer(u.bob.address, to, {from: u.alice.address});
+        await daix.transfer(u.bob.address, "100000000000000000000", {from: u.alice.address});
+        // console.log("admin DAIx", (await daix.balanceOf(u.admin.address)).toString())
+        // console.log("admin RIC", (await ric.balanceOf(u.admin.address)).toString())
+        // await ric.transfer(app.address, 1000);
+        // console.log("app balance", (await ric.balanceOf(app.address)).toString())
         // await daix.downgrade(toWad(5), {from: u.alice.address})
         // await eth.transfer(sr.address, toWad(5), {from: u.carl.address});
 
-        // Take measurements
-        appBalances.usd.push((await usdcx.balanceOf(u.admin.address)).toString());
-        aliceBalances.usd.push((await usdcx.balanceOf(u.alice.address)).toString());
-        bobBalances.usd.push((await usdcx.balanceOf(u.bob.address)).toString());
 
-        appBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
+        // Set oracle
+        await tp.submitValue(1, oraclePrice);
+
+        // Take measurements
+        appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
+        ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
+        aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
+        bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
+
+        appBalances.daix.push((await daix.balanceOf(app.address)).toString());
+        ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
         aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
         bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
 
-        appBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
+        appBalances.ric.push((await ric.balanceOf(app.address)).toString());
+        ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
         aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
         bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
 
@@ -457,127 +406,217 @@ describe("StreamExchange", () => {
         console.log("Alice bal eth", aliceBalances)
         console.log("App bal eth", appBalances)
 
+        await checkBalances([u.admin, u.alice, u.bob])
         // Alice and Bob start streaming to the app+
-        await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
         await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
+        await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
 
         // Go forward
         console.log("Go forward a little bit")
-        await traveler.advanceTimeAndBlock(30);
-        await tp.submitValue(1, 1050000);
+        await traveler.advanceTimeAndBlock(60*60*3);
+        await tp.submitValue(1, oraclePrice);
 
         // Distribution - Everyone
         await app.distribute()
 
         // Take measurements
-        appBalances.usd.push((await usdcx.balanceOf(u.admin.address)).toString());
-        aliceBalances.usd.push((await usdcx.balanceOf(u.alice.address)).toString());
-        bobBalances.usd.push((await usdcx.balanceOf(u.bob.address)).toString());
+        appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
+        ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
+        aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
+        bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
 
-        appBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
+        appBalances.daix.push((await daix.balanceOf(app.address)).toString());
+        ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
         aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
         bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
 
-        appBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
+        appBalances.ric.push((await ric.balanceOf(app.address)).toString());
+        ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
         aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
         bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
 
-        // Go forward
-        await traveler.advanceTimeAndBlock(10 * TEST_TRAVEL_TIME);
-        await tp.submitValue(1, 1050000);
+        let bobDelta = bobBalances.ethx[1] - bobBalances.ethx[0]
+        let aliceDelta = aliceBalances.ethx[1] - aliceBalances.ethx[0]
+        let appDelta = appBalances.ethx[1] - appBalances.ethx[0]
+        let ownerDelta = ownerBalances.ethx[1] - ownerBalances.ethx[0]
 
-        // Cancel Alice's flow
-        await u.alice.flow({ flowRate: "0", recipient: u.app });
-        // Distribution - Everyone
-        // await app.distribute({from: u.admin.address})
+        console.log("Bob delta eth:", bobDelta)
+        console.log("Alice delta eth:", aliceDelta)
+        console.log("App delta eth:", appDelta)
+        console.log("Fee rate", ownerDelta / (bobDelta + aliceDelta + ownerDelta))
 
-        // Go forward
-        await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME * 10);
-        await tp.submitValue(1, 1050000);
+        expect(bobBalances.ethx[1] - bobBalances.ethx[0]).to.equal(aliceBalances.ethx[1] - aliceBalances.ethx[0])
+        expect(bobBalances.daix[1] - bobBalances.daix[0]).to.equal(aliceBalances.daix[1] - aliceBalances.daix[0])
 
-        // Take measurements
-        appBalances.usd.push((await usdcx.balanceOf(u.admin.address)).toString());
-        aliceBalances.usd.push((await usdcx.balanceOf(u.alice.address)).toString());
-        bobBalances.usd.push((await usdcx.balanceOf(u.bob.address)).toString());
-
-        appBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
-        aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
-        bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
-
-        appBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
-        aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
-        bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
-
-        // Distribution - Just Bob and Admin
-        await app.distribute()
-
-        // Take measurements
-        appBalances.usd.push((await usdcx.balanceOf(u.admin.address)).toString());
-        aliceBalances.usd.push((await usdcx.balanceOf(u.alice.address)).toString());
-        bobBalances.usd.push((await usdcx.balanceOf(u.bob.address)).toString());
-
-        appBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
-        aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
-        bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
-
-        appBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
-        aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
-        bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
-
-        // Go forward
-        await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME * 10);
-        await tp.submitValue(1, 1050000);
-
-        // Distribution, Restart Alice's flow
-        // await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
-        // await web3tx(
-        //     sf.host.callAgreement,
-        //     "Alice approves subscription to the app"
-        // )(
-        //     sf.agreements.ida.address,
-        //     sf.agreements.ida.contract.methods
-        //         .approveSubscription(daix.address, app.address, 0, "0x")
-        //         .encodeABI(),
-        //     "0x", // user data
-        //     {
-        //         from: u.alice.address
-        //     }
-        // );
-        // Distribution - Everyone
-        await app.distribute()
-
-        // Take measurements
-        appBalances.usd.push((await usdcx.balanceOf(u.admin.address)).toString());
-        aliceBalances.usd.push((await usdcx.balanceOf(u.alice.address)).toString());
-        bobBalances.usd.push((await usdcx.balanceOf(u.bob.address)).toString());
-
-        appBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
-        aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
-        bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
-
-        appBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
-        aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
-        bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
-
-        // await traveler.advanceTimeAndBlock(TEST_TRAVEL_TIME * 10);
-        // await tp.submitValue(1, 1050000);
-        // // Distribution
-        // await app.distribute({from: u.admin.address})
+        // // Go forward
+        // console.log("Go forward a little bit")
+        // await traveler.advanceTimeAndBlock(60*60*2);
+        // await tp.submitValue(1, oraclePrice);
         //
+        // // Distribution - Everyone
+        // await app.distribute()
         //
         // // Take measurements
-        // appBalances.usd.push((await usdcx.balanceOf(u.admin.address)).toString());
-        // aliceBalances.usd.push((await usdcx.balanceOf(u.alice.address)).toString());
-        // bobBalances.usd.push((await usdcx.balanceOf(u.bob.address)).toString());
+        // appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
+        // ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
+        // aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
+        // bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
         //
-        // appBalances.tusdx.push((await daix.balanceOf(u.admin.address)).toString());
-        // aliceBalances.tusdx.push((await daix.balanceOf(u.alice.address)).toString());
-        // bobBalances.tusdx.push((await daix.balanceOf(u.bob.address)).toString());
+        // appBalances.daix.push((await daix.balanceOf(app.address)).toString());
+        // ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
+        // aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
+        // bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
+        //
+        // appBalances.ric.push((await ric.balanceOf(app.address)).toString());
+        // ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
+        // aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
+        // bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
         //
         //
-        console.log("Bob bal eth", bobBalances)
-        console.log("Alice bal eth", aliceBalances)
-        console.log("App bal eth", appBalances)
+        // bobDelta = bobBalances.ethx[2] - bobBalances.ethx[1]
+        // aliceDelta = aliceBalances.ethx[2] - aliceBalances.ethx[1]
+        // appDelta = appBalances.ethx[2] - appBalances.ethx[1]
+        // ownerDelta = ownerBalances.ethx[2] - ownerBalances.ethx[1]
+        //
+        // console.log("Bob delta eth:", bobDelta)
+        // console.log("Alice delta eth:", aliceDelta)
+        // console.log("App delta eth:", appDelta)
+        // console.log("Owner delta eth:", ownerDelta)
+        // console.log("Fee rate", ownerDelta / (bobDelta + aliceDelta + ownerDelta))
+        //
+        // // console.log("Bob bal eth", bobBalances)
+        // // console.log("Alice bal eth", aliceBalances)
+        // // console.log("App bal eth", appBalances)
+        //
+        // // Go forward
+        // console.log("Go forward a little bit")
+        // await traveler.advanceTimeAndBlock(60*60*3);
+        // await tp.submitValue(1, oraclePrice);
+        //
+        // // Distribution - Everyone
+        // await app.distribute()
+        //
+        // // Take measurements
+        // appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
+        // ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
+        // aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
+        // bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
+        //
+        // appBalances.daix.push((await daix.balanceOf(app.address)).toString());
+        // ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
+        // aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
+        // bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
+        //
+        // appBalances.ric.push((await ric.balanceOf(app.address)).toString());
+        // ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
+        // aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
+        // bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
+        //
+        //
+        // bobDelta = bobBalances.ethx[3] - bobBalances.ethx[2]
+        // aliceDelta = aliceBalances.ethx[3] - aliceBalances.ethx[2]
+        // appDelta = appBalances.ethx[3] - appBalances.ethx[2]
+        // ownerDelta = ownerBalances.ethx[3] - ownerBalances.ethx[2]
+        //
+        // console.log("Bob delta eth:", bobDelta)
+        // console.log("Alice delta eth:", aliceDelta)
+        // console.log("App delta eth:", appDelta)
+        // console.log("Owner delta eth:", ownerDelta)
+        // console.log("Fee rate", ownerDelta / (bobDelta + aliceDelta + ownerDelta))
+        //
+        // // Go forward
+        // console.log("Go forward a little bit")
+        // await traveler.advanceTimeAndBlock(60*60*3);
+        // await tp.submitValue(1, oraclePrice);
+        //
+        // // Distribution - Everyone
+        // await app.distribute()
+        //
+        // // Take measurements
+        // appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
+        // ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
+        // aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
+        // bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
+        //
+        // appBalances.daix.push((await daix.balanceOf(app.address)).toString());
+        // ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
+        // aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
+        // bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
+        //
+        // appBalances.ric.push((await ric.balanceOf(app.address)).toString());
+        // ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
+        // aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
+        // bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
+        //
+        // bobDelta = bobBalances.ethx[4] - bobBalances.ethx[3]
+        // aliceDelta = aliceBalances.ethx[4] - aliceBalances.ethx[3]
+        // appDelta = appBalances.ethx[4] - appBalances.ethx[3]
+        // ownerDelta = ownerBalances.ethx[4] - ownerBalances.ethx[3]
+        //
+        // console.log("Bob delta eth:", bobDelta)
+        // console.log("Alice delta eth:", aliceDelta)
+        // console.log("App delta eth:", appDelta)
+        // console.log("Owner delta eth:", ownerDelta)
+        // console.log("Fee rate", ownerDelta / (bobDelta + aliceDelta + ownerDelta))
+        //
+        //
+        //
+        // // Go forward
+        // console.log("Go forward a little bit")
+        // await traveler.advanceTimeAndBlock(60*60*3);
+        // await tp.submitValue(1, oraclePrice);
+        //
+        // // Distribution - Everyone
+        // await app.distribute()
+        //
+        // // Take measurements
+        // appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
+        // ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
+        // aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
+        // bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
+        //
+        // appBalances.daix.push((await daix.balanceOf(app.address)).toString());
+        // ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
+        // aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
+        // bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
+        //
+        // appBalances.ric.push((await ric.balanceOf(app.address)).toString());
+        // ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
+        // aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
+        // bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
+        //
+        // bobDelta = bobBalances.ethx[5] - bobBalances.ethx[4]
+        // aliceDelta = aliceBalances.ethx[5] - aliceBalances.ethx[4]
+        // appDelta = appBalances.ethx[5] - appBalances.ethx[4]
+        // ownerDelta = ownerBalances.ethx[5] - ownerBalances.ethx[4]
+        //
+        // console.log("Bob delta eth:", bobDelta)
+        // console.log("Alice delta eth:", aliceDelta)
+        // console.log("App delta eth:", appDelta)
+        // console.log("Owner delta eth:", ownerDelta)
+        // console.log("Fee rate", ownerDelta / (bobDelta + aliceDelta + ownerDelta))
+        //
+        //
+        //
+        // console.log("Bob bal eth", bobBalances)
+        // console.log("Alice bal eth", aliceBalances)
+        // console.log("App bal eth", appBalances)
+        // console.log("Owner bal eth", ownerBalances)
+        //
+        // let bobDeltaEth = bobBalances.ethx[5] - bobBalances.ethx[0]
+        // let aliceDeltaEth = aliceBalances.ethx[5] - aliceBalances.ethx[0]
+        //
+        // let bobDeltaDai = bobBalances.daix[0] - bobBalances.daix[5]
+        // let aliceDeltaDai = aliceBalances.daix[0] - aliceBalances.daix[5]
+        // console.log("Alice Delta Eth", aliceDeltaEth)
+        // console.log("Bob Delta Eth", bobDeltaEth)
+        // console.log("Alice Delta Dai", aliceDeltaDai)
+        // console.log("Bob Delta Dai", bobDeltaDai)
+        //
+        // console.log("ExchangeRateBob", bobDeltaDai/bobDeltaEth)
+        // console.log("ExchangeRateAlice", aliceDeltaDai/aliceDeltaEth)
+        // console.log(bobDelta * oraclePrice / 1e6, bobBalances.daix[0])
+
 
 
       });
