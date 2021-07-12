@@ -363,8 +363,8 @@ describe("StreamExchange", () => {
         console.log("Getters and setters correct")
 
         // Give alice and bob some DAIx
-        await daix.transfer(u.bob.address, "1000000000000000000", {from: u.admin.address});
-        await daix.transfer(u.alice.address, "1000000000000000000", {from: u.admin.address});
+        await daix.transfer(u.bob.address, "3000000000000000000", {from: u.admin.address});
+        await daix.transfer(u.alice.address, "3000000000000000000", {from: u.admin.address});
 
         // Set oracle price
         await tp.submitValue(1, oraclePrice);
@@ -379,7 +379,7 @@ describe("StreamExchange", () => {
         // Alice and Bob start streaming to the app
         const inflowRate = toWad(0.00004000);
         await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
-        await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
+        await u.alice.flow({ flowRate: inflowRate*2, recipient: u.app });
 
         aliceBalances.ethx.push(await ethx.balanceOf(u.alice.address));
         bobBalances.ethx.push(await ethx.balanceOf(u.bob.address));
@@ -389,7 +389,7 @@ describe("StreamExchange", () => {
 
         // Go forward in time
         console.log("Go forward in time")
-        await traveler.advanceTimeAndBlock(60*60*2);
+        await traveler.advanceTimeAndBlock(3600*3);
         await tp.submitValue(1, oraclePrice);
 
         aliceBalances.daix.push(await daix.balanceOf(u.alice.address));
@@ -412,6 +412,32 @@ describe("StreamExchange", () => {
 
         console.log("Exchange bob rate", bobDeltaDaix / bobDeltaEthx)
         console.log("Exchange alice rate", aliceDeltaDaix / aliceDeltaEthx)
+
+
+        // Go forward in time
+        console.log("Go forward in time")
+        await traveler.advanceTimeAndBlock(3600*2);
+        await tp.submitValue(1, oraclePrice);
+
+        aliceBalances.daix.push(await daix.balanceOf(u.alice.address));
+        bobBalances.daix.push(await daix.balanceOf(u.bob.address));
+        appBalances.daix.push(await daix.balanceOf(u.app.address));
+
+        bobDeltaDaix = bobBalances.daix[1] - bobBalances.daix[2]
+        aliceDeltaDaix = aliceBalances.daix[1] - aliceBalances.daix[2]
+        appDeltaDaix = appBalances.daix[2] - appBalances.daix[1]
+
+        await app.distribute()
+
+        aliceBalances.ethx.push(await ethx.balanceOf(u.alice.address));
+        bobBalances.ethx.push(await ethx.balanceOf(u.bob.address));
+
+        bobDeltaEthx = bobBalances.ethx[1] - bobBalances.ethx[2]
+        aliceDeltaEthx = aliceBalances.ethx[1] - aliceBalances.ethx[2]
+
+        console.log("Exchange bob rate", bobDeltaDaix / bobDeltaEthx)
+        console.log("Exchange alice rate", aliceDeltaDaix / aliceDeltaEthx)
+
 
       });
 

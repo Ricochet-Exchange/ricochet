@@ -64,10 +64,10 @@ library StreamExchangeHelper {
 
      require(_didGet, "!getCurrentValue");
      require(_timestamp >= block.timestamp - 3600, "!currentValue");
-     console.log("Initial balance", ISuperToken(self.inputToken).balanceOf(address(this)));
+
      _swap(self, ISuperToken(self.inputToken).balanceOf(address(this)), _value, block.timestamp + 3600);
+
      uint256 outputBalance = ISuperToken(self.outputToken).balanceOf(address(this));
-     console.log("outputBalance", outputBalance);
      (uint256 actualAmount,) = self.ida.calculateDistribution(
         self.outputToken,
         address(this),
@@ -80,9 +80,6 @@ library StreamExchangeHelper {
       // Calculate the fee for making the distribution
       uint256 feeCollected = outputBalance * self.feeRate / 1e6;
       uint256 distAmount = outputBalance - feeCollected;
-      console.log("actualAmount", actualAmount);
-      console.log("feecollected", feeCollected);
-      console.log("distAmount", distAmount);
 
 
       // Calculate subside
@@ -93,8 +90,6 @@ library StreamExchangeHelper {
 
      newCtx = _idaDistribute(self, self.outputIndexId, uint128(actualAmount), self.outputToken, newCtx);
 
-     console.log("Current balance", ISuperToken(self.outputToken).balanceOf(address(this)));
-
      // Distribute a subsidy if possible
      if(self.subsidyToken.balanceOf(address(this)) >= subsidyAmount) {
        newCtx = _idaDistribute(self, self.subsidyIndexId, uint128(subsidyAmount), self.subsidyToken, newCtx);
@@ -104,8 +99,6 @@ library StreamExchangeHelper {
 
      // Take the fee
      ISuperToken(self.outputToken).transfer(self.owner, feeCollected);
-
-     // require(ISuperToken(self.inputToken).balanceOf(address(this)) == 0, "!sellAllInput");
 
      return newCtx;
 
@@ -118,7 +111,6 @@ library StreamExchangeHelper {
          uint256 deadline
      ) public returns(uint) {
 
-       console.log("Amount to swap", amount);
      uint256 minOutput = amount  * 1e18 / exchangeRate / 1e12;
 
      self.inputToken.downgrade(amount);
@@ -187,9 +179,6 @@ library StreamExchangeHelper {
   }
 
   function _createIndex(StreamExchangeStorage.StreamExchange storage self, uint256 index, ISuperToken distToken) internal {
-    console.log("host", address(self.host));
-    console.log("distToken", address(distToken));
-    console.log("index", index);
     self.host.callAgreement(
        self.ida,
        abi.encodeWithSelector(
