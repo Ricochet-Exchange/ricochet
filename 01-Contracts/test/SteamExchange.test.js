@@ -37,7 +37,7 @@ describe("StreamExchange", () => {
     const TELLOR_ORACLE_ADDRESS = "0xC79255821DA1edf8E1a8870ED5cED9099bf2eAAA"
     const TELLOR_REQUEST_ID = 1
     const BOB_ADDRESS = "0x00Ce20EC71942B41F50fF566287B811bbef46DC8"
-    const ALICE_ADDRESS = "0x8c3bf3EB2639b2326fF937D041292dA2e79aDBbf"
+    const ALICE_ADDRESS = "0x9f348cdD00dcD61EE7917695D2157ef6af2d7b9B"
     const OWNER_ADDRESS = "0x3226C9EaC0379F04Ba2b1E1e1fcD52ac26309aeA"
     const SF_REG_KEY = process.env.SF_REG_KEY
     let oraclePrice;
@@ -362,262 +362,56 @@ describe("StreamExchange", () => {
         expect(await app.getFeeRate()).to.equal(20000)
         console.log("Getters and setters correct")
 
+        // Give alice and bob some DAIx
+        await daix.transfer(u.bob.address, "1000000000000000000", {from: u.admin.address});
+        await daix.transfer(u.alice.address, "1000000000000000000", {from: u.admin.address});
+
+        // Set oracle price
+        await tp.submitValue(1, oraclePrice);
+
+        // For holding measurements
         var appBalances = {ethx: [], daix: [], ric: []}
         var ownerBalances = {ethx: [], daix: [], ric: []}
         var aliceBalances = {ethx: [], daix: [], ric: []}
         var bobBalances = {ethx: [], daix: [], ric: []}
 
+
+        // Alice and Bob start streaming to the app
         const inflowRate = toWad(0.00004000);
-
-        // Give the app a bit of each token to start
-        // await upgrade([u.alice, u.bob, u.admin]);
-        // console.log("DAIx Address", u.admin.address)
-        // console.log("admin USDCx", (await usdcx.balanceOf(u.admin.address)).toString())
-        // await ethx.transfer(u.bob.address, to, {from: u.alice.address});
-        await daix.transfer(u.bob.address, "100000000000000000000", {from: u.alice.address});
-        // console.log("admin DAIx", (await daix.balanceOf(u.admin.address)).toString())
-        // console.log("admin RIC", (await ric.balanceOf(u.admin.address)).toString())
-        // await ric.transfer(app.address, 1000);
-        // console.log("app balance", (await ric.balanceOf(app.address)).toString())
-        // await daix.downgrade(toWad(5), {from: u.alice.address})
-        // await eth.transfer(sr.address, toWad(5), {from: u.carl.address});
-
-
-        // Set oracle
-        await tp.submitValue(1, oraclePrice);
-
-        // Take measurements
-        appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
-        ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
-        aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
-        bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
-
-        appBalances.daix.push((await daix.balanceOf(app.address)).toString());
-        ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
-        aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
-        bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
-
-        appBalances.ric.push((await ric.balanceOf(app.address)).toString());
-        ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
-        aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
-        bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
-
-        console.log("Bob bal eth", bobBalances)
-        console.log("Alice bal eth", aliceBalances)
-        console.log("App bal eth", appBalances)
-
-        await checkBalances([u.admin, u.alice, u.bob])
-        // Alice and Bob start streaming to the app+
         await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
         await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
 
-        // Go forward
-        console.log("Go forward a little bit")
-        await traveler.advanceTimeAndBlock(60*60*3);
+        aliceBalances.ethx.push(await ethx.balanceOf(u.alice.address));
+        bobBalances.ethx.push(await ethx.balanceOf(u.bob.address));
+        aliceBalances.daix.push(await daix.balanceOf(u.alice.address));
+        bobBalances.daix.push(await daix.balanceOf(u.bob.address));
+        appBalances.daix.push(await daix.balanceOf(u.app.address));
+
+        // Go forward in time
+        console.log("Go forward in time")
+        await traveler.advanceTimeAndBlock(60*60*2);
         await tp.submitValue(1, oraclePrice);
 
-        // Distribution - Everyone
+        aliceBalances.daix.push(await daix.balanceOf(u.alice.address));
+        bobBalances.daix.push(await daix.balanceOf(u.bob.address));
+        appBalances.daix.push(await daix.balanceOf(u.app.address));
+
+        let bobDeltaDaix = bobBalances.daix[0] - bobBalances.daix[1]
+        let aliceDeltaDaix = aliceBalances.daix[0] - aliceBalances.daix[1]
+        let appDeltaDaix = appBalances.daix[1] - appBalances.daix[0]
+        console.log("APP DAIX BAL: ", appDeltaDaix)
+        expect(appDeltaDaix).to.equal(bobDeltaDaix + aliceDeltaDaix, "DIA lost during streaming");
+
         await app.distribute()
 
-        // Take measurements
-        appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
-        ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
-        aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
-        bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
+        aliceBalances.ethx.push(await ethx.balanceOf(u.alice.address));
+        bobBalances.ethx.push(await ethx.balanceOf(u.bob.address));
 
-        appBalances.daix.push((await daix.balanceOf(app.address)).toString());
-        ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
-        aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
-        bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
+        let bobDeltaEthx = bobBalances.ethx[0] - bobBalances.ethx[1]
+        let aliceDeltaEthx = aliceBalances.ethx[0] - aliceBalances.ethx[1]
 
-        appBalances.ric.push((await ric.balanceOf(app.address)).toString());
-        ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
-        aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
-        bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
-
-        let bobDelta = bobBalances.ethx[1] - bobBalances.ethx[0]
-        let aliceDelta = aliceBalances.ethx[1] - aliceBalances.ethx[0]
-        let appDelta = appBalances.ethx[1] - appBalances.ethx[0]
-        let ownerDelta = ownerBalances.ethx[1] - ownerBalances.ethx[0]
-
-        console.log("Bob delta eth:", bobDelta)
-        console.log("Alice delta eth:", aliceDelta)
-        console.log("App delta eth:", appDelta)
-        console.log("Fee rate", ownerDelta / (bobDelta + aliceDelta + ownerDelta))
-
-        expect(bobBalances.ethx[1] - bobBalances.ethx[0]).to.equal(aliceBalances.ethx[1] - aliceBalances.ethx[0])
-        expect(bobBalances.daix[1] - bobBalances.daix[0]).to.equal(aliceBalances.daix[1] - aliceBalances.daix[0])
-
-        // // Go forward
-        // console.log("Go forward a little bit")
-        // await traveler.advanceTimeAndBlock(60*60*2);
-        // await tp.submitValue(1, oraclePrice);
-        //
-        // // Distribution - Everyone
-        // await app.distribute()
-        //
-        // // Take measurements
-        // appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
-        // ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
-        // aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
-        // bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
-        //
-        // appBalances.daix.push((await daix.balanceOf(app.address)).toString());
-        // ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
-        // aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
-        // bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
-        //
-        // appBalances.ric.push((await ric.balanceOf(app.address)).toString());
-        // ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
-        // aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
-        // bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
-        //
-        //
-        // bobDelta = bobBalances.ethx[2] - bobBalances.ethx[1]
-        // aliceDelta = aliceBalances.ethx[2] - aliceBalances.ethx[1]
-        // appDelta = appBalances.ethx[2] - appBalances.ethx[1]
-        // ownerDelta = ownerBalances.ethx[2] - ownerBalances.ethx[1]
-        //
-        // console.log("Bob delta eth:", bobDelta)
-        // console.log("Alice delta eth:", aliceDelta)
-        // console.log("App delta eth:", appDelta)
-        // console.log("Owner delta eth:", ownerDelta)
-        // console.log("Fee rate", ownerDelta / (bobDelta + aliceDelta + ownerDelta))
-        //
-        // // console.log("Bob bal eth", bobBalances)
-        // // console.log("Alice bal eth", aliceBalances)
-        // // console.log("App bal eth", appBalances)
-        //
-        // // Go forward
-        // console.log("Go forward a little bit")
-        // await traveler.advanceTimeAndBlock(60*60*3);
-        // await tp.submitValue(1, oraclePrice);
-        //
-        // // Distribution - Everyone
-        // await app.distribute()
-        //
-        // // Take measurements
-        // appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
-        // ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
-        // aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
-        // bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
-        //
-        // appBalances.daix.push((await daix.balanceOf(app.address)).toString());
-        // ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
-        // aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
-        // bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
-        //
-        // appBalances.ric.push((await ric.balanceOf(app.address)).toString());
-        // ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
-        // aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
-        // bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
-        //
-        //
-        // bobDelta = bobBalances.ethx[3] - bobBalances.ethx[2]
-        // aliceDelta = aliceBalances.ethx[3] - aliceBalances.ethx[2]
-        // appDelta = appBalances.ethx[3] - appBalances.ethx[2]
-        // ownerDelta = ownerBalances.ethx[3] - ownerBalances.ethx[2]
-        //
-        // console.log("Bob delta eth:", bobDelta)
-        // console.log("Alice delta eth:", aliceDelta)
-        // console.log("App delta eth:", appDelta)
-        // console.log("Owner delta eth:", ownerDelta)
-        // console.log("Fee rate", ownerDelta / (bobDelta + aliceDelta + ownerDelta))
-        //
-        // // Go forward
-        // console.log("Go forward a little bit")
-        // await traveler.advanceTimeAndBlock(60*60*3);
-        // await tp.submitValue(1, oraclePrice);
-        //
-        // // Distribution - Everyone
-        // await app.distribute()
-        //
-        // // Take measurements
-        // appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
-        // ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
-        // aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
-        // bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
-        //
-        // appBalances.daix.push((await daix.balanceOf(app.address)).toString());
-        // ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
-        // aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
-        // bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
-        //
-        // appBalances.ric.push((await ric.balanceOf(app.address)).toString());
-        // ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
-        // aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
-        // bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
-        //
-        // bobDelta = bobBalances.ethx[4] - bobBalances.ethx[3]
-        // aliceDelta = aliceBalances.ethx[4] - aliceBalances.ethx[3]
-        // appDelta = appBalances.ethx[4] - appBalances.ethx[3]
-        // ownerDelta = ownerBalances.ethx[4] - ownerBalances.ethx[3]
-        //
-        // console.log("Bob delta eth:", bobDelta)
-        // console.log("Alice delta eth:", aliceDelta)
-        // console.log("App delta eth:", appDelta)
-        // console.log("Owner delta eth:", ownerDelta)
-        // console.log("Fee rate", ownerDelta / (bobDelta + aliceDelta + ownerDelta))
-        //
-        //
-        //
-        // // Go forward
-        // console.log("Go forward a little bit")
-        // await traveler.advanceTimeAndBlock(60*60*3);
-        // await tp.submitValue(1, oraclePrice);
-        //
-        // // Distribution - Everyone
-        // await app.distribute()
-        //
-        // // Take measurements
-        // appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
-        // ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
-        // aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
-        // bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
-        //
-        // appBalances.daix.push((await daix.balanceOf(app.address)).toString());
-        // ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
-        // aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
-        // bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
-        //
-        // appBalances.ric.push((await ric.balanceOf(app.address)).toString());
-        // ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
-        // aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
-        // bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
-        //
-        // bobDelta = bobBalances.ethx[5] - bobBalances.ethx[4]
-        // aliceDelta = aliceBalances.ethx[5] - aliceBalances.ethx[4]
-        // appDelta = appBalances.ethx[5] - appBalances.ethx[4]
-        // ownerDelta = ownerBalances.ethx[5] - ownerBalances.ethx[4]
-        //
-        // console.log("Bob delta eth:", bobDelta)
-        // console.log("Alice delta eth:", aliceDelta)
-        // console.log("App delta eth:", appDelta)
-        // console.log("Owner delta eth:", ownerDelta)
-        // console.log("Fee rate", ownerDelta / (bobDelta + aliceDelta + ownerDelta))
-        //
-        //
-        //
-        // console.log("Bob bal eth", bobBalances)
-        // console.log("Alice bal eth", aliceBalances)
-        // console.log("App bal eth", appBalances)
-        // console.log("Owner bal eth", ownerBalances)
-        //
-        // let bobDeltaEth = bobBalances.ethx[5] - bobBalances.ethx[0]
-        // let aliceDeltaEth = aliceBalances.ethx[5] - aliceBalances.ethx[0]
-        //
-        // let bobDeltaDai = bobBalances.daix[0] - bobBalances.daix[5]
-        // let aliceDeltaDai = aliceBalances.daix[0] - aliceBalances.daix[5]
-        // console.log("Alice Delta Eth", aliceDeltaEth)
-        // console.log("Bob Delta Eth", bobDeltaEth)
-        // console.log("Alice Delta Dai", aliceDeltaDai)
-        // console.log("Bob Delta Dai", bobDeltaDai)
-        //
-        // console.log("ExchangeRateBob", bobDeltaDai/bobDeltaEth)
-        // console.log("ExchangeRateAlice", aliceDeltaDai/aliceDeltaEth)
-        // console.log(bobDelta * oraclePrice / 1e6, bobBalances.daix[0])
-
-
+        console.log("Exchange bob rate", bobDeltaDaix / bobDeltaEthx)
+        console.log("Exchange alice rate", aliceDeltaDaix / aliceDeltaEthx)
 
       });
 

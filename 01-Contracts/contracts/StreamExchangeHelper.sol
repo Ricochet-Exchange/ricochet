@@ -53,10 +53,7 @@ library StreamExchangeHelper {
      newCtx = ctx;
      require(self.host.isCtxValid(newCtx) || newCtx.length == 0, "!distributeCtx");
 
-
-     // Compute the amount to distribute
-     // TODO: Don't declare so many variables
-     uint256 time_delta = block.timestamp - self.lastDistributionAt;
+     uint256 initialBalanceInput = ISuperToken(self.inputToken).balanceOf(address(this));
 
      // Get the exchange rate as inputToken per outputToken
      bool _didGet;
@@ -67,9 +64,10 @@ library StreamExchangeHelper {
 
      require(_didGet, "!getCurrentValue");
      require(_timestamp >= block.timestamp - 3600, "!currentValue");
-     console.log("balance", ISuperToken(self.inputToken).balanceOf(address(this)));
+     console.log("Initial balance", ISuperToken(self.inputToken).balanceOf(address(this)));
      _swap(self, ISuperToken(self.inputToken).balanceOf(address(this)), _value, block.timestamp + 3600);
      uint256 outputBalance = ISuperToken(self.outputToken).balanceOf(address(this));
+     console.log("outputBalance", outputBalance);
      (uint256 actualAmount,) = self.ida.calculateDistribution(
         self.outputToken,
         address(this),
@@ -80,8 +78,11 @@ library StreamExchangeHelper {
       if (actualAmount == 0) { return newCtx; }
 
       // Calculate the fee for making the distribution
-      uint256 feeCollected = actualAmount * self.feeRate / 1e6;
-      uint256 distAmount = actualAmount - feeCollected;
+      uint256 feeCollected = outputBalance * self.feeRate / 1e6;
+      uint256 distAmount = outputBalance - feeCollected;
+      console.log("actualAmount", actualAmount);
+      console.log("feecollected", feeCollected);
+      console.log("distAmount", distAmount);
 
 
       // Calculate subside
@@ -90,23 +91,21 @@ library StreamExchangeHelper {
      // Confirm the app has enough to distribute
      require(self.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
 
-     newCtx = _idaDistribute(self, self.outputIndexId, uint128(distAmount), self.outputToken, newCtx);
+     newCtx = _idaDistribute(self, self.outputIndexId, uint128(actualAmount), self.outputToken, newCtx);
+
+     console.log("Current balance", ISuperToken(self.outputToken).balanceOf(address(this)));
 
      // Distribute a subsidy if possible
      if(self.subsidyToken.balanceOf(address(this)) >= subsidyAmount) {
        newCtx = _idaDistribute(self, self.subsidyIndexId, uint128(subsidyAmount), self.subsidyToken, newCtx);
      }
 
-     console.log("Output Balance amount", outputBalance);
-     console.log("Actual Amount", actualAmount);
-     console.log("Current balance", ISuperToken(self.outputToken).balanceOf(address(this)));
-
      self.lastDistributionAt = block.timestamp;
 
      // Take the fee
      ISuperToken(self.outputToken).transfer(self.owner, feeCollected);
 
-     require(ISuperToken(self.inputToken).balanceOf(address(this)) == 0, "!sellAllInput");
+     // require(ISuperToken(self.inputToken).balanceOf(address(this)) == 0, "!sellAllInput");
 
      return newCtx;
 

@@ -123,7 +123,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     // NOTE: Trigger a distribution if there's any inputToken
     // console.log("Need to swap this before open new flow",ISuperToken(_exchange.inputToken).balanceOf(address(this)));
-    if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0 && doDistributeFirst && _exchange.totalInflow != 0) {
+    if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0 && doDistributeFirst) {
       newCtx = _exchange._distribute(newCtx);
     }
 
@@ -131,6 +131,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     int96 changeInFlowRate = _exchange.cfa.getNetFlow(_exchange.inputToken, address(this)) - _exchange.totalInflow;
 
     _exchange.streams[requester].rate = _exchange.streams[requester].rate + changeInFlowRate;
+    console.log("Requester",requester);
+    console.log("rate", uint(int(_exchange.streams[requester].rate)));
 
     // if (_exchange.streams[requester].rate == 0) {
     //   // Delete the subscription
