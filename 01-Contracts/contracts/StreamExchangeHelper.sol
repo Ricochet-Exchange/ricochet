@@ -57,10 +57,7 @@ library StreamExchangeHelper {
      newCtx = ctx;
      require(self.host.isCtxValid(newCtx) || newCtx.length == 0, "!distributeCtx");
 
-
-     // Compute the amount to distribute
-     // TODO: Don't declare so many variables
-     uint256 time_delta = block.timestamp - self.lastDistributionAt;
+     uint256 initialBalanceInput = ISuperToken(self.inputToken).balanceOf(address(this));
 
      // Get the exchange rate as inputToken per outputToken
      bool _didGet;
@@ -71,8 +68,9 @@ library StreamExchangeHelper {
 
      require(_didGet, "!getCurrentValue");
      require(_timestamp >= block.timestamp - 3600, "!currentValue");
-     console.log("balance", ISuperToken(self.inputToken).balanceOf(address(this)));
+
      _swap(self, ISuperToken(self.inputToken).balanceOf(address(this)), _value, block.timestamp + 3600);
+
      uint256 outputBalance = ISuperToken(self.outputToken).balanceOf(address(this));
      (uint256 actualAmount,) = self.ida.calculateDistribution(
         self.outputToken,
@@ -84,8 +82,8 @@ library StreamExchangeHelper {
       if (actualAmount == 0) { return newCtx; }
 
       // Calculate the fee for making the distribution
-      uint256 feeCollected = actualAmount * self.feeRate / 1e6;
-      uint256 distAmount = actualAmount - feeCollected;
+      uint256 feeCollected = outputBalance * self.feeRate / 1e6;
+      uint256 distAmount = outputBalance - feeCollected;
 
 
       // Calculate subside
@@ -102,10 +100,6 @@ library StreamExchangeHelper {
        newCtx = _idaDistribute(self, self.subsidyIndexId, uint128(subsidyAmount), self.subsidyToken, newCtx);
        emit Distribution(subsidyAmount, 0, address(self.subsidyToken));
      }
-
-     console.log("Output Balance amount", outputBalance);
-     console.log("Actual Amount", actualAmount);
-     console.log("Current balance", ISuperToken(self.outputToken).balanceOf(address(this)));
 
      self.lastDistributionAt = block.timestamp;
 
@@ -205,9 +199,6 @@ library StreamExchangeHelper {
   }
 
   function _createIndex(StreamExchangeStorage.StreamExchange storage self, uint256 index, ISuperToken distToken) internal {
-    console.log("host", address(self.host));
-    console.log("distToken", address(distToken));
-    console.log("index", index);
     self.host.callAgreement(
        self.ida,
        abi.encodeWithSelector(

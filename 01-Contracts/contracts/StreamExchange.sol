@@ -119,8 +119,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     newCtx = ctx;
 
     // NOTE: Trigger a distribution if there's any inputToken
-    // console.log("Need to swap this before open new flow",ISuperToken(_exchange.inputToken).balanceOf(address(this)));
-    if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0 && doDistributeFirst && _exchange.totalInflow != 0) {
+    if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0 && doDistributeFirst) {
       newCtx = _exchange._distribute(newCtx);
     }
 
