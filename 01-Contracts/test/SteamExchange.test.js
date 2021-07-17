@@ -42,10 +42,15 @@ describe("StreamExchange", () => {
     const SF_REG_KEY = process.env.SF_REG_KEY
     let oraclePrice;
 
+    var appBalances = {ethx: [], daix: [], ric: []}
+    var ownerBalances = {ethx: [], daix: [], ric: []}
+    var aliceBalances = {ethx: [], daix: [], ric: []}
+    var bobBalances = {ethx: [], daix: [], ric: []}
+
     before(async function () {
         //process.env.RESET_SUPERFLUID_FRAMEWORK = 1;
         let response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd')
-        oraclePrice = parseInt(response.data.ethereum.usd * 1.005 * 1000000).toString()
+        oraclePrice = parseInt(response.data.ethereum.usd * 1.002 * 1000000).toString()
         console.log("oraclePrice", oraclePrice)
     });
 
@@ -333,6 +338,34 @@ describe("StreamExchange", () => {
 
     }
 
+    async function delta(account, balances) {
+      let len = balances.ethx.length
+      let changeInEth = balances.ethx[len-1] - balances.ethx[len-2]
+      let changeInDai = balances.daix[len-1] - balances.daix[len-2]
+      console.log()
+      console.log("Change in balances for ", account)
+      console.log("Ethx:", changeInEth)
+      console.log("Daix:", changeInDai)
+      console.log("Exchange Rate:", changeInDai/changeInEth)
+    }
+
+    async function takeMeasurements() {
+      appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
+      ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
+      aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
+      bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
+
+      appBalances.daix.push((await daix.balanceOf(app.address)).toString());
+      ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
+      aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
+      bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
+
+      appBalances.ric.push((await ric.balanceOf(app.address)).toString());
+      ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
+      aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
+      bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
+    }
+
 
     describe("Stream Exchange", async function () {
       this.timeout(100000);
@@ -362,6 +395,7 @@ describe("StreamExchange", () => {
         expect(await app.getFeeRate()).to.equal(20000)
         console.log("Getters and setters correct")
 
+<<<<<<< HEAD
         // Give alice and bob some DAIx
         await daix.transfer(u.bob.address, "3000000000000000000", {from: u.admin.address});
         await daix.transfer(u.alice.address, "3000000000000000000", {from: u.admin.address});
@@ -471,8 +505,63 @@ describe("StreamExchange", () => {
         aliceDeltaDaix = aliceBalances.daix[1] - aliceBalances.daix[2]
         appDeltaDaix = appBalances.daix[2] - appBalances.daix[1]
 
-        await app.distribute()
+=======
+        const inflowRate = toWad(0.00004000);
 
+        await daix.transfer(u.bob.address, "3000000000000000000", {from: u.admin.address});
+        await daix.transfer(u.alice.address, "3000000000000000000", {from: u.admin.address});
+
+        await tp.submitValue(1, oraclePrice);
+
+        await takeMeasurements();
+
+        await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
+        await traveler.advanceTimeAndBlock(60*60*3);
+        await tp.submitValue(1, oraclePrice);
+        await app.distribute()
+        await takeMeasurements();
+        await delta("Bob", bobBalances)
+        await delta("Alice", aliceBalances)
+
+        // Round 2
+        await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
+        await traveler.advanceTimeAndBlock(60*60*2);
+        await tp.submitValue(1, oraclePrice);
+        await app.distribute()
+        await takeMeasurements()
+        await delta("Bob", bobBalances)
+        await delta("Alice", aliceBalances)
+
+        // Round 3
+        await traveler.advanceTimeAndBlock(60*60*2);
+        await tp.submitValue(1, oraclePrice);
+        await app.distribute()
+        await takeMeasurements()
+        await delta("Bob", bobBalances)
+        await delta("Alice", aliceBalances)
+
+
+        // Round 4
+        await u.alice.flow({ flowRate: "0", recipient: u.app });
+        await traveler.advanceTimeAndBlock(60*60*2);
+        await tp.submitValue(1, oraclePrice);
+        await app.distribute()
+        await takeMeasurements()
+        await delta("Bob", bobBalances)
+        await delta("Alice", aliceBalances)
+
+        // Round 5
+        await traveler.advanceTimeAndBlock(60*60*2);
+        await tp.submitValue(1, oraclePrice);
+>>>>>>> v1.0
+        await app.distribute()
+        await takeMeasurements()
+        await delta("Bob", bobBalances)
+        await delta("Alice", aliceBalances)
+
+
+
+<<<<<<< HEAD
         aliceBalances.ethx.push(await ethx.balanceOf(u.alice.address));
         bobBalances.ethx.push(await ethx.balanceOf(u.bob.address));
 
@@ -484,6 +573,8 @@ describe("StreamExchange", () => {
         console.log("Alice deltaDaix", aliceDeltaDaix)
         console.log("Bob deltaDaix", bobDeltaDaix)
         console.log("Owner delta", ownerDeltaEthx)
+=======
+>>>>>>> v1.0
 
         console.log("Exchange bob rate", bobDeltaDaix / bobDeltaEthx)
         console.log("Exchange alice rate", aliceDeltaDaix / aliceDeltaEthx)
