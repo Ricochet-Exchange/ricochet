@@ -44,6 +44,7 @@ library StreamExchangeStorage  {
     uint256 requestId;                    // The id of the tellor request that has input/output exchange rate
     uint128 feeRate;                      // The fee taken as a % with 6 decimals
     address owner;                        // The owner of the exchange
+    uint256 rateTolerance;                // The percentage to deviate from the oracle scaled to 1e6
   }
 
 }

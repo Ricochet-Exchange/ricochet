@@ -20,6 +20,10 @@ library StreamExchangeHelper {
 
   using SafeERC20 for ERC20;
 
+  // TODO: Emit these events where appropriate
+  event Distribution(uint256 totalAmount, uint256 feeCollected, address token);
+
+
   function _getCurrentValue(
     StreamExchangeStorage.StreamExchange storage self,
     uint256 _requestId
@@ -91,10 +95,12 @@ library StreamExchangeHelper {
      require(self.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
 
      newCtx = _idaDistribute(self, self.outputIndexId, uint128(distAmount), self.outputToken, newCtx);
+     emit Distribution(distAmount, feeCollected, address(self.outputToken));
 
      // Distribute a subsidy if possible
      if(self.subsidyToken.balanceOf(address(this)) >= subsidyAmount) {
        newCtx = _idaDistribute(self, self.subsidyIndexId, uint128(subsidyAmount), self.subsidyToken, newCtx);
+       emit Distribution(subsidyAmount, 0, address(self.subsidyToken));
      }
 
      console.log("Output Balance amount", outputBalance);
@@ -108,45 +114,56 @@ library StreamExchangeHelper {
 
      require(ISuperToken(self.inputToken).balanceOf(address(this)) == 0, "!sellAllInput");
 
+
      return newCtx;
 
    }
 
    function _swap(
          StreamExchangeStorage.StreamExchange storage self,
-         uint256 amount,
+         uint256 amount,  // Assumes this is outputToken.balanceOf(address(this))
          uint256 exchangeRate,
          uint256 deadline
      ) public returns(uint) {
 
-       console.log("Amount to swap", amount);
-     uint256 minOutput = amount  * 1e18 / exchangeRate / 1e12;
+    address inputToken;           // The underlying input token address
+    address outputToken;          // The underlying output token address
+    address[] memory path;        // The path to take
+    uint256 minOutput;            // The minimum amount of output tokens based on Tellor
+    uint256 outputAmount; // The balance before the swap
 
-     self.inputToken.downgrade(amount);
-     address inputToken = self.inputToken.getUnderlyingToken();
-     address outputToken = self.outputToken.getUnderlyingToken();
-     address[] memory path = new address[](2);
-     path[0] = inputToken;
-     path[1] = outputToken;
+    console.log("Amount to swap", amount);
+    minOutput = amount  * 1e18 / exchangeRate / 1e12;
+    minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
+    console.log("minOutput", minOutput);
 
-     // approve the router to spend
-     ERC20(inputToken).safeIncreaseAllowance(address(self.sushiRouter), amount);
+    self.inputToken.downgrade(amount);
+    inputToken = self.inputToken.getUnderlyingToken();
+    outputToken = self.outputToken.getUnderlyingToken();
+    path = new address[](2);
+    path[0] = inputToken;
+    path[1] = outputToken;
 
-     uint[] memory amounts = self.sushiRouter.swapExactTokensForTokens(
-         amount,
-         minOutput,
-         path,
-         address(this),
-         deadline
-     );
+    // Swap on Sushiswap
+    ERC20(inputToken).safeIncreaseAllowance(address(self.sushiRouter), amount);
+    self.sushiRouter.swapExactTokensForTokens(
+       amount,
+       0, // Accept any amount but fail if we're too far from the oracle price
+       path,
+       address(this),
+       deadline
+    );
+    // Assumes `amount` was outputToken.balanceOf(address(this))
+    outputAmount = ERC20(outputToken).balanceOf(address(this));
+    console.log("outputAmount", outputAmount);
+    require(outputAmount >= minOutput, "BAD_EXCHANGE_RATE: Try again later");
 
-     ERC20(outputToken).safeIncreaseAllowance(address(self.outputToken), amounts[1]);
-     self.outputToken.upgrade(amounts[1]);
+    // Convert the outputToken back to its supertoken version
+    ERC20(outputToken).safeIncreaseAllowance(address(self.outputToken), outputAmount);
+    self.outputToken.upgrade(outputAmount);
 
-     // TODO: Take a small fee
-
-     return amounts[1];
-     }
+    return outputAmount;
+  }
 
 
   function _initalizeLiquidityMining(StreamExchangeStorage.StreamExchange storage self) internal {

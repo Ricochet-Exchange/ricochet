@@ -23,6 +23,7 @@ describe("StreamExchange", () => {
     let usdcx;
     let ric;
     let app;
+    let sed;
     let tp; // Tellor playground
     let usingTellor;
     let sr; // Mock Sushi Router
@@ -123,7 +124,7 @@ describe("StreamExchange", () => {
         // sr = await MockUniswapRouter.deploy(tp.address, 1, dai.address);
 
         const StreamExchangeHelper = await ethers.getContractFactory("StreamExchangeHelper");
-        let sed = await StreamExchangeHelper.deploy();
+        sed = await StreamExchangeHelper.deploy();
 
         const StreamExchange = await ethers.getContractFactory("StreamExchange", {
           libraries: {
@@ -387,12 +388,15 @@ describe("StreamExchange", () => {
         expect(await app.getRequestId()).to.equal(1)
         expect(await app.getOwner()).to.equal(u.admin.address)
         expect(await app.getFeeRate()).to.equal(20000)
+        expect(await app.getRateTolerance()).to.equal(2000)
 
         await app.connect(owner).setFeeRate(20000);
+        await app.connect(owner).setRateTolerance(3000);
         await app.connect(owner).setSubsidyRate("500000000000000000")
 
         expect(await app.getSubsidyRate()).to.equal("500000000000000000")
         expect(await app.getFeeRate()).to.equal(20000)
+        expect(await app.getRateTolerance()).to.equal(3000)
         console.log("Getters and setters correct")
 
         const inflowRate = toWad(0.00004000);
@@ -403,8 +407,7 @@ describe("StreamExchange", () => {
         await tp.submitValue(1, oraclePrice);
 
         await takeMeasurements();
-
-        await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
+        await u.bob.flow({ flowRate: inflowRate, recipient: u.app })
         await traveler.advanceTimeAndBlock(60*60*3);
         await tp.submitValue(1, oraclePrice);
         await app.distribute()
@@ -416,7 +419,7 @@ describe("StreamExchange", () => {
         await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
         await traveler.advanceTimeAndBlock(60*60*2);
         await tp.submitValue(1, oraclePrice);
-        await app.distribute()
+        await expect(app.distribute()).to.emit(sed, 'Distribution')
         await takeMeasurements()
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
@@ -446,6 +449,15 @@ describe("StreamExchange", () => {
         await takeMeasurements()
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
+
+
+        // Round 6 - Bad Price
+        await traveler.advanceTimeAndBlock(60*60*2);
+        await tp.submitValue(1, oraclePrice / 2);
+        await expect(
+          app.distribute()
+        ).to.be.revertedWith("BAD_EXCHANGE_RATE: Try again later");
+
 
 
 
