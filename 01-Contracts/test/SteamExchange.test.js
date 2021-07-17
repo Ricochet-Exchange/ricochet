@@ -23,7 +23,6 @@ describe("StreamExchange", () => {
     let usdcx;
     let ric;
     let app;
-    let sed;
     let tp; // Tellor playground
     let usingTellor;
     let sr; // Mock Sushi Router
@@ -124,7 +123,7 @@ describe("StreamExchange", () => {
         // sr = await MockUniswapRouter.deploy(tp.address, 1, dai.address);
 
         const StreamExchangeHelper = await ethers.getContractFactory("StreamExchangeHelper");
-        sed = await StreamExchangeHelper.deploy();
+        let sed = await StreamExchangeHelper.deploy();
 
         const StreamExchange = await ethers.getContractFactory("StreamExchange", {
           libraries: {
@@ -407,7 +406,7 @@ describe("StreamExchange", () => {
         await tp.submitValue(1, oraclePrice);
 
         await takeMeasurements();
-        await u.bob.flow({ flowRate: inflowRate, recipient: u.app })
+        await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
         await traveler.advanceTimeAndBlock(60*60*3);
         await tp.submitValue(1, oraclePrice);
         await app.distribute()
@@ -419,7 +418,7 @@ describe("StreamExchange", () => {
         await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
         await traveler.advanceTimeAndBlock(60*60*2);
         await tp.submitValue(1, oraclePrice);
-        await expect(app.distribute()).to.emit(sed, 'Distribution')
+        await app.distribute()
         await takeMeasurements()
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
