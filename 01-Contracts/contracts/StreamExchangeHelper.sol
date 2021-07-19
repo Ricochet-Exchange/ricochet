@@ -127,7 +127,10 @@ library StreamExchangeHelper {
     uint256 outputAmount; // The balance before the swap
 
     console.log("Amount to swap", amount);
-    minOutput = amount  * 1e18 / exchangeRate / 1e12;
+    // TODO: This needs to be "invertable"
+    // minOutput = amount  * 1e18 / exchangeRate / 1e12;
+    minOutput = amount  * exchangeRate / 1e6;
+    console.log("minOutput", minOutput);
     minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
     console.log("minOutput", minOutput);
 

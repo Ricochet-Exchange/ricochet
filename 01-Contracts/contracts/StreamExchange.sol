@@ -77,7 +77,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         _exchange.oracle = ITellor(oracle);
         _exchange.requestId = requestId;
         _exchange.feeRate = 20000;
-        _exchange.rateTolerance = 2000;
+        _exchange.rateTolerance = 10000;
         _exchange.subsidyIndexId = 1;
         _exchange.subsidyRate = 4e17; // 0.4 tokens/second ~ 1,000,000 tokens in a month
         _exchange.owner = msg.sender;
