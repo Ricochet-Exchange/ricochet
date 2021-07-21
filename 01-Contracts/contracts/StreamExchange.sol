@@ -46,11 +46,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     using StreamExchangeStorage for StreamExchangeStorage.StreamExchange;
     StreamExchangeStorage.StreamExchange internal _exchange;
 
-    // TODO: Emit these events where appropriate
-    // event StartedInboundStream(address from, uint96 rate);
-    // event EndedInboundStream(address from, uint96 rate);
-    // event Distribution(uint256 totalAmount, uint256 feeCollected);
-
+    event UpdatedStream(address from, int96 newRate, int96 totalInflow);
 
     constructor(
         ISuperfluid host,
@@ -81,6 +77,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         _exchange.oracle = ITellor(oracle);
         _exchange.requestId = requestId;
         _exchange.feeRate = 20000;
+        _exchange.rateTolerance = 10000;
         _exchange.subsidyIndexId = 1;
         _exchange.subsidyRate = 4e17; // 0.4 tokens/second ~ 1,000,000 tokens in a month
         _exchange.owner = msg.sender;
@@ -131,18 +128,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     _exchange.streams[requester].rate = _exchange.streams[requester].rate + changeInFlowRate;
 
-    // if (_exchange.streams[requester].rate == 0) {
-    //   // Delete the subscription
-    //   console.log("Deleting subscription");
-    //   newCtx = _exchange._deleteSubscriptionWithContext(newCtx, address(this), _exchange.outputIndexId, requester, _exchange.outputToken);
-    //   newCtx = _exchange._deleteSubscriptionWithContext(newCtx, address(this), _exchange.subsidyIndexId, requester, _exchange.subsidyToken);
-    // } else {
-      // Update the subscription
-      newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.outputIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate)))/100, _exchange.outputToken);
-      newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.subsidyIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate)))/100, _exchange.subsidyToken);
-    // }
+    newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.outputIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.outputToken);
+    newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.subsidyIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.subsidyToken);
 
     _exchange.totalInflow = _exchange.totalInflow + changeInFlowRate;
+
+    emit UpdatedStream(requester, _exchange.streams[requester].rate, _exchange.totalInflow);
 
   }
 
@@ -157,6 +148,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
   function setFeeRate(uint128 feeRate) external onlyOwner {
     _exchange.feeRate = feeRate;
+  }
+
+  function setRateTolerance(uint128 rateTolerance) external onlyOwner {
+    _exchange.rateTolerance = rateTolerance;
   }
 
   function setOracle(address oracle) external onlyOwner {
@@ -221,6 +216,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
   function getFeeRate() external view returns (uint128) {
     return _exchange.feeRate;
+  }
+
+  function getRateTolerance() external view returns (uint256) {
+    return _exchange.rateTolerance;
   }
 
   function getStreamRate(address streamer) external view returns (int96) {

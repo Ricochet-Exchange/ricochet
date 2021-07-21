@@ -97,7 +97,7 @@ describe("StreamExchange", () => {
           console.log(accounts[i]._address)
             u[names[i].toLowerCase()] = sf.user({
                 address: accounts[i]._address || accounts[i].address,
-                token: daix.address,
+                token: ethx.address,
             });
             u[names[i].toLowerCase()].alias = names[i];
             aliases[u[names[i].toLowerCase()].address] = names[i];
@@ -148,8 +148,8 @@ describe("StreamExchange", () => {
         app = await StreamExchange.deploy(sf.host.address,
                                           sf.agreements.cfa.address,
                                           sf.agreements.ida.address,
-                                          daix.address,
                                           ethx.address,
+                                          daix.address,
                                           RIC_TOKEN_ADDRESS,
                                           SUSHISWAP_ROUTER_ADDRESS, //sr.address,
                                           TELLOR_ORACLE_ADDRESS,
@@ -171,7 +171,7 @@ describe("StreamExchange", () => {
         )(
             sf.agreements.ida.address,
             sf.agreements.ida.contract.methods
-                .approveSubscription(ethx.address, app.address, 0, "0x")
+                .approveSubscription(daix.address, app.address, 0, "0x")
                 .encodeABI(),
             "0x", // user data
             {
@@ -184,7 +184,7 @@ describe("StreamExchange", () => {
         )(
             sf.agreements.ida.address,
             sf.agreements.ida.contract.methods
-                .approveSubscription(ethx.address, app.address, 0, "0x")
+                .approveSubscription(daix.address, app.address, 0, "0x")
                 .encodeABI(),
             "0x", // user data
             {
@@ -198,7 +198,7 @@ describe("StreamExchange", () => {
         )(
             sf.agreements.ida.address,
             sf.agreements.ida.contract.methods
-                .approveSubscription(ethx.address, app.address, 0, "0x")
+                .approveSubscription(daix.address, app.address, 0, "0x")
                 .encodeABI(),
             "0x", // user data
             {
@@ -374,8 +374,8 @@ describe("StreamExchange", () => {
 
         // Check setup
         expect(await app.isAppJailed()).to.equal(false)
-        expect(await app.getInputToken()).to.equal(daix.address)
-        expect(await app.getOuputToken()).to.equal(ethx.address)
+        expect(await app.getInputToken()).to.equal(ethx.address)
+        expect(await app.getOuputToken()).to.equal(daix.address)
         expect(await app.getOuputIndexId()).to.equal(0)
         expect(await app.getSubsidyToken()).to.equal(ric.address)
         expect(await app.getSubsidyIndexId()).to.equal(1)
@@ -395,121 +395,10 @@ describe("StreamExchange", () => {
         expect(await app.getFeeRate()).to.equal(20000)
         console.log("Getters and setters correct")
 
-<<<<<<< HEAD
-        // Give alice and bob some DAIx
-        await daix.transfer(u.bob.address, "3000000000000000000", {from: u.admin.address});
-        await daix.transfer(u.alice.address, "3000000000000000000", {from: u.admin.address});
+        const inflowRate = toWad(0.0000004000);
 
-        const inflowRate = toWad(0.00004000);
-        // Test 1 streamer
-        let bobInitialEth = await ethx.balanceOf(u.bob.address)
-        let bobInitialDai = await daix.balanceOf(u.bob.address)
-        await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
-        // Go forward in time
-        console.log("Go forward in time")
-        await traveler.advanceTimeAndBlock(3600*2);
-        await tp.submitValue(1, oraclePrice);
-        let bobFinalDai = await daix.balanceOf(u.bob.address)
-        await app.distribute()
-        let bobFinalEth = await ethx.balanceOf(u.bob.address)
-
-        console.log("Bob Initial ETH:", bobInitialEth.toString())
-        console.log("Bob Initial Dai:", bobInitialDai.toString())
-        console.log("Bob Final ETH:", bobFinalEth.toString())
-        console.log("Bob Final Dai:", bobFinalDai.toString())
-        console.log("Exhcange rate:", (bobInitialDai - bobFinalDai) / (bobFinalEth - bobInitialEth))
-
-
-        let aliceInitialEth = await ethx.balanceOf(u.alice.address)
-        let aliceInitialDai = await daix.balanceOf(u.alice.address)
-        await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
-        // Go forward in time
-        console.log("Go forward in time")
-        await traveler.advanceTimeAndBlock(3600*2);
-        await tp.submitValue(1, oraclePrice);
-        let aliceFinalDai = await daix.balanceOf(u.alice.address)
-        await app.distribute()
-        let aliceFinalEth = await ethx.balanceOf(u.alice.address)
-
-        console.log("alice Initial ETH:", aliceInitialEth.toString())
-        console.log("alice Initial Dai:", aliceInitialDai.toString())
-        console.log("alice Final ETH:", aliceFinalEth.toString())
-        console.log("alice Final Dai:", aliceFinalDai.toString())
-        console.log("Exhcange rate:", (aliceInitialDai - aliceFinalDai) / (aliceFinalEth - aliceInitialEth))
-
-
-        // For holding measurements
-        var appBalances = {ethx: [], daix: [], ric: []}
-        var ownerBalances = {ethx: [], daix: [], ric: []}
-        var aliceBalances = {ethx: [], daix: [], ric: []}
-        var bobBalances = {ethx: [], daix: [], ric: []}
-
-
-        // Alice and Bob start streaming to the app
-        await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
-        await u.alice.flow({ flowRate: inflowRate*2, recipient: u.app });
-
-        ownerBalances.ethx.push(await ethx.balanceOf(u.admin.address));
-        aliceBalances.ethx.push(await ethx.balanceOf(u.alice.address));
-        bobBalances.ethx.push(await ethx.balanceOf(u.bob.address));
-        aliceBalances.daix.push(await daix.balanceOf(u.alice.address));
-        bobBalances.daix.push(await daix.balanceOf(u.bob.address));
-        appBalances.daix.push(await daix.balanceOf(u.app.address));
-
-        // Go forward in time
-        console.log("Go forward in time")
-        await traveler.advanceTimeAndBlock(3600*5);
-        await tp.submitValue(1, oraclePrice);
-
-        aliceBalances.daix.push(await daix.balanceOf(u.alice.address));
-        bobBalances.daix.push(await daix.balanceOf(u.bob.address));
-        appBalances.daix.push(await daix.balanceOf(u.app.address));
-
-        let bobDeltaDaix = bobBalances.daix[0] - bobBalances.daix[1]
-        let aliceDeltaDaix = aliceBalances.daix[0] - aliceBalances.daix[1]
-        let appDeltaDaix = appBalances.daix[1] - appBalances.daix[0]
-        console.log("APP DAIX BAL: ", appDeltaDaix)
-        expect(appDeltaDaix).to.equal(bobDeltaDaix + aliceDeltaDaix, "DIA lost during streaming");
-
-        await app.distribute()
-
-        ownerBalances.ethx.push(await ethx.balanceOf(u.admin.address));
-        aliceBalances.ethx.push(await ethx.balanceOf(u.alice.address));
-        bobBalances.ethx.push(await ethx.balanceOf(u.bob.address));
-
-        let bobDeltaEthx = bobBalances.ethx[0] - bobBalances.ethx[1]
-        let aliceDeltaEthx = aliceBalances.ethx[0] - aliceBalances.ethx[1]
-        let ownerDeltaEthx = ownerBalances.ethx[0] - ownerBalances.ethx[1]
-        let appBalance = await ethx.balanceOf(app.address)
-
-        console.log("Exchange bob rate", bobDeltaDaix / bobDeltaEthx)
-        console.log("Exchange alice rate", aliceDeltaDaix / aliceDeltaEthx)
-        console.log("App balance", appBalance.toString())
-        console.log("Alice delta", aliceDeltaEthx)
-        console.log("Bob delta", bobDeltaEthx)
-        console.log("Alice deltaDaix", aliceDeltaDaix)
-        console.log("Bob deltaDaix", bobDeltaDaix)
-        console.log("Owner delta", ownerDeltaEthx)
-        console.log("Fee rate", ownerDeltaEthx / (aliceDeltaEthx + bobDeltaEthx + ownerDeltaEthx))
-
-        // Go forward in time
-        console.log("Go forward in time")
-        await traveler.advanceTimeAndBlock(3600*2);
-        await tp.submitValue(1, oraclePrice);
-
-        aliceBalances.daix.push(await daix.balanceOf(u.alice.address));
-        bobBalances.daix.push(await daix.balanceOf(u.bob.address));
-        appBalances.daix.push(await daix.balanceOf(u.app.address));
-
-        bobDeltaDaix = bobBalances.daix[1] - bobBalances.daix[2]
-        aliceDeltaDaix = aliceBalances.daix[1] - aliceBalances.daix[2]
-        appDeltaDaix = appBalances.daix[2] - appBalances.daix[1]
-
-=======
-        const inflowRate = toWad(0.00004000);
-
-        await daix.transfer(u.bob.address, "3000000000000000000", {from: u.admin.address});
-        await daix.transfer(u.alice.address, "3000000000000000000", {from: u.admin.address});
+        await ethx.transfer(u.bob.address, "100000000000000000", {from: u.admin.address});
+        await ethx.transfer(u.alice.address, "100000000000000000", {from: u.admin.address});
 
         await tp.submitValue(1, oraclePrice);
 
@@ -542,7 +431,7 @@ describe("StreamExchange", () => {
 
 
         // Round 4
-        await u.alice.flow({ flowRate: "0", recipient: u.app });
+        // await u.alice.flow({ flowRate: "0", recipient: u.app });
         await traveler.advanceTimeAndBlock(60*60*2);
         await tp.submitValue(1, oraclePrice);
         await app.distribute()
@@ -553,31 +442,10 @@ describe("StreamExchange", () => {
         // Round 5
         await traveler.advanceTimeAndBlock(60*60*2);
         await tp.submitValue(1, oraclePrice);
->>>>>>> v1.0
         await app.distribute()
         await takeMeasurements()
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
-
-
-
-<<<<<<< HEAD
-        aliceBalances.ethx.push(await ethx.balanceOf(u.alice.address));
-        bobBalances.ethx.push(await ethx.balanceOf(u.bob.address));
-
-        bobDeltaEthx = bobBalances.ethx[1] - bobBalances.ethx[2]
-        aliceDeltaEthx = aliceBalances.ethx[1] - aliceBalances.ethx[2]
-
-        console.log("Alice delta", aliceDeltaEthx)
-        console.log("Bob delta", bobDeltaEthx)
-        console.log("Alice deltaDaix", aliceDeltaDaix)
-        console.log("Bob deltaDaix", bobDeltaDaix)
-        console.log("Owner delta", ownerDeltaEthx)
-=======
->>>>>>> v1.0
-
-        console.log("Exchange bob rate", bobDeltaDaix / bobDeltaEthx)
-        console.log("Exchange alice rate", aliceDeltaDaix / aliceDeltaEthx)
 
 
       });
