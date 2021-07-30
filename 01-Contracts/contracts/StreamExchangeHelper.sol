@@ -82,8 +82,8 @@ library StreamExchangeHelper {
       if (actualAmount == 0) { return newCtx; }
 
       // Calculate the fee for making the distribution
-      uint256 feeCollected = outputBalance * self.feeRate / 1e6;
-      uint256 distAmount = outputBalance - feeCollected;
+      uint256 feeCollected = actualAmount * self.feeRate / 1e6;
+      uint256 distAmount = actualAmount - feeCollected;
 
 
       // Calculate subside
