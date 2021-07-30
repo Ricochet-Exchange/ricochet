@@ -26,12 +26,12 @@ module.exports = {
     timeout: 100000
   },
   networks: {
-    // polygon: {
-    //   url: process.env.POLYGON_QUIKNODE_URL,
-    //   accounts: [process.env.PRIVATE_KEY],
-    //   gas: 2000000,
-    //   gasPrice: 2000000000
-    // },
+    polygon: {
+      url: "https://polygon-mainnet.infura.io/v3/" + process.env.INFURA_KEY,
+      accounts: [process.env.MATIC_PRIVATE_KEY],
+      gas: 2000000,
+      gasPrice: 20000000000
+    },
     rinkeby: {
       url: "https://rinkeby.infura.io/v3/" + process.env.INFURA_KEY,
       accounts: [process.env.PRIVATE_KEY],

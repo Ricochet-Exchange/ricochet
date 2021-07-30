@@ -60,7 +60,7 @@ async function main() {
                                                       SUSHISWAP_ROUTER_ADDRESS,
                                                       TELLOR_ORACLE_ADDRESS,
                                                       TELLOR_REQUEST_ID,
-                                                      "ricochet23" ); 
+                                                      process.env.SF_REG_KEY ); 
   await streamExchange.deployed();
   console.log("Deployed StreamExchange at address:", streamExchange.address);
 }
