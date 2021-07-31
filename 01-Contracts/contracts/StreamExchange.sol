@@ -118,8 +118,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     newCtx = ctx;
 
-    // NOTE: Trigger a distribution if there's any inputToken
-    if (ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0 && doDistributeFirst) {
+    (, , uint128 totalUnitsApproved, uint128 totalUnitsPending) = _exchange.ida.getIndex(
+                                                                         _exchange.outputToken,
+                                                                         address(this),
+                                                                         _exchange.outputIndexId);
+
+    if (doDistributeFirst && totalUnitsApproved + totalUnitsPending > 0 && ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0) {
       newCtx = _exchange._distribute(newCtx);
     }
 

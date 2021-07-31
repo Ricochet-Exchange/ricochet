@@ -50,7 +50,7 @@ describe("StreamExchange", () => {
     before(async function () {
         //process.env.RESET_SUPERFLUID_FRAMEWORK = 1;
         let response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd')
-        oraclePrice = parseInt(response.data.ethereum.usd * 1.002 * 1000000).toString()
+        oraclePrice = parseInt(response.data.ethereum.usd * 1.005 * 1000000).toString()
         console.log("oraclePrice", oraclePrice)
     });
 
@@ -389,20 +389,34 @@ describe("StreamExchange", () => {
         expect(await app.getFeeRate()).to.equal(20000)
 
         await app.connect(owner).setFeeRate(20000);
+        await app.connect(owner).setRateTolerance(50000);
         await app.connect(owner).setSubsidyRate("500000000000000000")
 
         expect(await app.getSubsidyRate()).to.equal("500000000000000000")
         expect(await app.getFeeRate()).to.equal(20000)
+        expect(await app.getRateTolerance()).to.equal(50000)
         console.log("Getters and setters correct")
 
-        const inflowRate = toWad(0.0000004000);
+        const inflowRate = toWad(0.00000004000);
 
-        await ethx.transfer(u.bob.address, "100000000000000000", {from: u.admin.address});
-        await ethx.transfer(u.alice.address, "100000000000000000", {from: u.admin.address});
+        console.log("Transfer bob")
+        await ethx.transfer(u.bob.address, "7000000000000000", {from: u.admin.address});
+        console.log("Transfer aliuce")
+        await ethx.transfer(u.alice.address, "7000000000000000", {from: u.admin.address});
+        console.log("Done")
 
         await tp.submitValue(1, oraclePrice);
 
         await takeMeasurements();
+
+        // Test owner start/stop stream
+        await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
+        await traveler.advanceTimeAndBlock(60*60*3);
+        await tp.submitValue(1, oraclePrice);
+        await app.distribute()
+        await u.admin.flow({ flowRate: "0", recipient: u.app });
+
+
 
         await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
         await traveler.advanceTimeAndBlock(60*60*3);
@@ -411,6 +425,7 @@ describe("StreamExchange", () => {
         await takeMeasurements();
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
+        await delta("Owner", ownerBalances)
 
         // Round 2
         await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
@@ -420,6 +435,8 @@ describe("StreamExchange", () => {
         await takeMeasurements()
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
+        await delta("Owner", ownerBalances)
+
 
         // Round 3
         await traveler.advanceTimeAndBlock(60*60*2);
@@ -428,6 +445,8 @@ describe("StreamExchange", () => {
         await takeMeasurements()
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
+        await delta("Owner", ownerBalances)
+
 
 
         // Round 4
@@ -438,6 +457,8 @@ describe("StreamExchange", () => {
         await takeMeasurements()
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
+        await delta("Owner", ownerBalances)
+
 
         // Round 5
         await traveler.advanceTimeAndBlock(60*60*2);
@@ -446,6 +467,8 @@ describe("StreamExchange", () => {
         await takeMeasurements()
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
+        await delta("Owner", ownerBalances)
+
 
 
       });
