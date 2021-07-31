@@ -389,10 +389,12 @@ describe("StreamExchange", () => {
         expect(await app.getFeeRate()).to.equal(20000)
 
         await app.connect(owner).setFeeRate(20000);
+        await app.connect(owner).setRateTolerance(50000);
         await app.connect(owner).setSubsidyRate("500000000000000000")
 
         expect(await app.getSubsidyRate()).to.equal("500000000000000000")
         expect(await app.getFeeRate()).to.equal(20000)
+        expect(await app.getRateTolerance()).to.equal(50000)
         console.log("Getters and setters correct")
 
         const inflowRate = toWad(0.00000004000);
@@ -423,6 +425,7 @@ describe("StreamExchange", () => {
         await takeMeasurements();
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
+        await delta("Owner", ownerBalances)
 
         // Round 2
         await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
@@ -432,6 +435,8 @@ describe("StreamExchange", () => {
         await takeMeasurements()
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
+        await delta("Owner", ownerBalances)
+
 
         // Round 3
         await traveler.advanceTimeAndBlock(60*60*2);
@@ -440,6 +445,8 @@ describe("StreamExchange", () => {
         await takeMeasurements()
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
+        await delta("Owner", ownerBalances)
+
 
 
         // Round 4
@@ -450,6 +457,8 @@ describe("StreamExchange", () => {
         await takeMeasurements()
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
+        await delta("Owner", ownerBalances)
+
 
         // Round 5
         await traveler.advanceTimeAndBlock(60*60*2);
@@ -458,6 +467,8 @@ describe("StreamExchange", () => {
         await takeMeasurements()
         await delta("Bob", bobBalances)
         await delta("Alice", aliceBalances)
+        await delta("Owner", ownerBalances)
+
 
 
       });

@@ -91,7 +91,7 @@ library StreamExchangeHelper {
 
      // Confirm the app has enough to distribute
      require(self.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
-
+     console.log("distAmount", distAmount);
      newCtx = _idaDistribute(self, self.outputIndexId, uint128(distAmount), self.outputToken, newCtx);
      emit Distribution(distAmount, feeCollected, address(self.outputToken));
 
@@ -132,7 +132,7 @@ library StreamExchangeHelper {
     minOutput = amount  * exchangeRate / 1e6;
     console.log("minOutput", minOutput);
     minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
-    console.log("minOutput", minOutput);
+    console.log("minOutput after rate tolerance", minOutput);
 
     self.inputToken.downgrade(amount);
     inputToken = self.inputToken.getUnderlyingToken();
