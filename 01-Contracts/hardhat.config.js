@@ -3,6 +3,7 @@ require("@nomiclabs/hardhat-web3");
 require('@nomiclabs/hardhat-ethers');
 require('@openzeppelin/hardhat-upgrades');
 require('hardhat-contract-sizer');
+require("@nomiclabs/hardhat-etherscan");
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -44,10 +45,15 @@ module.exports = {
     // },
     hardhat: {
         forking: {
-          url: "https://rinkeby.infura.io/v3/" + process.env.INFURA_KEY,
+          url: process.env.QUICK_NODE_URL,
           accounts: [process.env.PRIVATE_KEY_ADMIN, process.env.PRIVATE_KEY_ALICE, process.env.PRIVATE_KEY_BOB],
         }
       }
+  },
+  etherscan: {
+    // Your API key for Etherscan
+    // Obtain one at https://etherscan.io/
+    apiKey: process.env.POLYSCAN_API_KEY
   },
   contractSizer: {
     alphaSort: true,
