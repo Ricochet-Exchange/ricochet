@@ -1,7 +1,7 @@
 async function main() {
 
   const [keeper] = await ethers.getSigners();
-  const TELLOR_CONTRACT_ADDRESS = "0xACC2d27400029904919ea54fFc0b18Bf07C57875"
+  const RATE_TOLERANCE = "80000000000000000" // 0.08 RIC/sec == 50K RIC/week
   const STREAM_EXCHANGE_HELPER_ADDRESS = "0x0C7776292AB9E95c54282fD74e47d73338c457D8"
   const RICOCHET_CONTRACT_ADDRESS = "0x27C7D067A0C143990EC6ed2772E7136Cfcfaecd6"
 
@@ -13,11 +13,10 @@ async function main() {
       StreamExchangeHelper: seh.address,
     },
   });
-  const rickoshea = await StreamExchange.attach(RICOCHET_CONTRACT_ADDRESS)
+  const ricochet = await StreamExchange.attach(RICOCHET_CONTRACT_ADDRESS)
 
-  console.log("getTellorOracle", await rickoshea.getTellorOracle())
-  console.log("setOracle", TELLOR_CONTRACT_ADDRESS, await rickoshea.setOracle(TELLOR_CONTRACT_ADDRESS))
-  // console.log("getTellorOracle", await rickoshea.getTellorOracle())
+  console.log("subsidyRate", (await ricochet.getSubsidyRate()).toString())
+  console.log("setSubsidyRate", RATE_TOLERANCE, await ricochet.setSubsidyRate(RATE_TOLERANCE))
 
 }
 
