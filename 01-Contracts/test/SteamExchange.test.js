@@ -344,8 +344,8 @@ describe("StreamExchange", () => {
       let changeInDai = balances.daix[len-1] - balances.daix[len-2]
       console.log()
       console.log("Change in balances for ", account)
-      console.log("Ethx:", changeInEth)
-      console.log("Daix:", changeInDai)
+      console.log("Ethx:", changeInEth, "Bal:", balances.ethx[len-1])
+      console.log("Daix:", changeInDai, "Bal:", balances.daix[len-1])
       console.log("Exchange Rate:", changeInDai/changeInEth)
     }
 
@@ -397,7 +397,7 @@ describe("StreamExchange", () => {
         expect(await app.getRateTolerance()).to.equal(50000)
         console.log("Getters and setters correct")
 
-        const inflowRate = toWad(0.00000004000);
+        const inflowRate = toWad(0.000000100);
 
         console.log("Transfer bob")
         await ethx.transfer(u.bob.address, "7000000000000000", {from: u.admin.address});
@@ -447,11 +447,14 @@ describe("StreamExchange", () => {
         await delta("Alice", aliceBalances)
         await delta("Owner", ownerBalances)
 
-
+        // Try close stream and expect revert
+        await expect(
+         app.closeStream(u.bob.address)
+       ).to.be.revertedWith("!closable");
 
         // Round 4
         // await u.alice.flow({ flowRate: "0", recipient: u.app });
-        await traveler.advanceTimeAndBlock(60*60*2);
+        await traveler.advanceTimeAndBlock(60*60*3);
         await tp.submitValue(1, oraclePrice);
         await app.distribute()
         await takeMeasurements()
@@ -459,8 +462,15 @@ describe("StreamExchange", () => {
         await delta("Alice", aliceBalances)
         await delta("Owner", ownerBalances)
 
+        // Try to close bobs stream
+        await app.closeStream(u.bob.address);
+        // Verify its closed and cleaned up
+        expect(await app.getStreamRate(u.bob.address)).to.equal("0")
+        expect((await app.getIDAShares(0, u.bob.address)).toString()).to.equal("true,true,0,0")
+        expect((await app.getIDAShares(1, u.bob.address)).toString()).to.equal("true,true,0,0")
 
-        // Round 5
+
+        // Round 5 - Run them empty and close with keeper
         await traveler.advanceTimeAndBlock(60*60*2);
         await tp.submitValue(1, oraclePrice);
         await app.distribute()
