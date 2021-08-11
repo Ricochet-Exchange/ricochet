@@ -111,7 +111,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
      *************************************************************************/
 
     /// @dev If a new stream is opened, or an existing one is opened
-  function _updateOutflow(bytes calldata ctx, bytes calldata agreementData, bool dobuteFirst)
+  function _updateOutflow(bytes calldata ctx, bytes calldata agreementData, bool doDistributeFirst)
       private
       returns (bytes memory newCtx)
   {
@@ -123,7 +123,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
                                                                          address(this),
                                                                          _exchange.outputIndexId);
 
-    if (dobuteFirst && totalUnitsApproved + totalUnitsPending > 0 && ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0) {
+    if (doDistributeFirst && totalUnitsApproved + totalUnitsPending > 0 && ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0) {
       newCtx = _exchange._distribute(newCtx);
     }
 
