@@ -111,7 +111,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
      *************************************************************************/
 
     /// @dev If a new stream is opened, or an existing one is opened
-  function _updateOutflow(bytes calldata ctx, bytes calldata agreementData, bool doDistributeFirst)
+  function _updateOutflow(bytes calldata ctx, bytes calldata agreementData, bool dobuteFirst)
       private
       returns (bytes memory newCtx)
   {
@@ -123,7 +123,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
                                                                          address(this),
                                                                          _exchange.outputIndexId);
 
-    if (doDistributeFirst && totalUnitsApproved + totalUnitsPending > 0 && ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0) {
+    if (dobuteFirst && totalUnitsApproved + totalUnitsPending > 0 && ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0) {
       newCtx = _exchange._distribute(newCtx);
     }
 
@@ -144,6 +144,14 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
   function distribute() external {
    _exchange._distribute(new bytes(0));
+  }
+
+  function closeStream(address streamer) public {
+    _exchange._closeStream(streamer);
+  }
+
+  function emergencyCloseStream(address streamer) public {
+    _exchange._emergencyCloseStream(streamer);
   }
 
   function setSubsidyRate(uint128 subsidyRate) external onlyOwner {
@@ -168,6 +176,31 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
   function isAppJailed() external view returns (bool) {
    return _exchange.host.isAppJailed(this);
+  }
+
+  function getIDAShares(uint32 index, address streamer) external view returns (bool exist,
+                bool approved,
+                uint128 units,
+                uint256 pendingDistribution) {
+
+    ISuperToken idaToken;
+    if(index == _exchange.outputIndexId) {
+
+      idaToken = _exchange.outputToken;
+
+    } else if (index == _exchange.subsidyIndexId) {
+
+      idaToken = _exchange.subsidyToken;
+
+    } else {
+      return (exist, approved, units, pendingDistribution);
+    }
+
+    (exist, approved, units, pendingDistribution) = _exchange.ida.getSubscription(
+                                                                  idaToken,
+                                                                  address(this),
+                                                                  index,
+                                                                  streamer);
   }
 
   function getInputToken() external view returns (ISuperToken) {
@@ -230,22 +263,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     return _exchange.streams[streamer].rate;
   }
 
-  function emergencyCloseStream(address streamer) public {
-    // Allows anyone to close any stream iff the app is jailed
-    bool isJailed = ISuperfluid(msg.sender).isAppJailed(ISuperApp(address(this)));
-    require(isJailed, "!jailed");
-    _exchange.host.callAgreement(
-        _exchange.cfa,
-        abi.encodeWithSelector(
-            _exchange.cfa.deleteFlow.selector,
-            _exchange.inputToken,
-            streamer,
-            address(this),
-            new bytes(0) // placeholder
-        ),
-        "0x"
-    );
-  }
+
 
   /**
      * @dev Transfers ownership of the contract to a new account (`newOwner`).
