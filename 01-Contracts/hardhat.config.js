@@ -1,3 +1,4 @@
+require('dotenv').config();
 require("@nomiclabs/hardhat-waffle");
 require("@nomiclabs/hardhat-web3");
 require('@nomiclabs/hardhat-ethers');
@@ -24,30 +25,38 @@ task("accounts", "Prints the list of accounts", async () => {
 module.exports = {
   solidity: "0.8.3",
   mocha: {
-    timeout: 100000
+    timeout: 0
   },
+  defaultNetwork: "hardhat",
   networks: {
-    polygon: {
-      url: "https://polygon-mainnet.infura.io/v3/" + process.env.INFURA_KEY,
-      accounts: [process.env.MATIC_PRIVATE_KEY],
-      gas: 2000000,
-      gasPrice: 20000000000
-    },
-    rinkeby: {
-      url: "https://rinkeby.infura.io/v3/" + process.env.INFURA_KEY,
-      accounts: [process.env.PRIVATE_KEY],
-    },
-    // kovan: {
-    //   url: "https://kovan.infura.io/v3/" + process.env.INFURA_KEY,
-    //   accounts: [process.env.PRIVATE_KEY],
+    // polygon: {
+    //   url: "https://polygon-mainnet.infura.io/v3/" + process.env.INFURA_KEY,
+    //   accounts: [process.env.MATIC_PRIVATE_KEY],
     //   gas: 2000000,
-    //   gasPrice: 2000000000
+    //   gasPrice: 20000000000
     // },
+    // rinkeby: {
+    //   url: "https://rinkeby.infura.io/v3/" + process.env.INFURA_KEY,
+    //   accounts: [process.env.PRIVATE_KEY],
+    // },
+    // // kovan: {
+    // //   url: "https://kovan.infura.io/v3/" + process.env.INFURA_KEY,
+    // //   accounts: [process.env.PRIVATE_KEY],
+    // //   gas: 2000000,
+    // //   gasPrice: 2000000000
+    // // },
     hardhat: {
+        // forking: {
+        //   url: process.env.QUICK_NODE_URL,
+        //   accounts: [process.env.PRIVATE_KEY_ADMIN, process.env.PRIVATE_KEY_ALICE, process.env.PRIVATE_KEY_BOB],
+        // }
         forking: {
-          url: process.env.QUICK_NODE_URL,
-          accounts: [process.env.PRIVATE_KEY_ADMIN, process.env.PRIVATE_KEY_ALICE, process.env.PRIVATE_KEY_BOB],
-        }
+          url: process.env.POLYGON_MAINNET_URL,
+          blockNumber: 17909209
+        },
+        // accounts: {
+        //   mnemonic: process.env.MNEMONIC
+        // }
       }
   },
   etherscan: {
