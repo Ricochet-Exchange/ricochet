@@ -150,8 +150,10 @@ library StreamExchangeHelper {
 
      // Take the fee
      ISuperToken(self.outputToken).transfer(self.owner, feeCollected);
-
-     require(ISuperToken(self.inputToken).balanceOf(address(this)) == 0, "!sellAllInput");
+     // NOTE: After swapping any token with < 18 decimals, there may be dust left so just leave it
+     require(self.inputToken.balanceOf(address(this)) /
+             10 ** (18 - ERC20(self.inputToken.getUnderlyingToken()).decimals()) == 0,
+             "!sellAllInput");
 
 
      return newCtx;
@@ -171,21 +173,25 @@ library StreamExchangeHelper {
     uint256 minOutput;            // The minimum amount of output tokens based on Tellor
     uint256 outputAmount; // The balance before the swap
 
-    console.log("Amount to swap", amount);
+    inputToken = self.inputToken.getUnderlyingToken();
+    outputToken = self.outputToken.getUnderlyingToken();
+
+    // Downgrade and scale the input amount
+    self.inputToken.downgrade(amount);
+    amount = amount / (10 ** (18 - ERC20(inputToken).decimals()));
+
     // TODO: This needs to be "invertable"
     // minOutput = amount  * 1e18 / exchangeRate / 1e12;
     minOutput = amount  * exchangeRate / 1e6;
-    console.log("minOutput", minOutput);
     minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
-    console.log("minOutput after rate tolerance", minOutput);
+    minOutput = minOutput * 1e18 / (10 ** ERC20(outputToken).decimals());
 
-    self.inputToken.downgrade(amount);
-    inputToken = self.inputToken.getUnderlyingToken();
-    outputToken = self.outputToken.getUnderlyingToken();
     path = new address[](2);
     path[0] = inputToken;
     path[1] = outputToken;
 
+    // Downgrade and scale the input amount
+    self.inputToken.downgrade(amount);
     // Swap on Sushiswap
     ERC20(inputToken).safeIncreaseAllowance(address(self.sushiRouter), amount);
     self.sushiRouter.swapExactTokensForTokens(
