@@ -132,6 +132,9 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     _exchange.streams[requester].rate = _exchange.streams[requester].rate + changeInFlowRate;
 
+    // Make sure the requester has at least 8 hours of balance to stream
+    require(int(_exchange.inputToken.balanceOf(requester)) >= _exchange.streams[requester].rate * 8 hours, "!enoughTokens");
+
     newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.outputIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.outputToken);
     newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.subsidyIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.subsidyToken);
 

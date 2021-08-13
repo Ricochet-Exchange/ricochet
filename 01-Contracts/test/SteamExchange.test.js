@@ -410,6 +410,10 @@ describe("StreamExchange", () => {
         await takeMeasurements();
 
         // Test owner start/stop stream
+        // Try close stream and expect revert
+        await expect(
+         u.admin.flow({ flowRate: toWad(0.001), recipient: u.app })
+       ).to.be.revertedWith("!enoughTokens");
         await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
         await traveler.advanceTimeAndBlock(60*60*3);
         await tp.submitValue(1, oraclePrice);
@@ -450,7 +454,7 @@ describe("StreamExchange", () => {
         // Try close stream and expect revert
         await expect(
          app.closeStream(u.bob.address)
-       ).to.be.revertedWith("!closable");
+        ).to.be.revertedWith("!closable");
 
         // Round 4
         // await u.alice.flow({ flowRate: "0", recipient: u.app });
