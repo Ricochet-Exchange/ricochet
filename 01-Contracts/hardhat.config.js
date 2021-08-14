@@ -54,9 +54,9 @@ module.exports = {
           url: process.env.POLYGON_MAINNET_URL,
           blockNumber: 17909209
         },
-        // accounts: {
-        //   mnemonic: process.env.MNEMONIC
-        // }
+        accounts: {
+          mnemonic: process.env.MNEMONIC
+        }
       }
   },
   etherscan: {
