@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
+pragma abicoder v2;
 
 import "hardhat/console.sol";
 
@@ -192,8 +192,7 @@ library StreamExchangeHelper {
 
     // Downgrade and scale the input amount
     self.inputToken.downgrade(amount);
-    // Swap on Sushiswap
-    ERC20(inputToken).safeIncreaseAllowance(address(self.sushiRouter), amount);
+    
     self.sushiRouter.swapExactTokensForTokens(
        amount,
        0, // Accept any amount but fail if we're too far from the oracle price
@@ -206,8 +205,6 @@ library StreamExchangeHelper {
     console.log("outputAmount", outputAmount);
     require(outputAmount >= minOutput, "BAD_EXCHANGE_RATE: Try again later");
 
-    // Convert the outputToken back to its supertoken version
-    ERC20(outputToken).safeIncreaseAllowance(address(self.outputToken), outputAmount);
     self.outputToken.upgrade(outputAmount);
 
     return outputAmount;
