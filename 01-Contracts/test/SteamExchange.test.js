@@ -397,7 +397,7 @@ describe("StreamExchange", () => {
         // Round 4
         // await u.alice.flow({ flowRate: "0", recipient: u.app });
         while((await usdcx.balanceOf(u.bob.address)) > inflowRateDecimal * 60 * 60 * 8 * 1e18 ) {
-          await traveler.advanceTimeAndBlock(60*60*2);
+          await traveler.advanceTimeAndBlock(60*60*1);
           await tp.submitValue(1, oraclePrice);
           await app.distribute()
           await takeMeasurements()
