@@ -14,7 +14,7 @@ describe("StreamExchange", () => {
         if (err) throw err;
     };
 
-    const names = ["Admin", "Alice", "Bob"];
+    const names = ["Admin", "Alice", "Bob", "Carl"];
 
     let sf;
     let dai;
@@ -32,10 +32,12 @@ describe("StreamExchange", () => {
     let owner;
     let alice;
     let bob;
+    let carl;
     const RIC_TOKEN_ADDRESS = "0x263026E7e53DBFDce5ae55Ade22493f828922965"
     const SUSHISWAP_ROUTER_ADDRESS = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506"
     const TELLOR_ORACLE_ADDRESS = "0xC79255821DA1edf8E1a8870ED5cED9099bf2eAAA"
     const TELLOR_REQUEST_ID = 1
+    const CARL_ADDRESS = "0x8c3bf3EB2639b2326fF937D041292dA2e79aDBbf"
     const BOB_ADDRESS = "0x00Ce20EC71942B41F50fF566287B811bbef46DC8"
     const ALICE_ADDRESS = "0x9f348cdD00dcD61EE7917695D2157ef6af2d7b9B"
     const OWNER_ADDRESS = "0x3226C9EaC0379F04Ba2b1E1e1fcD52ac26309aeA"
@@ -79,8 +81,14 @@ describe("StreamExchange", () => {
       )
       bob = await ethers.provider.getSigner(BOB_ADDRESS)
 
+      await hre.network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [CARL_ADDRESS]}
+      )
+      carl = await ethers.provider.getSigner(CARL_ADDRESS)
 
-        const accounts = [owner, alice, bob] ;
+
+        const accounts = [owner, alice, bob, carl] ;
 
 
         sf = new SuperfluidSDK.Framework({
@@ -334,13 +342,13 @@ describe("StreamExchange", () => {
         expect(await app.getRateTolerance()).to.equal(50000)
         console.log("Getters and setters correct")
 
-        const inflowRateDecimal = 0.0008
+        const inflowRateDecimal = 0.001
         const inflowRate = toWad(inflowRateDecimal);
 
         console.log("Transfer bob")
-        await usdcx.transfer(u.bob.address, toWad(50), {from: u.admin.address});
+        await usdcx.transfer(u.bob.address, toWad(400), {from: u.carl.address});
         console.log("Transfer aliuce")
-        await usdcx.transfer(u.alice.address, toWad(50), {from: u.admin.address});
+        await usdcx.transfer(u.alice.address, toWad(400), {from: u.carl.address});
         console.log("Done")
 
         await tp.submitValue(1, oraclePrice);

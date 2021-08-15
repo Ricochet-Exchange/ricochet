@@ -123,12 +123,19 @@ library StreamExchangeHelper {
         self.outputIndexId,
         outputBalance);
 
+     console.log("outputBalance", outputBalance);
+     console.log("actualAmount", actualAmount);
+
       // Return if there's not anything to actually distribute
       if (actualAmount == 0) { return newCtx; }
 
       // Calculate the fee for making the distribution
       uint256 feeCollected = actualAmount * self.feeRate / 1e6;
       uint256 distAmount = actualAmount - feeCollected;
+
+      console.log("feeCollected", feeCollected);
+      console.log("distAmount", distAmount);
+      console.log("Fee rate:", feeCollected * 10000 / (feeCollected + distAmount));
 
 
       // Calculate subside
@@ -279,7 +286,7 @@ library StreamExchangeHelper {
            index,
            // one share for the to get it started
            subscriber,
-           shares,
+           shares / 1e9,
            new bytes(0) // placeholder ctx
        ),
        new bytes(0) // user data
@@ -303,7 +310,7 @@ library StreamExchangeHelper {
             distToken,
             index,
             subscriber,
-            shares,  // Number of shares is proportional to their rate
+            shares / 1e9,  // Number of shares is proportional to their rate
             new bytes(0)
         ),
         new bytes(0), // user data
