@@ -16,4 +16,4 @@ class Web3Hook(BaseHook):
         self.http_endpoint_uri = extras["http_endpoint_uri"]
         self.wss_endpoint_uri = extras["wss_endpoint_uri"]
         self.wss_client = Web3(Web3.WebsocketProvider(self.wss_endpoint_uri))
-        self.http_client = Web3(Web3.HTTPProvider(self.http_endpoint_uri))
+        self.http_client = Web3(Web3.HTTPProvider(self.http_endpoint_uri,request_kwargs={'timeout': 60}))

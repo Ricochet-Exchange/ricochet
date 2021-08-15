@@ -18,7 +18,7 @@ from blocksec_plugin.abis import TELLOR_ABI
 from json import loads
 import requests
 
-DISTIBUTOR_WALLET_ADDRESS = Variable.get("distributor-address", "0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be")
+DISTRIBUTOR_WALLET_ADDRESS = Variable.get("distributor-address", "0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be")
 REPORTER_WALLET_ADDRESS = Variable.get("reporter-address", "0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be")
 OLD_TELLOR_CONTRACT_ADDRESS = Variable.get("old-tellor-address", "0xC79255821DA1edf8E1a8870ED5cED9099bf2eAAA")
 TELLOR_CONTRACT_ADDRESS = Variable.get("tellor-address", "0xACC2d27400029904919ea54fFc0b18Bf07C57875")
@@ -55,7 +55,7 @@ def check_price(**context):
     return price
 
 web3 = Web3Hook(web3_conn_id='infura').http_client
-current_nonce = web3.eth.getTransactionCount(DISTIBUTOR_WALLET_ADDRESS)
+current_nonce = web3.eth.getTransactionCount(DISTRIBUTOR_WALLET_ADDRESS)
 
 done = BashOperator(
     task_id='done',
@@ -116,7 +116,7 @@ for nonce_offset, exchange_address in enumerate(EXCHANGE_ADDRESSES):
     distribute = RicochetDistributeOperator(
         task_id="distribute_" + exchange_address,
         web3_conn_id="infura",
-        ethereum_wallet=DISTIBUTOR_WALLET_ADDRESS,
+        ethereum_wallet=DISTRIBUTOR_WALLET_ADDRESS,
         gas_multiplier=10,
         contract_address=exchange_address,
         nonce=current_nonce + nonce_offset,

@@ -16,7 +16,7 @@ from blocksec_plugin.abis import RICOCHET_ABI
 from json import loads
 import requests
 
-DISTIBUTOR_WALLET_ADDRESS = Variable.get("distributor-address", "0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be")
+DISTRIBUTOR_WALLET_ADDRESS = Variable.get("distributor-address", "0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be")
 
 default_args = {
     "owner": "ricochet",
@@ -46,7 +46,7 @@ done = BashOperator(
 close_stream = RicochetStreamerCloseOperator(
     task_id="close_stream",
     web3_conn_id="infura",    # Set in Aiflow Connections UI
-    ethereum_wallet=DISTIBUTOR_WALLET_ADDRESS, # Set in Airflow Connections UI
+    ethereum_wallet=DISTRIBUTOR_WALLET_ADDRESS, # Set in Airflow Connections UI
     streamer_address='{{ dag_run.conf["streamer_address"] }}',
     exchange_address='{{ dag_run.conf["exchange_address"] }}',
     nonce='{{ dag_run.conf["nonce"] }}',
