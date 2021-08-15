@@ -22,6 +22,8 @@ describe("StreamExchange", () => {
     let usd;
     let usdcx;
     let ric;
+    let usdc;
+    let eth;
     let app;
     let tp; // Tellor playground
     let usingTellor;
@@ -135,6 +137,8 @@ describe("StreamExchange", () => {
 
         const ERC20 = await ethers.getContractFactory("ERC20");
         ric = await ERC20.attach(RIC_TOKEN_ADDRESS);
+        weth = await ERC20.attach(await ethx.getUnderlyingToken());
+        usdc = await ERC20.attach(await usdcx.getUnderlyingToken());
         ric = ric.connect(owner)
 
         // NOTE: To attach to existing SE
@@ -332,6 +336,12 @@ describe("StreamExchange", () => {
         expect(await app.getRequestId()).to.equal(1)
         expect(await app.getOwner()).to.equal(u.admin.address)
         expect(await app.getFeeRate()).to.equal(20000)
+
+        // Checks for unlimited approval
+        expect(await weth.allowance(app.address, SUSHISWAP_ROUTER_ADDRESS)).to.be.equal(ethers.constants.MaxUint256);
+        expect(await usdc.allowance(app.address, SUSHISWAP_ROUTER_ADDRESS)).to.be.equal(ethers.constants.MaxUint256);
+        expect(await weth.allowance(app.address, ethx.address)).to.be.equal(ethers.constants.MaxUint256);
+        expect(await usdc.allowance(app.address, usdcx.address)).to.be.equal(ethers.constants.MaxUint256);
 
         await app.connect(owner).setFeeRate(20000);
         await app.connect(owner).setRateTolerance(50000);
