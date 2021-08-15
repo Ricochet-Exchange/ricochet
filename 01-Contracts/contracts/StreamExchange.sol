@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
+pragma abicoder v2;
 
 // import "hardhat/console.sol";
 
@@ -81,6 +81,13 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         _exchange.subsidyIndexId = 1;
         _exchange.subsidyRate = 4e17; // 0.4 tokens/second ~ 1,000,000 tokens in a month
         _exchange.owner = msg.sender;
+
+         // Unlimited approve for sushiswap
+        ERC20(_exchange.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**256 - 1);
+        ERC20(_exchange.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**256 - 1);
+        // and Supertoken upgrades
+        ERC20(_exchange.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.inputToken), 2**256 - 1);
+        ERC20(_exchange.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.outputToken), 2**256 - 1);
 
         uint256 configWord =
             SuperAppDefinitions.APP_LEVEL_FINAL |
