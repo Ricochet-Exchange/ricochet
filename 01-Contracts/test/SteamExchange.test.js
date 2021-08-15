@@ -42,10 +42,10 @@ describe("StreamExchange", () => {
     const SF_REG_KEY = process.env.SF_REG_KEY
     let oraclePrice;
 
-    var appBalances = {ethx: [], daix: [], ric: []}
-    var ownerBalances = {ethx: [], daix: [], ric: []}
-    var aliceBalances = {ethx: [], daix: [], ric: []}
-    var bobBalances = {ethx: [], daix: [], ric: []}
+    var appBalances = { ethx: [], daix: [], ric: [] }
+    var ownerBalances = { ethx: [], daix: [], ric: [] }
+    var aliceBalances = { ethx: [], daix: [], ric: [] }
+    var bobBalances = { ethx: [], daix: [], ric: [] }
 
     before(async function () {
         //process.env.RESET_SUPERFLUID_FRAMEWORK = 1;
@@ -55,32 +55,35 @@ describe("StreamExchange", () => {
     });
 
     beforeEach(async function () {
-      // Admin
-      await hre.network.provider.request({
-        method: "hardhat_impersonateAccount",
-        params: [OWNER_ADDRESS]}
-      )
-      owner = await ethers.provider.getSigner(OWNER_ADDRESS)
-      await deployFramework(errorHandler, {
-          web3,
-          from: owner.address,
-      });
-      // Alice
-      await hre.network.provider.request({
-        method: "hardhat_impersonateAccount",
-        params: [ALICE_ADDRESS]}
-      )
-      alice = await ethers.provider.getSigner(ALICE_ADDRESS)
+        // Admin
+        await hre.network.provider.request({
+            method: "hardhat_impersonateAccount",
+            params: [OWNER_ADDRESS]
+        }
+        )
+        owner = await ethers.provider.getSigner(OWNER_ADDRESS)
+        await deployFramework(errorHandler, {
+            web3,
+            from: owner.address,
+        });
+        // Alice
+        await hre.network.provider.request({
+            method: "hardhat_impersonateAccount",
+            params: [ALICE_ADDRESS]
+        }
+        )
+        alice = await ethers.provider.getSigner(ALICE_ADDRESS)
 
-      // Bob
-      await hre.network.provider.request({
-        method: "hardhat_impersonateAccount",
-        params: [BOB_ADDRESS]}
-      )
-      bob = await ethers.provider.getSigner(BOB_ADDRESS)
+        // Bob
+        await hre.network.provider.request({
+            method: "hardhat_impersonateAccount",
+            params: [BOB_ADDRESS]
+        }
+        )
+        bob = await ethers.provider.getSigner(BOB_ADDRESS)
 
 
-        const accounts = [owner, alice, bob] ;
+        const accounts = [owner, alice, bob];
 
 
         sf = new SuperfluidSDK.Framework({
@@ -94,7 +97,7 @@ describe("StreamExchange", () => {
         daix = sf.tokens.DAIx;
 
         for (var i = 0; i < names.length; i++) {
-          console.log(accounts[i]._address)
+            console.log(accounts[i]._address)
             u[names[i].toLowerCase()] = sf.user({
                 address: accounts[i]._address || accounts[i].address,
                 token: ethx.address,
@@ -105,8 +108,8 @@ describe("StreamExchange", () => {
 
         console.log("Owner:", u.admin.address);
         console.log("Host:", sf.host.address);
-        console.log("DAIx: ",daix.address);
-        console.log("ETHx: ",ethx.address);
+        console.log("DAIx: ", daix.address);
+        console.log("ETHx: ", ethx.address);
 
         // NOTE: Assume the oracle is up to date
         // Deploy Tellor Oracle contracts
@@ -126,14 +129,16 @@ describe("StreamExchange", () => {
         let sed = await StreamExchangeHelper.deploy();
 
         const StreamExchange = await ethers.getContractFactory("StreamExchange", {
-          libraries: {
-            StreamExchangeHelper: sed.address,
-          },
-          signer: owner
+            libraries: {
+                StreamExchangeHelper: sed.address,
+            },
+            signer: owner
         });
 
         const ERC20 = await ethers.getContractFactory("ERC20");
         ric = await ERC20.attach(RIC_TOKEN_ADDRESS);
+        weth = await ERC20.attach(await ethx.getUnderlyingToken());
+        usdc = await ERC20.attach(await usdcx.getUnderlyingToken());
         ric = ric.connect(owner)
 
         // NOTE: To attach to existing SE
@@ -146,15 +151,15 @@ describe("StreamExchange", () => {
         console.log("DAIx", daix.address)
         console.log("ETHx", ethx.address)
         app = await StreamExchange.deploy(sf.host.address,
-                                          sf.agreements.cfa.address,
-                                          sf.agreements.ida.address,
-                                          ethx.address,
-                                          daix.address,
-                                          RIC_TOKEN_ADDRESS,
-                                          SUSHISWAP_ROUTER_ADDRESS, //sr.address,
-                                          TELLOR_ORACLE_ADDRESS,
-                                          TELLOR_REQUEST_ID,
-                                          SF_REG_KEY);
+            sf.agreements.cfa.address,
+            sf.agreements.ida.address,
+            ethx.address,
+            daix.address,
+            RIC_TOKEN_ADDRESS,
+            SUSHISWAP_ROUTER_ADDRESS, //sr.address,
+            TELLOR_ORACLE_ADDRESS,
+            TELLOR_REQUEST_ID,
+            SF_REG_KEY);
         console.log("Deployed")
         console.log(await ric.balanceOf(u.admin.address))
         // await ric.transfer(app.address, "1000000000000000000000000")
@@ -316,163 +321,169 @@ describe("StreamExchange", () => {
     }
 
     async function subscribe(user) {
-      // Alice approves a subscription to the app
-      console.log(sf.host.callAgreement)
-      console.log(sf.agreements.ida.address)
-      console.log(usdcx.address)
-      console.log(app.address)
-      await web3tx(
-          sf.host.callAgreement,
-          "user approves subscription to the app"
-      )(
-          sf.agreements.ida.address,
-          sf.agreements.ida.contract.methods
-              .approveSubscription(ethx.address, app.address, 0, "0x")
-              .encodeABI(),
-          "0x", // user data
-          {
-              from: user
-          }
-      );
+        // Alice approves a subscription to the app
+        console.log(sf.host.callAgreement)
+        console.log(sf.agreements.ida.address)
+        console.log(usdcx.address)
+        console.log(app.address)
+        await web3tx(
+            sf.host.callAgreement,
+            "user approves subscription to the app"
+        )(
+            sf.agreements.ida.address,
+            sf.agreements.ida.contract.methods
+                .approveSubscription(ethx.address, app.address, 0, "0x")
+                .encodeABI(),
+            "0x", // user data
+            {
+                from: user
+            }
+        );
 
 
     }
 
     async function delta(account, balances) {
-      let len = balances.ethx.length
-      let changeInEth = balances.ethx[len-1] - balances.ethx[len-2]
-      let changeInDai = balances.daix[len-1] - balances.daix[len-2]
-      console.log()
-      console.log("Change in balances for ", account)
-      console.log("Ethx:", changeInEth)
-      console.log("Daix:", changeInDai)
-      console.log("Exchange Rate:", changeInDai/changeInEth)
+        let len = balances.ethx.length
+        let changeInEth = balances.ethx[len - 1] - balances.ethx[len - 2]
+        let changeInDai = balances.daix[len - 1] - balances.daix[len - 2]
+        console.log()
+        console.log("Change in balances for ", account)
+        console.log("Ethx:", changeInEth)
+        console.log("Daix:", changeInDai)
+        console.log("Exchange Rate:", changeInDai / changeInEth)
     }
 
     async function takeMeasurements() {
-      appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
-      ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
-      aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
-      bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
+        appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
+        ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
+        aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
+        bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
 
-      appBalances.daix.push((await daix.balanceOf(app.address)).toString());
-      ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
-      aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
-      bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
+        appBalances.daix.push((await daix.balanceOf(app.address)).toString());
+        ownerBalances.daix.push((await daix.balanceOf(u.admin.address)).toString());
+        aliceBalances.daix.push((await daix.balanceOf(u.alice.address)).toString());
+        bobBalances.daix.push((await daix.balanceOf(u.bob.address)).toString());
 
-      appBalances.ric.push((await ric.balanceOf(app.address)).toString());
-      ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
-      aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
-      bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
+        appBalances.ric.push((await ric.balanceOf(app.address)).toString());
+        ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
+        aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
+        bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
     }
 
 
     describe("Stream Exchange", async function () {
-      this.timeout(100000);
+        this.timeout(100000);
 
-      it("should distribute tokens to streamers correctly", async function() {
+        it("should distribute tokens to streamers correctly", async function () {
 
-        // Check setup
-        expect(await app.isAppJailed()).to.equal(false)
-        expect(await app.getInputToken()).to.equal(ethx.address)
-        expect(await app.getOuputToken()).to.equal(daix.address)
-        expect(await app.getOuputIndexId()).to.equal(0)
-        expect(await app.getSubsidyToken()).to.equal(ric.address)
-        expect(await app.getSubsidyIndexId()).to.equal(1)
-        expect(await app.getSubsidyRate()).to.equal("400000000000000000")
-        expect(await app.getTotalInflow()).to.equal(0)
-        // expect(await app.getLastDistributionAt()).to.equal()
-        expect(await app.getSushiRouter()).to.equal(SUSHISWAP_ROUTER_ADDRESS)
-        expect(await app.getTellorOracle()).to.equal(TELLOR_ORACLE_ADDRESS)
-        expect(await app.getRequestId()).to.equal(1)
-        expect(await app.getOwner()).to.equal(u.admin.address)
-        expect(await app.getFeeRate()).to.equal(20000)
+            // Check setup
+            expect(await app.isAppJailed()).to.equal(false)
+            expect(await app.getInputToken()).to.equal(ethx.address)
+            expect(await app.getOuputToken()).to.equal(daix.address)
+            expect(await app.getOuputIndexId()).to.equal(0)
+            expect(await app.getSubsidyToken()).to.equal(ric.address)
+            expect(await app.getSubsidyIndexId()).to.equal(1)
+            expect(await app.getSubsidyRate()).to.equal("400000000000000000")
+            expect(await app.getTotalInflow()).to.equal(0)
+            // expect(await app.getLastDistributionAt()).to.equal()
+            expect(await app.getSushiRouter()).to.equal(SUSHISWAP_ROUTER_ADDRESS)
+            expect(await app.getTellorOracle()).to.equal(TELLOR_ORACLE_ADDRESS)
+            expect(await app.getRequestId()).to.equal(1)
+            expect(await app.getOwner()).to.equal(u.admin.address)
+            expect(await app.getFeeRate()).to.equal(20000)
 
-        await app.connect(owner).setFeeRate(20000);
-        await app.connect(owner).setRateTolerance(50000);
-        await app.connect(owner).setSubsidyRate("500000000000000000")
+            // Checking for unlimited approval
+            expect(await weth.allowance(app.address, SUSHISWAP_ROUTER_ADDRESS)).to.be.equal(ethers.constants.MaxUint256);
+            expect(await usdc.allowance(app.address, SUSHISWAP_ROUTER_ADDRESS)).to.be.equal(ethers.constants.MaxUint256);
+            expect(await weth.allowance(app.address, ethx.address)).to.be.equal(ethers.constants.MaxUint256);
+            expect(await usdc.allowance(app.address, usdcx.address)).to.be.equal(ethers.constants.MaxUint256);
 
-        expect(await app.getSubsidyRate()).to.equal("500000000000000000")
-        expect(await app.getFeeRate()).to.equal(20000)
-        expect(await app.getRateTolerance()).to.equal(50000)
-        console.log("Getters and setters correct")
+            await app.connect(owner).setFeeRate(20000);
+            await app.connect(owner).setRateTolerance(50000);
+            await app.connect(owner).setSubsidyRate("500000000000000000")
 
-        const inflowRate = toWad(0.00000004000);
+            expect(await app.getSubsidyRate()).to.equal("500000000000000000")
+            expect(await app.getFeeRate()).to.equal(20000)
+            expect(await app.getRateTolerance()).to.equal(50000)
+            console.log("Getters and setters correct")
 
-        console.log("Transfer bob")
-        await ethx.transfer(u.bob.address, "7000000000000000", {from: u.admin.address});
-        console.log("Transfer aliuce")
-        await ethx.transfer(u.alice.address, "7000000000000000", {from: u.admin.address});
-        console.log("Done")
+            const inflowRate = toWad(0.00000004000);
 
-        await tp.submitValue(1, oraclePrice);
+            console.log("Transfer bob")
+            await ethx.transfer(u.bob.address, "7000000000000000", { from: u.admin.address });
+            console.log("Transfer aliuce")
+            await ethx.transfer(u.alice.address, "7000000000000000", { from: u.admin.address });
+            console.log("Done")
 
-        await takeMeasurements();
+            await tp.submitValue(1, oraclePrice);
 
-        // Test owner start/stop stream
-        await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
-        await traveler.advanceTimeAndBlock(60*60*3);
-        await tp.submitValue(1, oraclePrice);
-        await app.distribute()
-        await u.admin.flow({ flowRate: "0", recipient: u.app });
+            await takeMeasurements();
 
-
-
-        await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
-        await traveler.advanceTimeAndBlock(60*60*3);
-        await tp.submitValue(1, oraclePrice);
-        await app.distribute()
-        await takeMeasurements();
-        await delta("Bob", bobBalances)
-        await delta("Alice", aliceBalances)
-        await delta("Owner", ownerBalances)
-
-        // Round 2
-        await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
-        await traveler.advanceTimeAndBlock(60*60*2);
-        await tp.submitValue(1, oraclePrice);
-        await app.distribute()
-        await takeMeasurements()
-        await delta("Bob", bobBalances)
-        await delta("Alice", aliceBalances)
-        await delta("Owner", ownerBalances)
-
-
-        // Round 3
-        await traveler.advanceTimeAndBlock(60*60*2);
-        await tp.submitValue(1, oraclePrice);
-        await app.distribute()
-        await takeMeasurements()
-        await delta("Bob", bobBalances)
-        await delta("Alice", aliceBalances)
-        await delta("Owner", ownerBalances)
+            // Test owner start/stop stream
+            await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
+            await traveler.advanceTimeAndBlock(60 * 60 * 3);
+            await tp.submitValue(1, oraclePrice);
+            await app.distribute()
+            await u.admin.flow({ flowRate: "0", recipient: u.app });
 
 
 
-        // Round 4
-        // await u.alice.flow({ flowRate: "0", recipient: u.app });
-        await traveler.advanceTimeAndBlock(60*60*2);
-        await tp.submitValue(1, oraclePrice);
-        await app.distribute()
-        await takeMeasurements()
-        await delta("Bob", bobBalances)
-        await delta("Alice", aliceBalances)
-        await delta("Owner", ownerBalances)
+            await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
+            await traveler.advanceTimeAndBlock(60 * 60 * 3);
+            await tp.submitValue(1, oraclePrice);
+            await app.distribute()
+            await takeMeasurements();
+            await delta("Bob", bobBalances)
+            await delta("Alice", aliceBalances)
+            await delta("Owner", ownerBalances)
+
+            // Round 2
+            await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
+            await traveler.advanceTimeAndBlock(60 * 60 * 2);
+            await tp.submitValue(1, oraclePrice);
+            await app.distribute()
+            await takeMeasurements()
+            await delta("Bob", bobBalances)
+            await delta("Alice", aliceBalances)
+            await delta("Owner", ownerBalances)
 
 
-        // Round 5
-        await traveler.advanceTimeAndBlock(60*60*2);
-        await tp.submitValue(1, oraclePrice);
-        await app.distribute()
-        await takeMeasurements()
-        await delta("Bob", bobBalances)
-        await delta("Alice", aliceBalances)
-        await delta("Owner", ownerBalances)
+            // Round 3
+            await traveler.advanceTimeAndBlock(60 * 60 * 2);
+            await tp.submitValue(1, oraclePrice);
+            await app.distribute()
+            await takeMeasurements()
+            await delta("Bob", bobBalances)
+            await delta("Alice", aliceBalances)
+            await delta("Owner", ownerBalances)
 
 
 
-      });
+            // Round 4
+            // await u.alice.flow({ flowRate: "0", recipient: u.app });
+            await traveler.advanceTimeAndBlock(60 * 60 * 2);
+            await tp.submitValue(1, oraclePrice);
+            await app.distribute()
+            await takeMeasurements()
+            await delta("Bob", bobBalances)
+            await delta("Alice", aliceBalances)
+            await delta("Owner", ownerBalances)
 
-  });
+
+            // Round 5
+            await traveler.advanceTimeAndBlock(60 * 60 * 2);
+            await tp.submitValue(1, oraclePrice);
+            await app.distribute()
+            await takeMeasurements()
+            await delta("Bob", bobBalances)
+            await delta("Alice", aliceBalances)
+            await delta("Owner", ownerBalances)
+
+
+
+        });
+
+    });
 
 });
