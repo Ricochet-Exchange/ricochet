@@ -180,18 +180,33 @@ library StreamExchangeHelper {
     uint256 minOutput;            // The minimum amount of output tokens based on Tellor
     uint256 outputAmount; // The balance before the swap
 
+    console.log("amount", amount);
+
     inputToken = self.inputToken.getUnderlyingToken();
     outputToken = self.outputToken.getUnderlyingToken();
 
     // Downgrade and scale the input amount
     self.inputToken.downgrade(amount);
-    amount = amount / (10 ** (18 - ERC20(inputToken).decimals()));
+    // Scale it to 1e18 for calculations
+    amount = ERC20(inputToken).balanceOf(address(this)) * (10 ** (18 - ERC20(inputToken).decimals()));
 
     // TODO: This needs to be "invertable"
-    // minOutput = amount  * 1e18 / exchangeRate / 1e12;
-    minOutput = amount  * exchangeRate / 1e6;
+    // USD >> TOK
+    minOutput = amount * 1e18 / exchangeRate / 1e12;
+    console.log("minOutput", minOutput);
+    // TOK >> USD
+    // minOutput = amount  * exchangeRate / 1e6;
     minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
-    minOutput = minOutput * 1e18 / (10 ** ERC20(outputToken).decimals());
+    console.log("minOutput", minOutput);
+
+    // Scale back from 1e18 to outputToken decimals
+    minOutput = minOutput * (10 ** (ERC20(outputToken).decimals())) / 1e18;
+    // Scale it back to inputToken decimals
+    amount = amount / (10 ** (18 - ERC20(inputToken).decimals()));
+
+
+    console.log("exchangeRate", exchangeRate);
+    console.log("minOutput", minOutput);
 
     path = new address[](2);
     path[0] = inputToken;
@@ -210,7 +225,11 @@ library StreamExchangeHelper {
     require(outputAmount >= minOutput, "BAD_EXCHANGE_RATE: Try again later");
 
     // Convert the outputToken back to its supertoken version
-    self.outputToken.upgrade(outputAmount);
+    self.outputToken.upgrade(outputAmount * (10 ** (18 - ERC20(outputToken).decimals())));
+    console.log(ERC20(outputToken).balanceOf(address(this)));
+    console.log("balanceOF", self.outputToken.balanceOf(address(this)));
+    console.log("balanceOF", self.inputToken.balanceOf(address(this)));
+
 
     return outputAmount;
   }

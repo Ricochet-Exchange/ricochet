@@ -19,6 +19,8 @@ describe("StreamExchange", () => {
     let sf;
     let dai;
     let ethx;
+    let wbtc;
+    let wbtcx;
     let usd;
     let usdcx;
     let ric;
@@ -37,8 +39,8 @@ describe("StreamExchange", () => {
     let carl;
     const RIC_TOKEN_ADDRESS = "0x263026E7e53DBFDce5ae55Ade22493f828922965"
     const SUSHISWAP_ROUTER_ADDRESS = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506"
-    const TELLOR_ORACLE_ADDRESS = "0xC79255821DA1edf8E1a8870ED5cED9099bf2eAAA"
-    const TELLOR_REQUEST_ID = 1
+    const TELLOR_ORACLE_ADDRESS = "0xACC2d27400029904919ea54fFc0b18Bf07C57875"
+    const TELLOR_REQUEST_ID = 60
     const CARL_ADDRESS = "0x8c3bf3EB2639b2326fF937D041292dA2e79aDBbf"
     const BOB_ADDRESS = "0x00Ce20EC71942B41F50fF566287B811bbef46DC8"
     const ALICE_ADDRESS = "0x9f348cdD00dcD61EE7917695D2157ef6af2d7b9B"
@@ -46,15 +48,15 @@ describe("StreamExchange", () => {
     const SF_REG_KEY = process.env.SF_REG_KEY
     let oraclePrice;
 
-    var appBalances = {ethx: [], daix: [], usdcx: [], ric: []}
-    var ownerBalances = {ethx: [], daix: [], usdcx: [], ric: []}
-    var aliceBalances = {ethx: [], daix: [], usdcx: [], ric: []}
-    var bobBalances = {ethx: [], daix: [], usdcx: [], ric: []}
+    var appBalances = {ethx: [], wbtcx: [], daix: [], usdcx: [], ric: []}
+    var ownerBalances = {ethx: [], wbtcx: [], daix: [], usdcx: [], ric: []}
+    var aliceBalances = {ethx: [], wbtcx: [], daix: [], usdcx: [], ric: []}
+    var bobBalances = {ethx: [], wbtcx: [], daix: [], usdcx: [], ric: []}
 
     before(async function () {
         //process.env.RESET_SUPERFLUID_FRAMEWORK = 1;
-        let response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd')
-        oraclePrice = parseInt(response.data.ethereum.usd * 1.005 * 1000000).toString()
+        let response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=wrapped-bitcoin&vs_currencies=usd')
+        oraclePrice = parseInt(response.data["wrapped-bitcoin"].usd * 1.02 * 1000000).toString()
         console.log("oraclePrice", oraclePrice)
     });
 
@@ -96,11 +98,12 @@ describe("StreamExchange", () => {
         sf = new SuperfluidSDK.Framework({
             web3,
             resolverAddress: "0xE0cc76334405EE8b39213E620587d815967af39C",
-            tokens: ["DAI", "USDC", "ETH"],
+            tokens: ["WBTC", "DAI", "USDC", "ETH"],
             version: "v1"
         });
         await sf.initialize();
         ethx = sf.tokens.ETHx;
+        wbtcx = sf.tokens.WBTCx;
         daix = sf.tokens.DAIx;
         usdcx = sf.tokens.USDCx;
 
@@ -138,8 +141,10 @@ describe("StreamExchange", () => {
         const ERC20 = await ethers.getContractFactory("ERC20");
         ric = await ERC20.attach(RIC_TOKEN_ADDRESS);
         weth = await ERC20.attach(await ethx.getUnderlyingToken());
+        wbtc = await ERC20.attach(await wbtcx.getUnderlyingToken());
         usdc = await ERC20.attach(await usdcx.getUnderlyingToken());
         ric = ric.connect(owner)
+        tp = tp.connect(owner)
 
         // NOTE: To attach to existing SE
         // let se = await StreamExchange.attach(STREAM_EXCHANGE_ADDRESS);
@@ -154,7 +159,7 @@ describe("StreamExchange", () => {
                                           sf.agreements.cfa.address,
                                           sf.agreements.ida.address,
                                           usdcx.address,
-                                          ethx.address,
+                                          wbtcx.address,
                                           RIC_TOKEN_ADDRESS,
                                           SUSHISWAP_ROUTER_ADDRESS, //sr.address,
                                           TELLOR_ORACLE_ADDRESS,
@@ -171,7 +176,7 @@ describe("StreamExchange", () => {
         // Do approvals
         // Already approved?
 
-        let tokens = [ethx.address, ricAddress]
+        let tokens = [wbtcx.address, ricAddress]
         let users = [u.alice.address, u.bob.address, u.admin.address]
 
         for (let t = 0; t < tokens.length; t++) {
@@ -288,12 +293,12 @@ describe("StreamExchange", () => {
     }
 
     async function delta(account, balances) {
-      let len = balances.ethx.length
-      let changeInInToken = balances.ethx[len-1] - balances.ethx[len-2]
+      let len = balances.wbtcx.length
+      let changeInInToken = balances.wbtcx[len-1] - balances.wbtcx[len-2]
       let changeInOutToken = balances.usdcx[len-1] - balances.usdcx[len-2]
       console.log()
       console.log("Change in balances for ", account)
-      console.log("Ethx:", changeInInToken, "Bal:", balances.ethx[len-1])
+      console.log("Wbtcx:", changeInInToken, "Bal:", balances.wbtcx[len-1])
       console.log("Usdcx:", changeInOutToken, "Bal:", balances.usdcx[len-1])
       console.log("Exchange Rate:", changeInOutToken/changeInInToken)
     }
@@ -303,6 +308,11 @@ describe("StreamExchange", () => {
       ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
       aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
       bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
+
+      appBalances.wbtcx.push((await wbtcx.balanceOf(app.address)).toString());
+      ownerBalances.wbtcx.push((await wbtcx.balanceOf(u.admin.address)).toString());
+      aliceBalances.wbtcx.push((await wbtcx.balanceOf(u.alice.address)).toString());
+      bobBalances.wbtcx.push((await wbtcx.balanceOf(u.bob.address)).toString());
 
       appBalances.usdcx.push((await usdcx.balanceOf(app.address)).toString());
       ownerBalances.usdcx.push((await usdcx.balanceOf(u.admin.address)).toString());
@@ -324,7 +334,7 @@ describe("StreamExchange", () => {
         // Check setup
         expect(await app.isAppJailed()).to.equal(false)
         expect(await app.getInputToken()).to.equal(usdcx.address)
-        expect(await app.getOuputToken()).to.equal(ethx.address)
+        expect(await app.getOuputToken()).to.equal(wbtcx.address)
         expect(await app.getOuputIndexId()).to.equal(0)
         expect(await app.getSubsidyToken()).to.equal(ric.address)
         expect(await app.getSubsidyIndexId()).to.equal(1)
@@ -333,14 +343,14 @@ describe("StreamExchange", () => {
         // expect(await app.getLastDistributionAt()).to.equal()
         expect(await app.getSushiRouter()).to.equal(SUSHISWAP_ROUTER_ADDRESS)
         expect(await app.getTellorOracle()).to.equal(TELLOR_ORACLE_ADDRESS)
-        expect(await app.getRequestId()).to.equal(1)
+        expect(await app.getRequestId()).to.equal(60)
         expect(await app.getOwner()).to.equal(u.admin.address)
         expect(await app.getFeeRate()).to.equal(20000)
 
         // Checks for unlimited approval
-        expect(await weth.allowance(app.address, SUSHISWAP_ROUTER_ADDRESS)).to.be.equal(ethers.constants.MaxUint256);
+        expect(await wbtc.allowance(app.address, SUSHISWAP_ROUTER_ADDRESS)).to.be.equal(ethers.constants.MaxUint256);
         expect(await usdc.allowance(app.address, SUSHISWAP_ROUTER_ADDRESS)).to.be.equal(ethers.constants.MaxUint256);
-        expect(await weth.allowance(app.address, ethx.address)).to.be.equal(ethers.constants.MaxUint256);
+        expect(await wbtc.allowance(app.address, wbtcx.address)).to.be.equal(ethers.constants.MaxUint256);
         expect(await usdc.allowance(app.address, usdcx.address)).to.be.equal(ethers.constants.MaxUint256);
 
         await app.connect(owner).setFeeRate(20000);
@@ -361,7 +371,7 @@ describe("StreamExchange", () => {
         await usdcx.transfer(u.alice.address, toWad(400), {from: u.carl.address});
         console.log("Done")
 
-        await tp.submitValue(1, oraclePrice);
+        await tp.submitValue(60, oraclePrice);
 
         await takeMeasurements();
 
@@ -372,7 +382,7 @@ describe("StreamExchange", () => {
        ).to.be.revertedWith("!enoughTokens");
         await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
         await traveler.advanceTimeAndBlock(60*60*1);
-        await tp.submitValue(1, oraclePrice);
+        await tp.submitValue(60, oraclePrice);
         await app.distribute()
         await u.admin.flow({ flowRate: "0", recipient: u.app });
 
@@ -380,7 +390,7 @@ describe("StreamExchange", () => {
 
         await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
         await traveler.advanceTimeAndBlock(60*60*1);
-        await tp.submitValue(1, oraclePrice);
+        await tp.submitValue(60, oraclePrice);
         await app.distribute()
         await takeMeasurements();
         await delta("Bob", bobBalances)
@@ -390,7 +400,7 @@ describe("StreamExchange", () => {
         // Round 2
         await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
         await traveler.advanceTimeAndBlock(60*60*1);
-        await tp.submitValue(1, oraclePrice);
+        await tp.submitValue(60, oraclePrice);
         await app.distribute()
         await takeMeasurements()
         await delta("Bob", bobBalances)
@@ -400,7 +410,7 @@ describe("StreamExchange", () => {
 
         // Round 3
         await traveler.advanceTimeAndBlock(60*60*1);
-        await tp.submitValue(1, oraclePrice);
+        await tp.submitValue(60, oraclePrice);
         await app.distribute()
         await takeMeasurements()
         await delta("Bob", bobBalances)
@@ -416,7 +426,7 @@ describe("StreamExchange", () => {
         // await u.alice.flow({ flowRate: "0", recipient: u.app });
         while((await usdcx.balanceOf(u.bob.address)) > inflowRateDecimal * 60 * 60 * 8 * 1e18 ) {
           await traveler.advanceTimeAndBlock(60*60*1);
-          await tp.submitValue(1, oraclePrice);
+          await tp.submitValue(60, oraclePrice);
           await app.distribute()
           await takeMeasurements()
           await delta("Bob", bobBalances)
@@ -434,7 +444,7 @@ describe("StreamExchange", () => {
 
         // Round 5 - Run them empty and close with keeper
         await traveler.advanceTimeAndBlock(60*60*1);
-        await tp.submitValue(1, oraclePrice);
+        await tp.submitValue(60, oraclePrice);
         await app.distribute()
         await takeMeasurements()
         await delta("Bob", bobBalances)
