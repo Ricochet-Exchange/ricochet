@@ -197,9 +197,6 @@ library StreamExchangeHelper {
     path[0] = inputToken;
     path[1] = outputToken;
 
-    // Downgrade and scale the input amount
-    self.inputToken.downgrade(amount);
-    
     self.sushiRouter.swapExactTokensForTokens(
        amount,
        0, // Accept any amount but fail if we're too far from the oracle price
