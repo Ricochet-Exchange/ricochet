@@ -227,8 +227,6 @@ library StreamExchangeHelper {
     // Convert the outputToken back to its supertoken version
     self.outputToken.upgrade(outputAmount * (10 ** (18 - ERC20(outputToken).decimals())));
     console.log(ERC20(outputToken).balanceOf(address(this)));
-    console.log("balanceOF", self.outputToken.balanceOf(address(this)));
-    console.log("balanceOF", self.inputToken.balanceOf(address(this)));
 
 
     return outputAmount;
