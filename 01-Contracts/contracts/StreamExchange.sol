@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
+pragma abicoder v2;
 
 // import "hardhat/console.sol";
 
@@ -82,6 +82,13 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         _exchange.subsidyRate = 4e17; // 0.4 tokens/second ~ 1,000,000 tokens in a month
         _exchange.owner = msg.sender;
 
+         // Unlimited approve for sushiswap
+        ERC20(_exchange.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**256 - 1);
+        ERC20(_exchange.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**256 - 1);
+        // and Supertoken upgrades
+        ERC20(_exchange.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.inputToken), 2**256 - 1);
+        ERC20(_exchange.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.outputToken), 2**256 - 1);
+
         uint256 configWord =
             SuperAppDefinitions.APP_LEVEL_FINAL |
             SuperAppDefinitions.BEFORE_AGREEMENT_CREATED_NOOP |
@@ -132,6 +139,9 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     _exchange.streams[requester].rate = _exchange.streams[requester].rate + changeInFlowRate;
 
+    // Make sure the requester has at least 8 hours of balance to stream
+    require(int(_exchange.inputToken.balanceOf(requester)) >= _exchange.streams[requester].rate * 8 hours, "!enoughTokens");
+
     newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.outputIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.outputToken);
     newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.subsidyIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.subsidyToken);
 
@@ -144,6 +154,14 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
   function distribute() external {
    _exchange._distribute(new bytes(0));
+  }
+
+  function closeStream(address streamer) public {
+    _exchange._closeStream(streamer);
+  }
+
+  function emergencyCloseStream(address streamer) public {
+    _exchange._emergencyCloseStream(streamer);
   }
 
   function setSubsidyRate(uint128 subsidyRate) external onlyOwner {
@@ -168,6 +186,31 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
   function isAppJailed() external view returns (bool) {
    return _exchange.host.isAppJailed(this);
+  }
+
+  function getIDAShares(uint32 index, address streamer) external view returns (bool exist,
+                bool approved,
+                uint128 units,
+                uint256 pendingDistribution) {
+
+    ISuperToken idaToken;
+    if(index == _exchange.outputIndexId) {
+
+      idaToken = _exchange.outputToken;
+
+    } else if (index == _exchange.subsidyIndexId) {
+
+      idaToken = _exchange.subsidyToken;
+
+    } else {
+      return (exist, approved, units, pendingDistribution);
+    }
+
+    (exist, approved, units, pendingDistribution) = _exchange.ida.getSubscription(
+                                                                  idaToken,
+                                                                  address(this),
+                                                                  index,
+                                                                  streamer);
   }
 
   function getInputToken() external view returns (ISuperToken) {
@@ -230,22 +273,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     return _exchange.streams[streamer].rate;
   }
 
-  function emergencyCloseStream(address streamer) public {
-    // Allows anyone to close any stream iff the app is jailed
-    bool isJailed = ISuperfluid(msg.sender).isAppJailed(ISuperApp(address(this)));
-    require(isJailed, "!jailed");
-    _exchange.host.callAgreement(
-        _exchange.cfa,
-        abi.encodeWithSelector(
-            _exchange.cfa.deleteFlow.selector,
-            _exchange.inputToken,
-            streamer,
-            address(this),
-            new bytes(0) // placeholder
-        ),
-        "0x"
-    );
-  }
+
 
   /**
      * @dev Transfers ownership of the contract to a new account (`newOwner`).

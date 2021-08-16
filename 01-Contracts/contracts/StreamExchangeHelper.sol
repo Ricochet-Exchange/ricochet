@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
+pragma abicoder v2;
 
 import "hardhat/console.sol";
 
 import {
+    ISuperfluid,
+    ISuperToken,
     ISuperToken,
     ISuperAgreement
 } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
@@ -23,6 +25,49 @@ library StreamExchangeHelper {
   // TODO: Emit these events where appropriate
   event Distribution(uint256 totalAmount, uint256 feeCollected, address token);
 
+
+  function _closeStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
+    // Only closable iff their balance is less than 8 hours of streaming
+    require(int(self.inputToken.balanceOf(streamer)) <= self.streams[streamer].rate * 8 hours,
+              "!closable");
+
+    self.streams[streamer].rate = 0;
+
+    // Update Subscriptions
+    _updateSubscription(self, self.subsidyIndexId, streamer, 0, self.subsidyToken);
+    _updateSubscription(self, self.outputIndexId, streamer, 0, self.outputToken);
+
+    // Close the streamers stream
+    self.host.callAgreement(
+        self.cfa,
+        abi.encodeWithSelector(
+            self.cfa.deleteFlow.selector,
+            self.inputToken,
+            streamer,
+            address(this),
+            new bytes(0) // placeholder
+        ),
+        "0x"
+    );
+
+  }
+
+  function _emergencyCloseStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
+    // Allows anyone to close any stream iff the app is jailed
+    bool isJailed = ISuperfluid(msg.sender).isAppJailed(ISuperApp(address(this)));
+    require(isJailed, "!jailed");
+    self.host.callAgreement(
+        self.cfa,
+        abi.encodeWithSelector(
+            self.cfa.deleteFlow.selector,
+            self.inputToken,
+            streamer,
+            address(this),
+            new bytes(0) // placeholder
+        ),
+        "0x"
+    );
+  }
 
   function _getCurrentValue(
     StreamExchangeStorage.StreamExchange storage self,
@@ -78,12 +123,19 @@ library StreamExchangeHelper {
         self.outputIndexId,
         outputBalance);
 
+     console.log("outputBalance", outputBalance);
+     console.log("actualAmount", actualAmount);
+
       // Return if there's not anything to actually distribute
       if (actualAmount == 0) { return newCtx; }
 
       // Calculate the fee for making the distribution
       uint256 feeCollected = actualAmount * self.feeRate / 1e6;
       uint256 distAmount = actualAmount - feeCollected;
+
+      console.log("feeCollected", feeCollected);
+      console.log("distAmount", distAmount);
+      console.log("Fee rate:", feeCollected * 10000 / (feeCollected + distAmount));
 
 
       // Calculate subside
@@ -105,8 +157,10 @@ library StreamExchangeHelper {
 
      // Take the fee
      ISuperToken(self.outputToken).transfer(self.owner, feeCollected);
-
-     require(ISuperToken(self.inputToken).balanceOf(address(this)) == 0, "!sellAllInput");
+     // NOTE: After swapping any token with < 18 decimals, there may be dust left so just leave it
+     require(self.inputToken.balanceOf(address(this)) /
+             10 ** (18 - ERC20(self.inputToken.getUnderlyingToken()).decimals()) == 0,
+             "!sellAllInput");
 
 
      return newCtx;
@@ -126,23 +180,38 @@ library StreamExchangeHelper {
     uint256 minOutput;            // The minimum amount of output tokens based on Tellor
     uint256 outputAmount; // The balance before the swap
 
-    console.log("Amount to swap", amount);
-    // TODO: This needs to be "invertable"
-    // minOutput = amount  * 1e18 / exchangeRate / 1e12;
-    minOutput = amount  * exchangeRate / 1e6;
-    console.log("minOutput", minOutput);
-    minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
-    console.log("minOutput after rate tolerance", minOutput);
+    console.log("amount", amount);
 
-    self.inputToken.downgrade(amount);
     inputToken = self.inputToken.getUnderlyingToken();
     outputToken = self.outputToken.getUnderlyingToken();
+
+    // Downgrade and scale the input amount
+    self.inputToken.downgrade(amount);
+    // Scale it to 1e18 for calculations
+    amount = ERC20(inputToken).balanceOf(address(this)) * (10 ** (18 - ERC20(inputToken).decimals()));
+
+    // TODO: This needs to be "invertable"
+    // USD >> TOK
+    minOutput = amount * 1e18 / exchangeRate / 1e12;
+    console.log("minOutput", minOutput);
+    // TOK >> USD
+    // minOutput = amount  * exchangeRate / 1e6;
+    minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
+    console.log("minOutput", minOutput);
+
+    // Scale back from 1e18 to outputToken decimals
+    minOutput = minOutput * (10 ** (ERC20(outputToken).decimals())) / 1e18;
+    // Scale it back to inputToken decimals
+    amount = amount / (10 ** (18 - ERC20(inputToken).decimals()));
+
+
+    console.log("exchangeRate", exchangeRate);
+    console.log("minOutput", minOutput);
+
     path = new address[](2);
     path[0] = inputToken;
     path[1] = outputToken;
 
-    // Swap on Sushiswap
-    ERC20(inputToken).safeIncreaseAllowance(address(self.sushiRouter), amount);
     self.sushiRouter.swapExactTokensForTokens(
        amount,
        0, // Accept any amount but fail if we're too far from the oracle price
@@ -156,8 +225,9 @@ library StreamExchangeHelper {
     require(outputAmount >= minOutput, "BAD_EXCHANGE_RATE: Try again later");
 
     // Convert the outputToken back to its supertoken version
-    ERC20(outputToken).safeIncreaseAllowance(address(self.outputToken), outputAmount);
-    self.outputToken.upgrade(outputAmount);
+    self.outputToken.upgrade(outputAmount * (10 ** (18 - ERC20(outputToken).decimals())));
+    console.log(ERC20(outputToken).balanceOf(address(this)));
+
 
     return outputAmount;
   }
@@ -228,7 +298,7 @@ library StreamExchangeHelper {
            index,
            // one share for the to get it started
            subscriber,
-           shares,
+           shares / 1e9,
            new bytes(0) // placeholder ctx
        ),
        new bytes(0) // user data
@@ -252,7 +322,7 @@ library StreamExchangeHelper {
             distToken,
             index,
             subscriber,
-            shares,  // Number of shares is proportional to their rate
+            shares / 1e9,  // Number of shares is proportional to their rate
             new bytes(0)
         ),
         new bytes(0), // user data
@@ -283,10 +353,6 @@ library StreamExchangeHelper {
         newCtx
       );
   }
-
-
-
-
 
 
   /**************************************************************************
