@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
+pragma abicoder v2;
 
 // import "hardhat/console.sol";
 
@@ -151,6 +151,9 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     int96 changeInFlowRate = _exchange.cfa.getNetFlow(pool.token, address(this)) - pool.totalInflow;
     pool.streams[requester].rate = pool.streams[requester].rate + changeInFlowRate;
 
+    // Make sure the requester has at least 8 hours of balance to stream
+    require(int(_exchange.inputToken.balanceOf(requester)) >= pool.streams[requester].rate * 8 hours, "!enoughTokens");
+
     newCtx = _exchange._updateSubscriptionWithContext(newCtx, pool.idaIndex, requester, uint128(uint(int(pool.streams[requester].rate))), pool.token);
 
     //TODO: Subsidy token will need to contain two pools
@@ -165,6 +168,14 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
   function distribute() external {
    _exchange._distribute(new bytes(0));
+  }
+
+  function closeStream(address streamer) public {
+    _exchange._closeStream(streamer);
+  }
+
+  function emergencyCloseStream(address streamer) public {
+    _exchange._emergencyCloseStream(streamer);
   }
 
   function setSubsidyRate(uint128 subsidyRate) external onlyOwner {
@@ -197,6 +208,31 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     } else {
       return _exchange.poolA.token;
     }
+  }
+
+  function getIDAShares(uint32 index, address streamer) external view returns (bool exist,
+                bool approved,
+                uint128 units,
+                uint256 pendingDistribution) {
+
+    ISuperToken idaToken;
+    if(index == _exchange.outputIndexId) {
+
+      idaToken = _exchange.outputToken;
+
+    } else if (index == _exchange.subsidyIndexId) {
+
+      idaToken = _exchange.subsidyToken;
+
+    } else {
+      return (exist, approved, units, pendingDistribution);
+    }
+
+    (exist, approved, units, pendingDistribution) = _exchange.ida.getSubscription(
+                                                                  idaToken,
+                                                                  address(this),
+                                                                  index,
+                                                                  streamer);
   }
 
   function getTotalInflow(uint256 pool) external view returns (int96) {
@@ -256,7 +292,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       return _exchange.poolA.streams[streamer].rate;
     }
   }
-
+  
   function emergencyCloseStream(address streamer, address token) public {
     // Allows anyone to close any stream iff the app is jailed
     bool isJailed = ISuperfluid(msg.sender).isAppJailed(ISuperApp(address(this)));
@@ -273,6 +309,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         "0x"
     );
   }
+
 
   /**
      * @dev Transfers ownership of the contract to a new account (`newOwner`).

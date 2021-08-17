@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
+pragma abicoder v2;
 
 import "hardhat/console.sol";
 
 import {
+    ISuperfluid,
+    ISuperToken,
     ISuperToken,
     ISuperAgreement
 } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
@@ -22,6 +24,49 @@ library StreamExchangeHelper {
 
   event Distribution(uint256 totalAmount, uint256 feeCollected, address token);
   event InternalSwap(uint256 inAmount, address inToken, uint256 outAmount, address outToken);
+
+  function _closeStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
+    // Only closable iff their balance is less than 8 hours of streaming
+    require(int(self.inputToken.balanceOf(streamer)) <= self.streams[streamer].rate * 8 hours,
+              "!closable");
+
+    self.streams[streamer].rate = 0;
+
+    // Update Subscriptions
+    _updateSubscription(self, self.subsidyIndexId, streamer, 0, self.subsidyToken);
+    _updateSubscription(self, self.outputIndexId, streamer, 0, self.outputToken);
+
+    // Close the streamers stream
+    self.host.callAgreement(
+        self.cfa,
+        abi.encodeWithSelector(
+            self.cfa.deleteFlow.selector,
+            self.inputToken,
+            streamer,
+            address(this),
+            new bytes(0) // placeholder
+        ),
+        "0x"
+    );
+
+  }
+
+  function _emergencyCloseStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
+    // Allows anyone to close any stream iff the app is jailed
+    bool isJailed = ISuperfluid(msg.sender).isAppJailed(ISuperApp(address(this)));
+    require(isJailed, "!jailed");
+    self.host.callAgreement(
+        self.cfa,
+        abi.encodeWithSelector(
+            self.cfa.deleteFlow.selector,
+            self.inputToken,
+            streamer,
+            address(this),
+            new bytes(0) // placeholder
+        ),
+        "0x"
+    );
+  }
 
   function _getCurrentValue(
     StreamExchangeStorage.StreamExchange storage self,
@@ -146,11 +191,25 @@ library StreamExchangeHelper {
 
     console.log("Amount to swap", amount);
 
-    // Compute the minOutput acceptable by scaling the amount down by rateTolerance
-    minOutput = amount * (1e6 - self.rateTolerance) / 1e6;
-    console.log("minOutput after rate tolerance", minOutput);
-
     ISuperToken(path[0]).downgrade(amount);
+    // Scale it to 1e18 for calculations
+    amount = ERC20(inputToken).balanceOf(address(this)) * (10 ** (18 - ERC20(inputToken).decimals()));
+
+    // Compute Exchange Rate
+    // TODO: This needs to be "invertable"
+    // USD >> TOK
+    minOutput = amount * 1e18 / exchangeRate / 1e12;
+    console.log("minOutput", minOutput);
+    // TOK >> USD
+    // minOutput = amount  * exchangeRate / 1e6;
+    minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
+    console.log("minOutput", minOutput);
+    // Scale back from 1e18 to outputToken decimals
+    minOutput = minOutput * (10 ** (ERC20(outputToken).decimals())) / 1e18;
+    // Scale it back to inputToken decimals
+    amount = amount / (10 ** (18 - ERC20(inputToken).decimals()));
+
+
     address inputToken = ISuperToken(path[0]).getUnderlyingToken();
     address outputToken = ISuperToken(path[1]).getUnderlyingToken();
     path[0] = inputToken;
@@ -158,7 +217,6 @@ library StreamExchangeHelper {
 
     // Swap on Sushiswap and verify swap rate is good using oracle price
     uint256 initialBalance = ERC20(path[1]).balanceOf(address(this));
-    // Unlimited approval in the constructor
     self.sushiRouter.swapExactTokensForTokens(
        amount,
        0, // Accept any amount but fail if we're too far from the oracle price
@@ -249,7 +307,7 @@ library StreamExchangeHelper {
            index,
            // one share for the to get it started
            subscriber,
-           shares,
+           shares / 1e9,
            new bytes(0) // placeholder ctx
        ),
        new bytes(0) // user data
@@ -273,7 +331,7 @@ library StreamExchangeHelper {
             distToken,
             index,
             subscriber,
-            shares,  // Number of shares is proportional to their rate
+            shares / 1e9,  // Number of shares is proportional to their rate
             new bytes(0)
         ),
         new bytes(0), // user data
@@ -304,10 +362,6 @@ library StreamExchangeHelper {
         newCtx
       );
   }
-
-
-
-
 
 
   /**************************************************************************
