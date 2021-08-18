@@ -129,8 +129,11 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
                                                                          _exchange.outputToken,
                                                                          address(this),
                                                                          _exchange.outputIndexId);
+    // Check balance and account for
+    uint256 balance = ISuperToken(_exchange.inputToken).balanceOf(address(this)) /
+                      (10 ** (18 - ERC20(_exchange.inputToken.getUnderlyingToken()).decimals()));
 
-    if (doDistributeFirst && totalUnitsApproved + totalUnitsPending > 0 && ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0) {
+    if (doDistributeFirst && totalUnitsApproved + totalUnitsPending > 0 && balance > 0) {
       newCtx = _exchange._distribute(newCtx);
     }
 
