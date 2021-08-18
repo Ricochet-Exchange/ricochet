@@ -7,7 +7,7 @@ Ethereum Block Poll
 ** Requires the following tables exist:
 
 CREATE TABLE ethereum_events(
-    id  INTEGER PRIMARY KEY,
+    id  SERIAL PRIMARY KEY,
     args  JSON,
     event  VARCHAR(128),
     log_index  INTEGER,
@@ -20,8 +20,8 @@ CREATE TABLE ethereum_events(
     updated_at timestamp
 );
 
-CREATE TABLE ethereum_blocks,
-    id INTEGER PRIMARY KEY,
+CREATE TABLE ethereum_blocks(
+    id SERIAL PRIMARY KEY,
     block_height INTEGER,
     mined_at timestamp,
     created_at timestamp,
@@ -77,7 +77,11 @@ def get_from_block_height(**context):
     cursor = conn.cursor()
     cursor.execute(sql)
     result = cursor.fetchall()
-    from_block_height = result[0][0]
+    try:
+        from_block_height = result[0][0]
+    except IndexError:
+        # first time running
+        from_block_height = 17498383
     return from_block_height
 
 done = BashOperator(
