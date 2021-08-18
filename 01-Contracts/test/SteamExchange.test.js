@@ -38,7 +38,7 @@ describe("StreamExchange", () => {
     let bob;
     let carl;
     const RIC_TOKEN_ADDRESS = "0x263026E7e53DBFDce5ae55Ade22493f828922965"
-    const SUSHISWAP_ROUTER_ADDRESS = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506"
+    const SUSHISWAP_ROUTER_ADDRESS = "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff"
     const TELLOR_ORACLE_ADDRESS = "0xACC2d27400029904919ea54fFc0b18Bf07C57875"
     const TELLOR_REQUEST_ID = 60
     const CARL_ADDRESS = "0x8c3bf3EB2639b2326fF937D041292dA2e79aDBbf"
@@ -354,12 +354,12 @@ describe("StreamExchange", () => {
         expect(await usdc.allowance(app.address, usdcx.address)).to.be.equal(ethers.constants.MaxUint256);
 
         await app.connect(owner).setFeeRate(20000);
-        await app.connect(owner).setRateTolerance(50000);
+        await app.connect(owner).setRateTolerance(20000);
         await app.connect(owner).setSubsidyRate("500000000000000000")
 
         expect(await app.getSubsidyRate()).to.equal("500000000000000000")
         expect(await app.getFeeRate()).to.equal(20000)
-        expect(await app.getRateTolerance()).to.equal(50000)
+        expect(await app.getRateTolerance()).to.equal(20000)
         console.log("Getters and setters correct")
 
         const inflowRateDecimal = 0.001
@@ -381,10 +381,15 @@ describe("StreamExchange", () => {
          u.admin.flow({ flowRate: toWad(10000), recipient: u.app })
        ).to.be.revertedWith("!enoughTokens");
         await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
-        await traveler.advanceTimeAndBlock(60*60*1);
+        await traveler.advanceTimeAndBlock(60*60*1 + 13);
         await tp.submitValue(60, oraclePrice);
         await app.distribute()
         await u.admin.flow({ flowRate: "0", recipient: u.app });
+        await traveler.advanceTimeAndBlock(60);
+        await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
+        await u.admin.flow({ flowRate: "0", recipient: u.app });
+
+
 
 
 

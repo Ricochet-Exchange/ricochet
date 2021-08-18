@@ -63,55 +63,6 @@ done = BashOperator(
     dag=dag,
 )
 
-price_check = PythonOperator(
-    task_id="price_check",
-    provide_context=True,
-    python_callable=check_price,
-    dag=dag
-)
-
-oracle_update_old = TellorOracleOperator(
-    task_id="oracle_update_old",
-    web3_conn_id="infura",
-    ethereum_wallet=REPORTER_WALLET_ADDRESS,
-    contract_address=OLD_TELLOR_CONTRACT_ADDRESS,
-    price='{{task_instance.xcom_pull(task_ids="price_check")}}',
-    request_id=1,
-    gas_multiplier=10,
-    gas=250000,
-    dag=dag,
-)
-
-confirm_oracle_update_old = EthereumTransactionConfirmationSensor(
-    task_id="confirm_oracle_update_old",
-    web3_conn_id="infura",
-    transaction_hash="{{task_instance.xcom_pull(task_ids='oracle_update_old')}}",
-    confirmations=1,
-    poke_interval=5,
-    dag=dag
-)
-
-oracle_update = TellorOracleOperator(
-    task_id="oracle_update",
-    web3_conn_id="infura",
-    ethereum_wallet=REPORTER_WALLET_ADDRESS,
-    contract_address=TELLOR_CONTRACT_ADDRESS,
-    price='{{task_instance.xcom_pull(task_ids="price_check")}}',
-    request_id=1,
-    gas_multiplier=10,
-    gas=250000,
-    dag=dag,
-)
-
-confirm_oracle_update = EthereumTransactionConfirmationSensor(
-    task_id="confirm_oracle_update",
-    web3_conn_id="infura",
-    transaction_hash="{{task_instance.xcom_pull(task_ids='oracle_update')}}",
-    confirmations=1,
-    poke_interval=20,
-    dag=dag
-)
-
 for nonce_offset, exchange_address in enumerate(EXCHANGE_ADDRESSES):
     distribute = RicochetDistributeOperator(
         task_id="distribute_" + exchange_address,
@@ -132,5 +83,4 @@ for nonce_offset, exchange_address in enumerate(EXCHANGE_ADDRESSES):
         dag=dag
     )
 
-    done << confirm_distribute << distribute << \
-            confirm_oracle_update << oracle_update <<confirm_oracle_update_old << oracle_update_old << price_check
+    done << confirm_distribute << distribute 

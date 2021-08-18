@@ -63,23 +63,22 @@ def get_from_block_height(**context):
     """
     Check the smart_contracts table for the current_block_height
     """
-    # execution_date = context['execution_date'].isoformat()
-    # sql = """
-    # SELECT block_height
-    # FROM ethereum_blocks
-    # WHERE mined_at < ('{0}'::timestamp -  interval '1 hour')
-    # ORDER BY 1 DESC
-    # LIMIT 1
-    # """.format(execution_date)
-    # print(sql)
-    # postgres = PostgresHook(postgres_conn_id='data_warehouse')
-    # conn = postgres.get_conn()
-    # cursor = conn.cursor()
-    # cursor.execute(sql)
-    # result = cursor.fetchall()
-    # from_block_height = result[0][0]
-    # return from_block_height
-    return 17476400
+    execution_date = context['execution_date'].isoformat()
+    sql = """
+    SELECT block_height
+    FROM ethereum_blocks
+    WHERE mined_at < ('{0}'::timestamp -  interval '1 hour')
+    ORDER BY 1 DESC
+    LIMIT 1
+    """.format(execution_date)
+    print(sql)
+    postgres = PostgresHook(postgres_conn_id='data_warehouse')
+    conn = postgres.get_conn()
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    result = cursor.fetchall()
+    from_block_height = result[0][0]
+    return from_block_height
 
 done = BashOperator(
     task_id='done',

@@ -38,7 +38,7 @@ dag = DAG("ricochet_tellor_reporter",
           max_active_runs=1,
           catchup=False,
           default_args=default_args,
-          schedule_interval="* * * * *")
+          schedule_interval="*/5 * * * *")
 
 
 # TODO: Consolidate these into 1 fxn
@@ -59,13 +59,13 @@ def check_price_wbtc(**context):
     """
     Check the price of the assets to use for updating the oracle
     """
-    url = f"https://api.coingecko.com/api/v3/simple/price?ids=wbtc&vs_currencies=usd"
+    url = f"https://api.coingecko.com/api/v3/simple/price?ids=wrapped-btc&vs_currencies=usd"
     print(url)
     response = requests.get(url)
     result = response.json()
     print(result)
     # Raise the price by 50 basis points and scale for Tellor
-    price = int(result["wbtc"]["usd"] * 1.005 * 1000000)
+    price = int(result["wrapped-btc"]["usd"] * 1.005 * 1000000)
     return price
 
 done = BashOperator(
