@@ -85,10 +85,10 @@ def review_streamers_and_trigger_closures(**context):
 
         # Check if the streamers balance is less that 8 hours of streamer
         ricochet = web3.eth.contract(address=exchange_address, abi=RICOCHET_ABI)
-        input_token = ricochet.functions.getInputToken()
+        input_token = ricochet.functions.getInputToken().call()
         input_token = web3.eth.contract(address=input_token, abi=ERC20_ABI)
-        balance = input_token.functions.balanceOf(streamer)
-        rate = ricochet.functions.getStreamRate(streamer)
+        balance = input_token.functions.balanceOf(streamer).call()
+        rate = ricochet.functions.getStreamRate(streamer).call()
         is_closable = balance < rate * 60 * 60 * 8 # balance is greater than 8 hours of streaming
         print(f"Checked {streamer}, balance: {balance}, rate: {rate}, is_closable: {is_closable}")
         # Trigger ricochet_stream_closer is the stream is closable
