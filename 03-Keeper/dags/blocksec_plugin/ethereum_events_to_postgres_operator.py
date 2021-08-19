@@ -2,6 +2,7 @@ from airflow.models.baseoperator import BaseOperator
 from airflow.utils.decorators import apply_defaults
 from airflow.hooks.postgres_hook import PostgresHook
 from blocksec_plugin.web3_hook import Web3Hook
+from datetime import datetime
 from tempfile import NamedTemporaryFile
 from copy import deepcopy
 from functools import partial
