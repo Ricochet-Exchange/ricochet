@@ -69,6 +69,11 @@ x-airflow-common:
       condition: service_healthy
 
 services:
+  grafana:
+    image: grafana/grafana:5.1.0
+    ports:
+      - 3000:3000
+
   postgres:
     image: postgres:13
     environment:
