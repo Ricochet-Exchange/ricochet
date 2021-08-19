@@ -16,16 +16,14 @@ CREATE TABLE ethereum_events(
     address  VARCHAR(68),
     block_hash  VARCHAR(68),
     block_number  INTEGER,
-    created_at timestamp,
-    updated_at timestamp
+    created_at timestamp DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE ethereum_blocks(
     id SERIAL PRIMARY KEY,
     block_height INTEGER,
     mined_at timestamp,
-    created_at timestamp,
-    updated_at timestamp
+    created_at timestamp DEFAULT CURRENT_TIMESTAMP
 );
 
 """

@@ -56,7 +56,7 @@ def review_streamers_and_trigger_closures(exchange_address, **context):
     sql = f"""
     with streamer_rates as (
         select args->>'from' as streamer,
-        FIRST_VALUE(args->>'newRate') OVER (PARTITION BY args->>'from' ORDER BY block_number ASC) as rate
+        FIRST_VALUE(args->>'newRate') OVER (PARTITION BY args->>'from' ORDER BY block_number DESC) as rate
         from ethereum_events
         where event = 'UpdatedStream'
         and address ='{exchange_address}'
