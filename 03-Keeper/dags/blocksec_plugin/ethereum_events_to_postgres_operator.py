@@ -79,7 +79,7 @@ class EthereumEventstoPostgresOperator(BaseOperator):
                     file.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\n"\
                         .format(args,event["event"],event["logIndex"],\
                                 event["transactionIndex"],event["transactionHash"].hex(),\
-                                event["address"],event["blockHash"].hex(),event["blockNumber"], datetime.datetime.now()))
+                                event["address"],event["blockHash"].hex(),event["blockNumber"], datetime.now()))
                 file.seek(0)
                 result = postgres.bulk_load('ethereum_events(args,event,log_index,transaction_index,transaction_hash,address,block_hash,block_number,created_at)', file.name)
 
