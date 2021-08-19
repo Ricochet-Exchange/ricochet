@@ -47,24 +47,25 @@ done = BashOperator(
 )
 
 
-def review_streamers_and_trigger_closures(exchange_address):
+def review_streamers_and_trigger_closures(**context):
     """
     Trigger payouts for miners
     """
-    print("Checking exchange {0}".format(exchange_address))
-    sql = """
+    exchange_address = context['exchange_address']
+    print(f"Checking exchange {exchange_address}")
+    sql = f"""
     with streamer_rates as (
         select args->>'from' as streamer,
         FIRST_VALUE(args->>'newRate') OVER (PARTITION BY args->>'from' ORDER BY block_number DESC) as rate
         from ethereum_events
         where event = 'UpdatedStream'
-        and address ='{0}'
+        and address ='{exchange_address}'
     )
     select distinct streamer, CAST(rate as float)
     from streamer_rates
     where CAST(rate as FLOAT) > 0
     order by 2 desc
-    """.format(exchange_address)
+    """
     print(sql)
     postgres = PostgresHook(postgres_conn_id='data_warehouse')
     conn = postgres.get_conn()
@@ -115,8 +116,9 @@ for exchange_address in ['0x22cd7fa83ae3381b66e8011930b92564a8e83366']:
 
     closures = PythonOperator(
         task_id='closures_' + exchange_address,
+        provide_context=True,
         python_callable=review_streamers_and_trigger_closures,
-        op_args={'exchange_address': exchange_address},
+        op_kwargs={'exchange_address': exchange_address},
         dag=dag
     )
 
