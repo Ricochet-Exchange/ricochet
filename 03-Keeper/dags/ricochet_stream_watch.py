@@ -112,7 +112,7 @@ def review_streamers_and_trigger_closures(**context):
     return index # number of channels closed
 
 
-for exchange_address in ['0x22cd7fa83ae3381b66e8011930b92564a8e83366']:
+for exchange_address in EXCHANGE_ADDRESSES:
 
     closures = PythonOperator(
         task_id='closures_' + exchange_address,
