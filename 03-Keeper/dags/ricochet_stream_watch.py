@@ -51,20 +51,20 @@ def review_streamers_and_trigger_closures(exchange_address):
     """
     Trigger payouts for miners
     """
-    print(f"Checking exchange {exchange_address}")
-    sql = f"""
+    print("Checking exchange {0}".format(exchange_address))
+    sql = """
     with streamer_rates as (
         select args->>'from' as streamer,
         FIRST_VALUE(args->>'newRate') OVER (PARTITION BY args->>'from' ORDER BY block_number DESC) as rate
         from ethereum_events
         where event = 'UpdatedStream'
-        and address ='{exchange_address}'
+        and address ='{0}'
     )
     select distinct streamer, CAST(rate as float)
     from streamer_rates
     where CAST(rate as FLOAT) > 0
     order by 2 desc
-    """
+    """.format(exchange_address)
     print(sql)
     postgres = PostgresHook(postgres_conn_id='data_warehouse')
     conn = postgres.get_conn()
