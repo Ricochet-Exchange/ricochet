@@ -47,7 +47,7 @@ done = BashOperator(
 )
 
 
-def review_streamers_and_trigger_closures(exchange_address, **context):
+def review_streamers_and_trigger_closures(exchange_address):
     """
     Trigger payouts for miners
     """
@@ -116,7 +116,6 @@ for exchange_address in ['0x22cd7fa83ae3381b66e8011930b92564a8e83366']:
 
     closures = PythonOperator(
         task_id='closures_' + exchange_address,
-        provide_context=True,
         python_callable=review_streamers_and_trigger_closures,
         op_args={'exchange_address': exchange_address},
         dag=dag
