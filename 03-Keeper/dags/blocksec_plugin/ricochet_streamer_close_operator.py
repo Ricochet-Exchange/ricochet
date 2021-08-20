@@ -36,7 +36,7 @@ class RicochetStreamerCloseOperator(BaseOperator):
         print("Processing closeStream for Ricochet at {0} for {1} by {2}".format(
             self.exchange_address, self.streamer_address, self.wallet.public_address
         ))
-        contract = self.web3.eth.contract(self.exchange_address, abi=self.abi_json)
+        contract = self.web3.eth.contract(self.exchange_address, abi=RICOCHET_ABI)
         # Form the signed transaction
         withdraw_txn = contract.functions.closeStream(self.streamer_address)\
                                          .buildTransaction(dict(
