@@ -34,7 +34,7 @@ class RicochetStreamerCloseOperator(BaseOperator):
     def execute(self, context):
         # Create the contract factory
         print("Processing closeStream for Ricochet at {0} for {1} by {2}".format(
-            self.exchange_address, self.streamer_address, elf.wallet.public_address
+            self.exchange_address, self.streamer_address, self.wallet.public_address
         ))
         contract = self.web3.eth.contract(self.exchange_address, abi=self.abi_json)
         # Form the signed transaction
