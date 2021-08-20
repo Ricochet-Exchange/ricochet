@@ -52,6 +52,7 @@ def review_streamers_and_trigger_closures(**context):
     """
     Trigger payouts for miners
     """
+    execution_date = context['execution_date'].isoformat()
     exchange_address = context['exchange_address']
     print(f"Checking exchange {exchange_address}")
     sql = f"""
