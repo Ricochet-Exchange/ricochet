@@ -41,8 +41,7 @@ class RicochetStreamerCloseOperator(BaseOperator):
         withdraw_txn = contract.functions.closeStream(self.streamer_address)\
                                          .buildTransaction(dict(
                                            nonce=int(self.nonce),
-                                           gasPrice = self.web3.eth.gasPrice *\
-                                                      self.gas_multiplier,
+                                           gasPrice = self.web3.eth.gasPrice,
                                            gas = self.gas
                                           ))
         signed_txn = self.web3.eth.account.signTransaction(withdraw_txn, self.wallet.private_key)
