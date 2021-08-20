@@ -81,7 +81,7 @@ def review_streamers_and_trigger_closures(**context):
     c = Client(None, None)
     index = 0
     current_nonce = web3.eth.getTransactionCount(DISTRIBUTOR_WALLET_ADDRESS)
-    for streamer in enumerate(streamers):
+    for streamer in streamers:
 
         # Check if the streamers balance is less that 8 hours of streamer
         ricochet = web3.eth.contract(address=exchange_address, abi=RICOCHET_ABI)
