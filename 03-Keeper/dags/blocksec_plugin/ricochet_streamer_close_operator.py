@@ -20,6 +20,7 @@ class RicochetStreamerCloseOperator(BaseOperator):
                  nonce=None,
                  web3_conn_id='web3_default',
                  ethereum_wallet=None,
+                 gas=1200000,
                  *args,
                  **kwargs):
         super().__init__(*args, **kwargs)
@@ -27,6 +28,7 @@ class RicochetStreamerCloseOperator(BaseOperator):
         self.exchange_address = exchange_address
         self.streamer_address = streamer_address
         self.nonce = nonce
+        self.gas = gas
         self.web3 = Web3Hook(web3_conn_id=self.web3_conn_id).http_client
         self.wallet = EthereumWalletHook(ethereum_wallet=ethereum_wallet)
 
