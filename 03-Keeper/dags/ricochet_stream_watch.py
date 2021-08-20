@@ -110,7 +110,6 @@ def review_streamers_and_trigger_closures(**context):
                           run_id=streamer + execution_date,
                           conf=conf)
             print("Trigged closure: ", result, conf)
-            sleep(2)
     return index # number of channels closed
 
 

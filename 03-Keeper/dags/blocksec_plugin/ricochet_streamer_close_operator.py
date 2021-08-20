@@ -15,17 +15,16 @@ class RicochetStreamerCloseOperator(BaseOperator):
 
     @apply_defaults
     def __init__(self,
-                 streamer_address,
-                 exchange_address,
-                 nonce,
+                 streamer_address=None,
+                 exchange_address=None,
+                 nonce=None,
                  web3_conn_id='web3_default',
                  ethereum_wallet=None,
-                 contract_address=None,
                  *args,
                  **kwargs):
         super().__init__(*args, **kwargs)
         self.web3_conn_id = web3_conn_id
-        self.contract_address = exchange_address
+        self.exchange_address = exchange_address
         self.streamer_address = streamer_address
         self.nonce = nonce
         self.web3 = Web3Hook(web3_conn_id=self.web3_conn_id).http_client
@@ -35,9 +34,9 @@ class RicochetStreamerCloseOperator(BaseOperator):
     def execute(self, context):
         # Create the contract factory
         print("Processing closeStream for Ricochet at {0} for {1} by {2}".format(
-            self.contract_address, self.streamer_address, elf.wallet.public_address
+            self.exchange_address, self.streamer_address, elf.wallet.public_address
         ))
-        contract = self.web3.eth.contract(self.contract_address, abi=self.abi_json)
+        contract = self.web3.eth.contract(self.exchange_address, abi=self.abi_json)
         # Form the signed transaction
         withdraw_txn = contract.functions.closeStream(self.streamer_address)\
                                          .buildTransaction(dict(
