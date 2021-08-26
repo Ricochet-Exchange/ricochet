@@ -55,6 +55,8 @@ x-airflow-common:
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKEND: 'airflow.api.auth.backend.basic_auth'
+    AIRFLOW__CORE__EMAIL_BACKEND: 'airflow.providers.sendgrid.utils.emailer.send_email'
+    AIRFLOW__CORE__EMAIL_CONN_ID: 'sendgrid'
     _PIP_ADDITIONAL_REQUIREMENTS: 'web3 eth_abi eth-utils'
   volumes:
     - ./dags:/opt/airflow/dags
