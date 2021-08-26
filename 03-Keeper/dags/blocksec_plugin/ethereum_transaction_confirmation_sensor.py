@@ -23,10 +23,20 @@ class EthereumTransactionConfirmationSensor(BaseSensorOperator):
     def poke(self, context):
         web3 = Web3Hook(web3_conn_id=self.web3_conn_id).http_client
         try:
-            confirmations = web3.eth.blockNumber - web3.eth.getTransaction(self.transaction_hash).blockNumber
+            receipt = web3.eth.get_transaction_receipt(self.transaction_hash)
+            confirmations = web3.eth.blockNumber - receipt.blockNumber
         except TypeError: # Transaction has no block number
             confirmations = 0
         except TransactionNotFound:
             confirmations = 0
         print("Transaction {0} has {1} confirmations".format(self.transaction_hash, confirmations))
-        return confirmations >= self.confirmations
+        if confirmations >= self.confirmations:
+            receipt = web3.eth.get_transaction_receipt(self.transaction_hash)
+            print("{0} has status {1}".format(self.transaction_hash,receipt['status']))
+            if receipt['status'] == 1:
+                return True
+            else:
+                # Fail if the transaction failed
+                raise Exception('Transaction Failed')
+        else:
+            return False
