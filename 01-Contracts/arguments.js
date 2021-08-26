@@ -18,8 +18,8 @@ module.exports = [
   process.env.INPUT_TOKEN_ADDRESS,
   process.env.OUTPUT_TOKEN_ADDRESS,
   RIC_CONTRACT_ADDRESS,
-  SUSHISWAP_ROUTER_ADDRESS,
-  TELLOR_ORACLE_ADDRESS,
-  TELLOR_REQUEST_ID,
+  process.env.ROUTER_ADDRESS,
+  process.env.TELLOR_ORACLE_ADDRESS,
+  process.env.TELLOR_REQUEST_ID,
   process.env.SF_REG_KEY
 ];

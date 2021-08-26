@@ -158,8 +158,8 @@ describe("StreamExchange", () => {
         app = await StreamExchange.deploy(sf.host.address,
                                           sf.agreements.cfa.address,
                                           sf.agreements.ida.address,
-                                          usdcx.address,
                                           wbtcx.address,
+                                          usdcx.address,
                                           RIC_TOKEN_ADDRESS,
                                           SUSHISWAP_ROUTER_ADDRESS, //sr.address,
                                           TELLOR_ORACLE_ADDRESS,
@@ -333,8 +333,8 @@ describe("StreamExchange", () => {
 
         // Check setup
         expect(await app.isAppJailed()).to.equal(false)
-        expect(await app.getInputToken()).to.equal(usdcx.address)
-        expect(await app.getOuputToken()).to.equal(wbtcx.address)
+        expect(await app.getInputToken()).to.equal(wbtcx.address)
+        expect(await app.getOuputToken()).to.equal(usdcx.address)
         expect(await app.getOuputIndexId()).to.equal(0)
         expect(await app.getSubsidyToken()).to.equal(ric.address)
         expect(await app.getSubsidyIndexId()).to.equal(1)
@@ -380,14 +380,14 @@ describe("StreamExchange", () => {
         await expect(
          u.admin.flow({ flowRate: toWad(10000), recipient: u.app })
        ).to.be.revertedWith("!enoughTokens");
-        await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
-        await traveler.advanceTimeAndBlock(60*60*1 + 13);
-        await tp.submitValue(60, oraclePrice);
-        await app.distribute()
-        await u.admin.flow({ flowRate: "0", recipient: u.app });
-        await traveler.advanceTimeAndBlock(60);
-        await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
-        await u.admin.flow({ flowRate: "0", recipient: u.app });
+        // await u.admin.flow({ flowRate: inflowRate / 10, recipient: u.app });
+        // await traveler.advanceTimeAndBlock(60*60*1 + 13);
+        // await tp.submitValue(60, oraclePrice);
+        // await app.distribute()
+        // await u.admin.flow({ flowRate: "0", recipient: u.app });
+        // await traveler.advanceTimeAndBlock(60);
+        // await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
+        // await u.admin.flow({ flowRate: "0", recipient: u.app });
 
 
 
