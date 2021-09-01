@@ -331,13 +331,19 @@ describe("StreamExchange", () => {
 
       it("should distribute tokens to streamers correctly", async function() {
 
+        // General check should be as follows:
+        // 1. Bob opens a stream to Ricochet for DAIx
+        // 2. Alice opens a stream to Ricochet for ETHx
+        // 3. Wait 1 hour
+        // 4. Trigger a distribution and then check the emitted events for sushiswap transfers
+
         // Check setup
         expect(await app.isAppJailed()).to.equal(false)
         expect(await app.getInputToken()).to.equal(usdcx.address)
         expect(await app.getOuputToken()).to.equal(wbtcx.address)
         expect(await app.getOuputIndexId()).to.equal(0)
         expect(await app.getSubsidyToken()).to.equal(ric.address)
-        expect(await app.getSubsidyIndexId()).to.equal(1)
+        expect(await app.getSubsidyIdaIndex()).to.equal(1)
         expect(await app.getSubsidyRate()).to.equal("400000000000000000")
         expect(await app.getTotalInflow()).to.equal(0)
         // expect(await app.getLastDistributionAt()).to.equal()

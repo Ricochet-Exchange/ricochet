@@ -22,9 +22,8 @@ library StreamExchangeHelper {
 
   using SafeERC20 for ERC20;
 
-  // TODO: Emit these events where appropriate
   event Distribution(uint256 totalAmount, uint256 feeCollected, address token);
-
+  event InternalSwap(uint256 inAmount, address inToken, uint256 outAmount, address outToken);
 
   function _closeStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
     // Only closable iff their balance is less than 8 hours of streaming
@@ -100,69 +99,82 @@ library StreamExchangeHelper {
   {
 
      newCtx = ctx;
-     require(self.host.isCtxValid(newCtx) || newCtx.length == 0, "!distributeCtx");
-
-     uint256 initialBalanceInput = ISuperToken(self.inputToken).balanceOf(address(this));
 
      // Get the exchange rate as inputToken per outputToken
-     bool _didGet;
-     uint _timestamp;
-     uint _value;
-
-     (_didGet, _value, _timestamp) = _getCurrentValue(self, self.requestId);
+     (bool _didGet, uint exchangeRate, uint _timestamp) = _getCurrentValue(self, self.requestId);
 
      require(_didGet, "!getCurrentValue");
      require(_timestamp >= block.timestamp - 3600, "!currentValue");
 
-     _swap(self, ISuperToken(self.inputToken).balanceOf(address(this)), _value, block.timestamp + 3600);
+     // Figure out the surplus and make the swap needed to fulfill this distribution
+     console.log("TokenA Balance", self.poolA.token.balanceOf(address(this)));
+     console.log("TokenB Balance", self.poolB.token.balanceOf(address(this)));
 
-     uint256 outputBalance = ISuperToken(self.outputToken).balanceOf(address(this));
-     (uint256 actualAmount,) = self.ida.calculateDistribution(
-        self.outputToken,
-        address(this),
-        self.outputIndexId,
-        outputBalance);
-
-     console.log("outputBalance", outputBalance);
-     console.log("actualAmount", actualAmount);
-
-      // Return if there's not anything to actually distribute
-      if (actualAmount == 0) { return newCtx; }
-
-      // Calculate the fee for making the distribution
-      uint256 feeCollected = actualAmount * self.feeRate / 1e6;
-      uint256 distAmount = actualAmount - feeCollected;
-
-      console.log("feeCollected", feeCollected);
-      console.log("distAmount", distAmount);
-      console.log("Fee rate:", feeCollected * 10000 / (feeCollected + distAmount));
-
-
-      // Calculate subside
-      uint256 subsidyAmount = (block.timestamp - self.lastDistributionAt) * self.subsidyRate;
-
-     // Confirm the app has enough to distribute
-     require(self.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
-     console.log("distAmount", distAmount);
-     newCtx = _idaDistribute(self, self.outputIndexId, uint128(distAmount), self.outputToken, newCtx);
-     emit Distribution(distAmount, feeCollected, address(self.outputToken));
-
-     // Distribute a subsidy if possible
-     if(self.subsidyToken.balanceOf(address(this)) >= subsidyAmount) {
-       newCtx = _idaDistribute(self, self.subsidyIndexId, uint128(subsidyAmount), self.subsidyToken, newCtx);
-       emit Distribution(subsidyAmount, 0, address(self.subsidyToken));
+     // Check how much tokenA we want to fill the sale of tokenB
+     uint256 tokenWant = self.poolB.token.balanceOf(address(this)) * exchangeRate / 1e6;
+     address[] memory path = new address[](2);
+     // If we have more tokenA than we need, swap the surplus
+     if (tokenWant < self.poolA.token.balanceOf(address(this))) {
+       console.log("Surplus to swap tokenA", self.poolA.token.balanceOf(address(this)) - tokenWant);
+       path[0] = address(self.poolA.token);
+       path[1] = address(self.poolB.token);
+       _swap(self, self.poolA.token.balanceOf(address(this)) - tokenWant, path, block.timestamp + 3600);
+     // Otherwise we have more tokenB than we need, swap the surplus (if any)
+     } else {
+       tokenWant = self.poolA.token.balanceOf(address(this)) * 1e18 / exchangeRate / 1e12;
+       console.log("Surplus to swap tokenB", self.poolB.token.balanceOf(address(this)) - tokenWant);
+       path[0] = address(self.poolB.token);
+       path[1] = address(self.poolA.token);
+       _swap(self, self.poolB.token.balanceOf(address(this)) - tokenWant, path, block.timestamp + 3600);
      }
 
+     // At this point, we've got enough of tokenA and tokenB to perform the distribution
+     uint256 tokenAAmount = self.poolA.token.balanceOf(address(this));
+     uint256 tokenBAmount = self.poolB.token.balanceOf(address(this));
+
+     (tokenAAmount,) = self.ida.calculateDistribution(
+        self.poolA.token,
+        address(this),
+        self.poolA.idaIndex, //TODO: Add to storage
+        tokenAAmount);
+     (tokenBAmount,) = self.ida.calculateDistribution(
+        self.poolB.token,
+        address(this),
+        self.poolB.idaIndex, //TODO: Add to storage
+        tokenBAmount);
+
+      // Perform the distribution
+      uint256 feeCollected;
+      uint256 distAmount;
+      if (tokenAAmount > 0) {
+        // Distribute TokenA
+        (feeCollected, distAmount) = _getFeeAndDist(tokenAAmount, self.feeRate);
+        console.log("Distributing tokenA distAmount", distAmount);
+        console.log("Distributing tokenA feeCollected", feeCollected);
+        require(self.poolA.token.balanceOf(address(this)) >= tokenAAmount, "!enough");
+        newCtx = _idaDistribute(self, self.poolA.idaIndex, uint128(distAmount), self.poolA.token, newCtx);
+        self.poolA.token.transfer(self.owner, feeCollected);
+        emit Distribution(distAmount, feeCollected, address(self.poolA.token));
+      }
+      if (tokenBAmount > 0) {
+        // Distribute TokenB
+        (feeCollected, distAmount) = _getFeeAndDist(tokenBAmount, self.feeRate);
+        console.log("Distributing tokenB distAmount", distAmount);
+        console.log("Distributing tokenB feeCollected", feeCollected);
+        require(self.poolB.token.balanceOf(address(this)) >= tokenBAmount, "!enough");
+        newCtx = _idaDistribute(self, self.poolB.idaIndex, uint128(distAmount), self.poolB.token, newCtx);
+        self.poolB.token.transfer(self.owner, feeCollected);
+        emit Distribution(distAmount, feeCollected, address(self.poolB.token));
+      }
+
+     // TODO: Bring back subsidy
+     // // Distribute a subsidy if possible
+     // if(self.subsidyToken.balanceOf(address(this)) >= subsidyAmount) {
+     //   newCtx = _idaDistribute(self, self.subsidyIdaIndex, uint128(subsidyAmount), self.subsidyToken, newCtx);
+     //   emit Distribution(subsidyAmount, 0, address(self.subsidyToken));
+     // }
+
      self.lastDistributionAt = block.timestamp;
-
-     // Take the fee
-     ISuperToken(self.outputToken).transfer(self.owner, feeCollected);
-     // NOTE: After swapping any token with < 18 decimals, there may be dust left so just leave it
-     require(self.inputToken.balanceOf(address(this)) /
-             10 ** (18 - ERC20(self.inputToken.getUnderlyingToken()).decimals()) == 0,
-             "!sellAllInput");
-
-
      return newCtx;
 
    }
@@ -170,26 +182,20 @@ library StreamExchangeHelper {
    function _swap(
          StreamExchangeStorage.StreamExchange storage self,
          uint256 amount,  // Assumes this is outputToken.balanceOf(address(this))
-         uint256 exchangeRate,
+         address[] memory path,
          uint256 deadline
      ) public returns(uint) {
 
-    address inputToken;           // The underlying input token address
-    address outputToken;          // The underlying output token address
-    address[] memory path;        // The path to take
-    uint256 minOutput;            // The minimum amount of output tokens based on Tellor
-    uint256 outputAmount; // The balance before the swap
+    uint256 minOutput;       // The minimum amount of output tokens based on Tellor
+    uint256 outputAmount;    // The balance before the swap
 
-    console.log("amount", amount);
+    console.log("Amount to swap", amount);
 
-    inputToken = self.inputToken.getUnderlyingToken();
-    outputToken = self.outputToken.getUnderlyingToken();
-
-    // Downgrade and scale the input amount
-    self.inputToken.downgrade(amount);
+    ISuperToken(path[0]).downgrade(amount);
     // Scale it to 1e18 for calculations
     amount = ERC20(inputToken).balanceOf(address(this)) * (10 ** (18 - ERC20(inputToken).decimals()));
 
+    // Compute Exchange Rate
     // TODO: This needs to be "invertable"
     // USD >> TOK
     minOutput = amount * 1e18 / exchangeRate / 1e12;
@@ -198,20 +204,19 @@ library StreamExchangeHelper {
     // minOutput = amount  * exchangeRate / 1e6;
     minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
     console.log("minOutput", minOutput);
-
     // Scale back from 1e18 to outputToken decimals
     minOutput = minOutput * (10 ** (ERC20(outputToken).decimals())) / 1e18;
     // Scale it back to inputToken decimals
     amount = amount / (10 ** (18 - ERC20(inputToken).decimals()));
 
 
-    console.log("exchangeRate", exchangeRate);
-    console.log("minOutput", minOutput);
-
-    path = new address[](2);
+    address inputToken = ISuperToken(path[0]).getUnderlyingToken();
+    address outputToken = ISuperToken(path[1]).getUnderlyingToken();
     path[0] = inputToken;
     path[1] = outputToken;
 
+    // Swap on Sushiswap and verify swap rate is good using oracle price
+    uint256 initialBalance = ERC20(path[1]).balanceOf(address(this));
     self.sushiRouter.swapExactTokensForTokens(
        amount,
        0, // Accept any amount but fail if we're too far from the oracle price
@@ -220,24 +225,28 @@ library StreamExchangeHelper {
        deadline
     );
     // Assumes `amount` was outputToken.balanceOf(address(this))
-    outputAmount = ERC20(outputToken).balanceOf(address(this));
+    outputAmount = ERC20(path[1]).balanceOf(address(this)) - initialBalance;
     console.log("outputAmount", outputAmount);
     require(outputAmount >= minOutput, "BAD_EXCHANGE_RATE: Try again later");
-
     // Convert the outputToken back to its supertoken version
-    self.outputToken.upgrade(outputAmount * (10 ** (18 - ERC20(outputToken).decimals())));
-    console.log(ERC20(outputToken).balanceOf(address(this)));
-
-
+    // Unlimited approval in the constructor
+    ISuperToken(path[1]).upgrade(outputAmount);
+    emit InternalSwap(amount, path[0], outputAmount, path[1]);
     return outputAmount;
   }
 
+  function _getFeeAndDist(uint256 tokenAmount, uint256 feeRate)
+    public returns (uint256 feeCollected, uint256 distAmount) {
+
+      feeCollected = tokenAmount * feeRate / 1e6;
+      distAmount = tokenAmount - feeCollected;
+  }
 
   function _initalizeLiquidityMining(StreamExchangeStorage.StreamExchange storage self) internal {
     // Create the index for IDA
-    _createIndex(self, self.subsidyIndexId, self.subsidyToken);
+    _createIndex(self, self.subsidyIdaIndex, self.subsidyToken);
     // Give the initalizer 1 share to get it started
-    _updateSubscription(self, self.subsidyIndexId, msg.sender, 1, self.subsidyToken);
+    _updateSubscription(self, self.subsidyIdaIndex, msg.sender, 1, self.subsidyToken);
   }
 
   function _idaDistribute(StreamExchangeStorage.StreamExchange storage self, uint32 index, uint128 distAmount, ISuperToken distToken, bytes memory ctx) internal returns (bytes memory newCtx) {
@@ -359,12 +368,16 @@ library StreamExchangeHelper {
    * SuperApp callbacks
    *************************************************************************/
 
-  function _isInputToken(StreamExchangeStorage.StreamExchange storage self, ISuperToken superToken) internal view returns (bool) {
-      return address(superToken) == address(self.inputToken);
+   function _isAllowedToken(StreamExchangeStorage.StreamExchange storage self, ISuperToken superToken) internal view returns (bool) {
+       return _isTokenA(self, superToken) || _isTokenB(self, superToken);
+   }
+
+  function _isTokenA(StreamExchangeStorage.StreamExchange storage self, ISuperToken superToken) internal view returns (bool) {
+      return address(superToken) == address(self.poolA.token);
   }
 
-  function _isOutputToken(StreamExchangeStorage.StreamExchange storage self, ISuperToken superToken) internal view returns (bool) {
-      return address(superToken) == address(self.outputToken);
+  function _isTokenB(StreamExchangeStorage.StreamExchange storage self, ISuperToken superToken) internal view returns (bool) {
+      return address(superToken) == address(self.poolB.token);
   }
 
   function _isSubsidyToken(StreamExchangeStorage.StreamExchange storage self, ISuperToken superToken) internal view returns (bool) {

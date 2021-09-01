@@ -11,3 +11,11 @@ Ricochet only requires one DCA transaction per period for all users, reducing co
 
 ## Architecture
 ![Architecture](./00-Meta/arch.png)
+
+## Release Notes
+
+### V2.0
+#### Features
+* Perform token swaps internally using a two-sided market
+* Incentivize keepers to trigger `distribute()`
+* Buy back and hold RIC in the Ricochet DAO Treasury
