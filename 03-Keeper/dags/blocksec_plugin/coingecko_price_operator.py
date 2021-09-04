@@ -11,7 +11,7 @@ class CoinGeckoPriceOperator(BaseOperator):
 
     @apply_defaults
     def __init__(self,
-                 asset_id=None
+                 asset_id=None,
                  *args,
                  **kwargs):
         super().__init__(*args, **kwargs)
