@@ -29,4 +29,4 @@ class CoinGeckoPriceOperator(BaseOperator):
         print(result)
         # Raise the price by 1e6 and scale for Tellor
         price = int(result[self.asset_id]["usd"] * 1000000)
-        return price
+        return str(price)
