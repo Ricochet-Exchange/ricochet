@@ -24,14 +24,14 @@ library StreamExchangeHelper {
 
   // TODO: Emit these events where appropriate
   event Distribution(uint256 totalAmount, uint256 feeCollected, address token);
+  event UpdatedStream(address from, int96 newRate, int96 totalInflow);
 
 
   function _closeStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
     // Only closable iff their balance is less than 8 hours of streaming
-    require(int(self.inputToken.balanceOf(streamer)) <= self.streams[streamer].rate * 8 hours,
+    (,int96 streamerFlowRate,,) = self.cfa.getFlow(self.inputToken, streamer, address(this));
+    require(int(self.inputToken.balanceOf(streamer)) <= streamerFlowRate * 8 hours,
               "!closable");
-
-    self.streams[streamer].rate = 0;
 
     // Update Subscriptions
     _updateSubscription(self, self.subsidyIndexId, streamer, 0, self.subsidyToken);
@@ -123,9 +123,6 @@ library StreamExchangeHelper {
         self.outputIndexId,
         outputBalance);
 
-     console.log("outputBalance", outputBalance);
-     console.log("actualAmount", actualAmount);
-
       // Return if there's not anything to actually distribute
       if (actualAmount == 0) { return newCtx; }
 
@@ -133,17 +130,11 @@ library StreamExchangeHelper {
       uint256 feeCollected = actualAmount * self.feeRate / 1e6;
       uint256 distAmount = actualAmount - feeCollected;
 
-      console.log("feeCollected", feeCollected);
-      console.log("distAmount", distAmount);
-      console.log("Fee rate:", feeCollected * 10000 / (feeCollected + distAmount));
-
-
       // Calculate subside
       uint256 subsidyAmount = (block.timestamp - self.lastDistributionAt) * self.subsidyRate;
 
      // Confirm the app has enough to distribute
      require(self.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
-     console.log("distAmount", distAmount);
      newCtx = _idaDistribute(self, self.outputIndexId, uint128(distAmount), self.outputToken, newCtx);
      emit Distribution(distAmount, feeCollected, address(self.outputToken));
 
@@ -180,8 +171,6 @@ library StreamExchangeHelper {
     uint256 minOutput;            // The minimum amount of output tokens based on Tellor
     uint256 outputAmount; // The balance before the swap
 
-    console.log("amount", amount);
-
     inputToken = self.inputToken.getUnderlyingToken();
     outputToken = self.outputToken.getUnderlyingToken();
 
@@ -193,20 +182,14 @@ library StreamExchangeHelper {
     // TODO: This needs to be "invertable"
     // USD >> TOK
     minOutput = amount * 1e18 / exchangeRate / 1e12;
-    console.log("minOutput", minOutput);
     // TOK >> USD
     // minOutput = amount  * exchangeRate / 1e6;
     minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
-    console.log("minOutput", minOutput);
 
     // Scale back from 1e18 to outputToken decimals
     minOutput = minOutput * (10 ** (ERC20(outputToken).decimals())) / 1e18;
     // Scale it back to inputToken decimals
     amount = amount / (10 ** (18 - ERC20(inputToken).decimals()));
-
-
-    console.log("exchangeRate", exchangeRate);
-    console.log("minOutput", minOutput);
 
     path = new address[](2);
     path[0] = inputToken;
@@ -221,13 +204,10 @@ library StreamExchangeHelper {
     );
     // Assumes `amount` was outputToken.balanceOf(address(this))
     outputAmount = ERC20(outputToken).balanceOf(address(this));
-    console.log("outputAmount", outputAmount);
     require(outputAmount >= minOutput, "BAD_EXCHANGE_RATE: Try again later");
 
     // Convert the outputToken back to its supertoken version
     self.outputToken.upgrade(outputAmount * (10 ** (18 - ERC20(outputToken).decimals())));
-    console.log(ERC20(outputToken).balanceOf(address(this)));
-
 
     return outputAmount;
   }
