@@ -1,8 +1,7 @@
 """
-Tellor Contract Poll
+Ricochet Distributor Workflow
 
-- Every 5 minutes, get the logs for Tellor
-- Parse logs and insert them into the data warehouse
+- Every 1 hour, for each exchange trigger `distribute()`
 
 """
 from airflow import DAG
@@ -19,9 +18,6 @@ from json import loads
 import requests
 
 DISTRIBUTOR_WALLET_ADDRESS = Variable.get("distributor-address", "0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be")
-REPORTER_WALLET_ADDRESS = Variable.get("reporter-address", "0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be")
-OLD_TELLOR_CONTRACT_ADDRESS = Variable.get("old-tellor-address", "0xC79255821DA1edf8E1a8870ED5cED9099bf2eAAA")
-TELLOR_CONTRACT_ADDRESS = Variable.get("tellor-address", "0xACC2d27400029904919ea54fFc0b18Bf07C57875")
 EXCHANGE_ADDRESSES = Variable.get("ricochet-exchange-addresses", deserialize_json=True)
 
 default_args = {
@@ -42,18 +38,7 @@ dag = DAG("ricochet_distribute",
           default_args=default_args,
           schedule_interval="0 * * * *")
 
-
-def check_price(**context):
-    """
-    Check the price of the assets to use for updating the oracle
-    """
-    url = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
-    response = requests.get(url)
-    result = response.json()
-    # Raise the price by 20 basis points and scale for Tellor
-    price = int(result["ethereum"]["usd"] * 1.005 * 1000000)
-    return price
-
+# TODO: Move to operator
 web3 = Web3Hook(web3_conn_id='infura').http_client
 current_nonce = web3.eth.getTransactionCount(DISTRIBUTOR_WALLET_ADDRESS)
 
@@ -83,4 +68,4 @@ for nonce_offset, exchange_address in enumerate(EXCHANGE_ADDRESSES):
         dag=dag
     )
 
-    done << confirm_distribute << distribute 
+    done << confirm_distribute << distribute

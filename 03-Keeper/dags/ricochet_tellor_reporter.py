@@ -13,14 +13,14 @@ from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python_operator import PythonOperator
 from blocksec_plugin.ethereum_transaction_confirmation_sensor import EthereumTransactionConfirmationSensor
 from blocksec_plugin.tellor_oracle_operator import TellorOracleOperator
-from blocksec_plugin.ricochet_distribute_operator import RicochetDistributeOperator
+from blocksec_plugin.coingecko_price_operator import CoinGeckoPriceOperator
 from blocksec_plugin.abis import TELLOR_ABI
 from json import loads
 import requests
 
 REPORTER_WALLET_ADDRESS = Variable.get("reporter-address", "0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be")
 TELLOR_CONTRACT_ADDRESS = Variable.get("tellor-address", "0xACC2d27400029904919ea54fFc0b18Bf07C57875")
-CURRENCIES = Variable.get("tellor-currencies", {"ethereum": 1, "wbtc": 60}, deserialize_json=True)
+ASSETS = Variable.get("tellor-assets", {"ethereum": 1, "wrapped-btc": 60}, deserialize_json=True)
 
 default_args = {
     "owner": "ricochet",
@@ -41,33 +41,6 @@ dag = DAG("ricochet_tellor_reporter",
           schedule_interval="*/5 * * * *")
 
 
-# TODO: Consolidate these into 1 fxn
-def check_price_ethereum(**context):
-    """
-    Check the price of the assets to use for updating the oracle
-    """
-    url = f"https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
-    print(url)
-    response = requests.get(url)
-    result = response.json()
-    print(result)
-    # Raise the price by 50 basis points and scale for Tellor
-    price = int(result["ethereum"]["usd"] * 1.005 * 1000000)
-    return price
-
-def check_price_wbtc(**context):
-    """
-    Check the price of the assets to use for updating the oracle
-    """
-    url = f"https://api.coingecko.com/api/v3/simple/price?ids=wrapped-btc&vs_currencies=usd"
-    print(url)
-    response = requests.get(url)
-    result = response.json()
-    print(result)
-    # Raise the price by 50 basis points and scale for Tellor
-    price = int(result["wrapped-btc"]["usd"] * 1.005 * 1000000)
-    return price
-
 done = BashOperator(
     task_id='done',
     bash_command='date',
@@ -78,26 +51,20 @@ web3 = Web3Hook(web3_conn_id='infura').http_client
 current_nonce = web3.eth.getTransactionCount(REPORTER_WALLET_ADDRESS)
 nonce_offset = 0
 
-for currency, request_id in CURRENCIES.items():
-    if currency == "ethereum":
-        callable = check_price_ethereum
-    elif currency == "wbtc":
-        callable = check_price_wbtc
+for asset_id, request_id in ASSETS.items():
 
-    price_check = PythonOperator(
-        task_id="price_check_" + currency,
-        provide_context=True,
-        python_callable=callable,
-        op_args={"currency": currency}, # not working?
+    price_check = CoinGeckoPriceOperator(
+        task_id="price_check_"+asset_id,
+        asset_id=currency,
         dag=dag
     )
 
     oracle_update = TellorOracleOperator(
-        task_id="oracle_update_" + currency,
+        task_id="oracle_update_" + asset_id,
         web3_conn_id="infura",
         ethereum_wallet=REPORTER_WALLET_ADDRESS,
         contract_address=TELLOR_CONTRACT_ADDRESS,
-        price='{{task_instance.xcom_pull(task_ids="price_check")}}',
+        price='{{task_instance.xcom_pull(task_ids="price_check_{0}")}}'.format(asset_id),
         request_id=request_id,
         nonce=current_nonce + nonce_offset,
         gas_multiplier=2,
@@ -106,9 +73,9 @@ for currency, request_id in CURRENCIES.items():
     )
 
     confirm_oracle_update = EthereumTransactionConfirmationSensor(
-        task_id="confirm_oracle_update_" + currency,
+        task_id="confirm_oracle_update_" + asset_id,
         web3_conn_id="infura",
-        transaction_hash="{{task_instance.xcom_pull(task_ids='oracle_update_old')}}",
+        transaction_hash="{{task_instance.xcom_pull(task_ids='oracle_update_{0}')}}".format(asset_id),
         confirmations=1,
         poke_interval=5,
         dag=dag
