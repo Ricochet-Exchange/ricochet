@@ -69,6 +69,12 @@ library StreamExchangeHelper {
     );
   }
 
+  function _emergencyDrain(StreamExchangeStorage.StreamExchange storage self) public {
+    require(self.cfa.getNetFlow(self.inputToken, address(this)) == 0, "!zeroStreamers");
+    require(self.inputToken.transfer(self.owner, self.inputToken.balanceOf(address(this))), "!inputDraining");
+    require(self.outputToken.transfer(self.owner, self.outputToken.balanceOf(address(this))), "!outputDraining");
+  }
+
   function _getCurrentValue(
     StreamExchangeStorage.StreamExchange storage self,
     uint256 _requestId
