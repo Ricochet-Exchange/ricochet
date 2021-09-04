@@ -64,7 +64,7 @@ for asset_id, request_id in ASSETS.items():
         web3_conn_id="infura",
         ethereum_wallet=REPORTER_WALLET_ADDRESS,
         contract_address=TELLOR_CONTRACT_ADDRESS,
-        price='{{task_instance.xcom_pull(task_ids="price_check_{0}")}}'.format(asset_id),
+        price="{{task_instance.xcom_pull(task_ids='price_check_{0}')}}".format(asset_id),
         request_id=request_id,
         nonce=current_nonce + nonce_offset,
         gas_multiplier=2,
