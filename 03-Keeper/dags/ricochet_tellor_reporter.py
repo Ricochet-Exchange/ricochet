@@ -64,7 +64,7 @@ for asset_id, request_id in ASSETS.items():
         web3_conn_id="infura",
         ethereum_wallet=REPORTER_WALLET_ADDRESS,
         contract_address=TELLOR_CONTRACT_ADDRESS,
-        price="{{task_instance.xcom_pull(task_ids='price_check_{0}')}}".format(asset_id),
+        price="{{task_instance.xcom_pull(task_ids='price_check_"+asset_id+"', key='return_value')}}",
         request_id=request_id,
         nonce=current_nonce + nonce_offset,
         gas_multiplier=2,
@@ -75,7 +75,7 @@ for asset_id, request_id in ASSETS.items():
     confirm_oracle_update = EthereumTransactionConfirmationSensor(
         task_id="confirm_oracle_update_" + asset_id,
         web3_conn_id="infura",
-        transaction_hash="{{task_instance.xcom_pull(task_ids='oracle_update_{0}')}}".format(asset_id),
+        transaction_hash="{{task_instance.xcom_pull(task_ids='oracle_update_"+asset_id+"', key='return_value')}}",
         confirmations=1,
         poke_interval=5,
         dag=dag
