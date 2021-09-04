@@ -55,7 +55,7 @@ for asset_id, request_id in ASSETS.items():
 
     price_check = CoinGeckoPriceOperator(
         task_id="price_check_"+asset_id,
-        asset_id=currency,
+        asset_id=asset_id,
         dag=dag
     )
 
