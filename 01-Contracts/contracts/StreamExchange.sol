@@ -166,6 +166,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     _exchange._emergencyCloseStream(streamer);
   }
 
+  function emergencyDrain() public {
+    _exchange._emergencyDrain();
+  }
+
   function setSubsidyRate(uint128 subsidyRate) external onlyOwner {
     _exchange.subsidyRate = subsidyRate;
   }

@@ -36,6 +36,7 @@ library StreamExchangeHelper {
     // Update Subscriptions
     _updateSubscription(self, self.subsidyIndexId, streamer, 0, self.subsidyToken);
     _updateSubscription(self, self.outputIndexId, streamer, 0, self.outputToken);
+    emit UpdatedStream(streamer, 0, self.cfa.getNetFlow(self.inputToken, address(this)));
 
     // Close the streamers stream
     self.host.callAgreement(
@@ -71,8 +72,8 @@ library StreamExchangeHelper {
 
   function _emergencyDrain(StreamExchangeStorage.StreamExchange storage self) public {
     require(self.cfa.getNetFlow(self.inputToken, address(this)) == 0, "!zeroStreamers");
-    require(self.inputToken.transfer(self.owner, self.inputToken.balanceOf(address(this))), "!inputDraining");
-    require(self.outputToken.transfer(self.owner, self.outputToken.balanceOf(address(this))), "!outputDraining");
+    self.inputToken.transfer(self.owner, self.inputToken.balanceOf(address(this)));
+    self.outputToken.transfer(self.owner, self.outputToken.balanceOf(address(this)));
   }
 
   function _getCurrentValue(

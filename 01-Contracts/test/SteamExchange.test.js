@@ -414,7 +414,20 @@ describe("StreamExchange", () => {
         await expect(
          u.admin.flow({ flowRate: toWad(10000), recipient: u.app })
         ).to.be.revertedWith("!enoughTokens");
+
+        // Test emergencyCloseStream
         // Connect Admin and Bob
+        await u.bob.flow({ flowRate: inflowRate1, recipient: u.app });
+        await traveler.advanceTimeAndBlock(60*60*12);
+        await expect(
+         app.emergencyDrain()
+       ).to.be.revertedWith("!zeroStreamers");
+       await u.bob.flow({ flowRate: "0", recipient: u.app });
+       await app.emergencyDrain();
+       expect((await usdcx.balanceOf(app.address)).toString()).to.equal("0");
+       expect((await wbtcx.balanceOf(app.address)).toString()).to.equal("0");
+
+
         await u.admin.flow({ flowRate: inflowRate1, recipient: u.app });
         // Expect the parameters are correct
         expect(await app.getStreamRate(u.admin.address)).to.equal(inflowRate1);
