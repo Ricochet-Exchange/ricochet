@@ -21,7 +21,7 @@ CREATE TABLE ethereum_events(
 
 CREATE TABLE ethereum_blocks(
     id SERIAL PRIMARY KEY,
-    block_height INTEGER,
+    block_number INTEGER,
     mined_at timestamp,
     created_at timestamp DEFAULT CURRENT_TIMESTAMP
 );
@@ -46,7 +46,7 @@ default_args = {
     "depends_on_past": False,
     "start_date": datetime(2021, 8, 1, 23, 0),
     "email": ["mike@mikeghen.com"],
-    "email_on_failure": False,
+    "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
     "retry_delay": timedelta(minutes=1)
