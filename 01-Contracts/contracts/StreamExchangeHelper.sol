@@ -76,6 +76,49 @@ library StreamExchangeHelper {
     self.outputToken.transfer(self.owner, self.outputToken.balanceOf(address(this)));
   }
 
+  function _closeStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
+    // Only closable iff their balance is less than 8 hours of streaming
+    require(int(self.inputToken.balanceOf(streamer)) <= self.streams[streamer].rate * 8 hours,
+              "!closable");
+
+    self.streams[streamer].rate = 0;
+
+    // Update Subscriptions
+    _updateSubscription(self, self.subsidyIndexId, streamer, 0, self.subsidyToken);
+    _updateSubscription(self, self.outputIndexId, streamer, 0, self.outputToken);
+
+    // Close the streamers stream
+    self.host.callAgreement(
+        self.cfa,
+        abi.encodeWithSelector(
+            self.cfa.deleteFlow.selector,
+            self.inputToken,
+            streamer,
+            address(this),
+            new bytes(0) // placeholder
+        ),
+        "0x"
+    );
+
+  }
+
+  function _emergencyCloseStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
+    // Allows anyone to close any stream iff the app is jailed
+    bool isJailed = ISuperfluid(msg.sender).isAppJailed(ISuperApp(address(this)));
+    require(isJailed, "!jailed");
+    self.host.callAgreement(
+        self.cfa,
+        abi.encodeWithSelector(
+            self.cfa.deleteFlow.selector,
+            self.inputToken,
+            streamer,
+            address(this),
+            new bytes(0) // placeholder
+        ),
+        "0x"
+    );
+  }
+
   function _getCurrentValue(
     StreamExchangeStorage.StreamExchange storage self,
     uint256 _requestId
@@ -129,6 +172,9 @@ library StreamExchangeHelper {
         address(this),
         self.outputIndexId,
         outputBalance);
+
+     console.log("outputBalance", outputBalance);
+     console.log("actualAmount", actualAmount);
 
       // Return if there's not anything to actually distribute
       if (actualAmount == 0) { return newCtx; }
