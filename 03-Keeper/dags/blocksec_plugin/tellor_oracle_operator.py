@@ -32,10 +32,10 @@ class TellorOracleOperator(BaseOperator):
 
     @apply_defaults
     def __init__(self,
+                 price,
                  web3_conn_id='web3_default',
                  ethereum_wallet='default_wallet',
                  contract_address=None,
-                 price=None,
                  request_id=None,
                  gas_key="fast",
                  gas_multiplier=1,

@@ -17,7 +17,6 @@ class RicochetStreamerListOperator(BaseOperator):
 
     @apply_defaults
     def __init__(self,
-                 streamers_file_path,
                  state_file_path='state.json',
                  web3_conn_id='web3_default',
                  contract_address=None,
@@ -40,9 +39,9 @@ class RicochetStreamerListOperator(BaseOperator):
                 state = json.loads(state_file.read())
         except FileNotFoundError:
             print("No statefile, setting last_block to the first block")
-            state = {"last_block": 17476400}
-        if state["last_block"] < current_block - 50000:
-            current_block = state["last_block"] + 50000
+            state = {"last_block": 18083814}
+        # if state["last_block"] < current_block - 50000:
+        #     current_block = state["last_block"] + 50000
 
         w3 = Web3(Web3.WebsocketProvider("wss://empty-rough-forest.matic.quiknode.pro/accde69e45a6f86670db4c9269b90ac5d70bcaf7/"))
         ricochet = w3.eth.contract(address=self.contract_address, abi=RICOCHET_ABI)

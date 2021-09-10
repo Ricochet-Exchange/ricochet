@@ -36,9 +36,7 @@ library StreamExchangeStorage  {
     ISuperToken subsidyToken;             // The token to use as the subsidy
     uint256 subsidyRate;                  // The number of tokens to distribute subsidy in units per second
     uint32 subsidyIndexId;
-    int96 totalInflow;                    // The current inflow flow rate for the superapp
     uint256 lastDistributionAt;           // The last time a distribution was made
-    mapping (address => Stream) streams;  // A lookup table to see how much a user is streaming in
     IUniswapV2Router02 sushiRouter;       // Address of sushsiwap router
     ITellor oracle;                       // Address of deployed simple oracle for input//output token
     uint256 requestId;                    // The id of the tellor request that has input/output exchange rate

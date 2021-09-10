@@ -2,6 +2,7 @@ from airflow.models.baseoperator import BaseOperator
 from airflow.utils.decorators import apply_defaults
 from airflow.hooks.postgres_hook import PostgresHook
 from blocksec_plugin.web3_hook import Web3Hook
+from datetime import datetime
 from tempfile import NamedTemporaryFile
 from copy import deepcopy
 from functools import partial
@@ -75,12 +76,12 @@ class EthereumEventstoPostgresOperator(BaseOperator):
                                 args[key] = value
 
                         args = dumps(args)
-                    file.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n"\
+                    file.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\n"\
                         .format(args,event["event"],event["logIndex"],\
                                 event["transactionIndex"],event["transactionHash"].hex(),\
-                                event["address"],event["blockHash"].hex(),event["blockNumber"]))
+                                event["address"],event["blockHash"].hex(),event["blockNumber"], datetime.now()))
                 file.seek(0)
-                result = postgres.bulk_load('ethereum_events(args,event,log_index,transaction_index,transaction_hash,address,block_hash,block_number)', file.name)
+                result = postgres.bulk_load('ethereum_events(args,event,log_index,transaction_index,transaction_hash,address,block_hash,block_number,created_at)', file.name)
 
 
     def _load_contract_events(self):

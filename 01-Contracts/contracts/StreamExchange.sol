@@ -129,25 +129,27 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
                                                                          _exchange.outputToken,
                                                                          address(this),
                                                                          _exchange.outputIndexId);
+    // Check balance and account for
+    uint256 balance = ISuperToken(_exchange.inputToken).balanceOf(address(this)) /
+                      (10 ** (18 - ERC20(_exchange.inputToken.getUnderlyingToken()).decimals()));
 
-    if (doDistributeFirst && totalUnitsApproved + totalUnitsPending > 0 && ISuperToken(_exchange.inputToken).balanceOf(address(this)) > 0) {
+    if (doDistributeFirst && totalUnitsApproved + totalUnitsPending > 0 && balance > 0) {
       newCtx = _exchange._distribute(newCtx);
     }
 
     (address requester, address flowReceiver) = abi.decode(agreementData, (address, address));
-    int96 changeInFlowRate = _exchange.cfa.getNetFlow(_exchange.inputToken, address(this)) - _exchange.totalInflow;
-
-    _exchange.streams[requester].rate = _exchange.streams[requester].rate + changeInFlowRate;
+    require(flowReceiver == address(this), "!appflow");
+    int96 appFlowRate = _exchange.cfa.getNetFlow(_exchange.inputToken, address(this));
+    (, int96 requesterFlowRate, , ) = _exchange.cfa.getFlow(_exchange.inputToken, requester, address(this));
 
     // Make sure the requester has at least 8 hours of balance to stream
-    require(int(_exchange.inputToken.balanceOf(requester)) >= _exchange.streams[requester].rate * 8 hours, "!enoughTokens");
+    require(int(_exchange.inputToken.balanceOf(requester)) >= requesterFlowRate * 8 hours, "!enoughTokens");
 
-    newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.outputIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.outputToken);
-    newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.subsidyIndexId, requester, uint128(uint(int(_exchange.streams[requester].rate))), _exchange.subsidyToken);
+    require(requesterFlowRate >= 0, "!negativeRates");
+    newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.outputIndexId, requester, uint128(uint(int(requesterFlowRate))), _exchange.outputToken);
+    newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.subsidyIndexId, requester, uint128(uint(int(requesterFlowRate))), _exchange.subsidyToken);
 
-    _exchange.totalInflow = _exchange.totalInflow + changeInFlowRate;
-
-    emit UpdatedStream(requester, _exchange.streams[requester].rate, _exchange.totalInflow);
+    emit UpdatedStream(requester, requesterFlowRate, appFlowRate);
 
   }
 
@@ -162,6 +164,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
   function emergencyCloseStream(address streamer) public {
     _exchange._emergencyCloseStream(streamer);
+  }
+
+  function emergencyDrain() public {
+    _exchange._emergencyDrain();
   }
 
   function setSubsidyRate(uint128 subsidyRate) external onlyOwner {
@@ -238,7 +244,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
   }
 
   function getTotalInflow() external view returns (int96) {
-    return _exchange.totalInflow;
+    return _exchange.cfa.getNetFlow(_exchange.inputToken, address(this));
   }
 
   function getLastDistributionAt() external view returns (uint256) {
@@ -269,8 +275,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     return _exchange.rateTolerance;
   }
 
-  function getStreamRate(address streamer) external view returns (int96) {
-    return _exchange.streams[streamer].rate;
+  function getStreamRate(address streamer) external view returns (int96 requesterFlowRate) {
+    (, requesterFlowRate, , ) = _exchange.cfa.getFlow(_exchange.inputToken, streamer, address(this));
   }
 
 
@@ -302,6 +308,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       onlyHost
       returns (bytes memory newCtx)
   {
+      console.log("afterAgreementCreated");
       if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
       return _updateOutflow(_ctx, _agreementData, true);
   }
@@ -319,7 +326,11 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       onlyHost
       returns (bytes memory newCtx)
   {
+      console.log("afterAgreementUpdated");
+      console.log(_agreementClass);
+      console.log((address(_superToken)));
       if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
+      console.log("_updateOutflow");
       return _updateOutflow(_ctx, _agreementData, true);
   }
 
@@ -335,6 +346,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       onlyHost
       returns (bytes memory newCtx)
   {
+      console.log("afterAgreementTerminated");
       // According to the app basic law, we should never revert in a termination callback
       if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
       // Skip distribution when terminating to avoid reverts

@@ -1,17 +1,14 @@
 async function main() {
 
   const [deployer] = await ethers.getSigners();
+  console.log(process.argv);
 
   // Polygon Mainnet
   const HOST_ADDRESS = "0x3E14dC1b13c488a8d5D310918780c983bD5982E7";
   const CFA_ADDRESS = "0x6EeE6060f715257b970700bc2656De21dEdF074C";
   const IDA_ADDRESS = "0xB0aABBA4B2783A72C52956CDEF62d438ecA2d7a1";
-  const DAIX_ADDRESS = "0x1305F6B6Df9Dc47159D12Eb7aC2804d4A33173c2";
-  const ETHX_ADDRESS = "0x27e1e4E6BC79D93032abef01025811B7E4727e85";
-  const SUSHISWAP_ROUTER_ADDRESS = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506";
   const TELLOR_ORACLE_ADDRESS = "0xACC2d27400029904919ea54fFc0b18Bf07C57875";
   const RIC_CONTRACT_ADDRESS = "0x263026e7e53dbfdce5ae55ade22493f828922965";
-  const TELLOR_REQUEST_ID = 60;
 
   console.log("Deploying contracts with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
@@ -48,9 +45,10 @@ async function main() {
   console.log("\tIDA_ADDRESS", IDA_ADDRESS)
   console.log("\tINPUT_TOKEN", process.env.INPUT_TOKEN_ADDRESS)
   console.log("\tOUTPUT_TOKEN", process.env.OUTPUT_TOKEN_ADDRESS)
-  console.log("\tSUSHISWAP_ROUTER_ADDRESS", SUSHISWAP_ROUTER_ADDRESS)
-  console.log("\tTELLOR_ORACLE_ADDRESS", TELLOR_ORACLE_ADDRESS)
-  console.log("\tTELLOR_REQUEST_ID", TELLOR_REQUEST_ID)
+  console.log("\tROUTER_ADDRESS", process.env.ROUTER_ADDRESS)
+  console.log("\tTELLOR_ORACLE_ADDRESS", process.env.TELLOR_ORACLE_ADDRESS)
+  console.log("\tTELLOR_REQUEST_ID", process.env.TELLOR_REQUEST_ID)
+  console.log("\tSF_REG_KEY", process.env.SF_REG_KEY)
 
 
 
@@ -60,11 +58,12 @@ async function main() {
                                                       process.env.INPUT_TOKEN_ADDRESS,
                                                       process.env.OUTPUT_TOKEN_ADDRESS,
                                                       RIC_CONTRACT_ADDRESS,
-                                                      SUSHISWAP_ROUTER_ADDRESS,
-                                                      TELLOR_ORACLE_ADDRESS,
-                                                      TELLOR_REQUEST_ID,
+                                                      process.env.ROUTER_ADDRESS,
+                                                      process.env.TELLOR_ORACLE_ADDRESS,
+                                                      process.env.TELLOR_REQUEST_ID,
                                                       process.env.SF_REG_KEY );
   await streamExchange.deployed();
+  console.log("Deployed StreamExchangeHelper at address:", sed.address);
   console.log("Deployed StreamExchange at address:", streamExchange.address);
 }
 
