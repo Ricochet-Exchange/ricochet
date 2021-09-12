@@ -88,7 +88,7 @@ for exchange_address in EXCHANGE_ADDRESSES:
 
 
     list_streamers = RicochetStreamerListOperator(
-        streamers_file_path=exchange_address + "_streamers_state.json",
+        state_file_path=exchange_address + "_streamers_state.json",
         web3_conn_id='infura',
         contract_address=exchange_address,
         task_id='list_streamers_'+exchange_address,
