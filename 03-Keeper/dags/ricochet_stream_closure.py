@@ -59,6 +59,7 @@ confirm_close = EthereumTransactionConfirmationSensor(
     transaction_hash="{{task_instance.xcom_pull(task_ids='close_stream')}}",
     confirmations=1,
     poke_interval=20,
+    timeout=60 * 3,
     dag=dag
 )
 

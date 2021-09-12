@@ -78,6 +78,7 @@ for asset_id, request_id in ASSETS.items():
         transaction_hash="{{task_instance.xcom_pull(task_ids='oracle_update_"+asset_id+"', key='return_value')}}",
         confirmations=1,
         poke_interval=5,
+        timeout=60 * 3,
         dag=dag
     )
 
