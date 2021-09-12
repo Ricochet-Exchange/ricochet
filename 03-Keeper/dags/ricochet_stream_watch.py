@@ -34,7 +34,7 @@ dag = DAG("ricochet_stream_watch",
           max_active_runs=1,
           catchup=False,
           default_args=default_args,
-          schedule_interval="50 * * * *")
+          schedule_interval="30 * * * *")
 
 
 done = BashOperator(
