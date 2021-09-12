@@ -36,7 +36,6 @@ library StreamExchangeHelper {
     // Update Subscriptions
     _updateSubscription(self, self.subsidyIndexId, streamer, 0, self.subsidyToken);
     _updateSubscription(self, self.outputIndexId, streamer, 0, self.outputToken);
-    emit UpdatedStream(streamer, 0, self.cfa.getNetFlow(self.inputToken, address(this)));
 
     // Close the streamers stream
     self.host.callAgreement(
@@ -50,6 +49,8 @@ library StreamExchangeHelper {
         ),
         "0x"
     );
+
+    emit UpdatedStream(streamer, 0, self.cfa.getNetFlow(self.inputToken, address(this)));
 
   }
 
@@ -188,9 +189,9 @@ library StreamExchangeHelper {
 
     // TODO: This needs to be "invertable"
     // USD >> TOK
-    minOutput = amount * 1e18 / exchangeRate / 1e12;
+    // minOutput = amount * 1e18 / exchangeRate / 1e12;
     // TOK >> USD
-    // minOutput = amount  * exchangeRate / 1e6;
+    minOutput = amount  * exchangeRate / 1e6;
     minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
 
     // Scale back from 1e18 to outputToken decimals

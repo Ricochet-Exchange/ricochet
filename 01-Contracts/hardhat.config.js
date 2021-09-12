@@ -28,10 +28,11 @@ module.exports = {
   },
   networks: {
     polygon: {
-      url: "https://polygon-mainnet.infura.io/v3/" + process.env.INFURA_KEY,
+      // url: "https://polygon-mainnet.infura.io/v3/" + process.env.INFURA_KEY,
+      url: process.env.QUICK_NODE_URL,
       accounts: [process.env.MATIC_PRIVATE_KEY],
       gas: 2000000,
-      gasPrice: 20000000000
+      gasPrice: 40000000000
     },
     rinkeby: {
       url: "https://rinkeby.infura.io/v3/" + process.env.INFURA_KEY,

@@ -1,4 +1,0 @@
-ricochet:
-  image:
-    repository: us.gcr.io/block-sec/ricochet
-    tag: latest
