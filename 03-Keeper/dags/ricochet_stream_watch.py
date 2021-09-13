@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from blocksec_plugin.web3_hook import Web3Hook
 from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python_operator import PythonOperator
+from airflow.api.client.local_client import Client
 from blocksec_plugin.ethereum_transaction_confirmation_sensor import EthereumTransactionConfirmationSensor
 from blocksec_plugin.ricochet_streamer_list_operator import RicochetStreamerListOperator
 from blocksec_plugin.abis import RICOCHET_ABI, ERC20_ABI
