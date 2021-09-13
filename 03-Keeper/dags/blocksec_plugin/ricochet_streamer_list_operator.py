@@ -25,7 +25,6 @@ class RicochetStreamerListOperator(BaseOperator):
         super().__init__(*args, **kwargs)
         self.postgres_conn_id = postgres_conn_id
         self.contract_address = contract_address
-        self.web3 = Web3Hook(web3_conn_id=self.web3_conn_id)
         self.state_file_path = state_file_path
 
 
