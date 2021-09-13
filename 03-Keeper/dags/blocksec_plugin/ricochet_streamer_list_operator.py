@@ -1,7 +1,7 @@
 from airflow.models.baseoperator import BaseOperator
 from airflow.hooks.filesystem import FSHook
 from airflow.utils.decorators import apply_defaults
-from blocksec_plugin.web3_hook import Web3Hook
+from airflow.hooks.postgres_hook import PostgresHook
 from blocksec_plugin.abis import RICOCHET_ABI
 from web3 import Web3
 import requests, json
