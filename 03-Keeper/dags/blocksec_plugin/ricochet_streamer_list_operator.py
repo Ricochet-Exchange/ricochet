@@ -42,7 +42,7 @@ class RicochetStreamerListOperator(BaseOperator):
         cursor = conn.cursor()
         cursor.execute(sql)
         results = cursor.fetchall()
-
+        addresses = []
         for result in results:
             print("Found Address", result[0])
             addresses.append(result[0])
