@@ -17,7 +17,7 @@ from web3 import Web3
 from json import loads
 import requests
 
-DISTRIBUTOR_WALLET_ADDRESS = Variable.get("distributor-address", "0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be")
+CLOSER_WALLET_ADDRESS = Variable.get("closer-address", "0xe07c9696e00f23Fc7bAE76d037A115bfF33E28be")
 EXCHANGE_ADDRESSES = Variable.get("ricochet-exchange-addresses", deserialize_json=True)
 
 default_args = {
@@ -80,7 +80,7 @@ def review_streamers_and_trigger_closures(**context):
     web3 = Web3Hook(web3_conn_id='infura').http_client
     c = Client(None, None)
     index = 0
-    current_nonce = web3.eth.getTransactionCount(DISTRIBUTOR_WALLET_ADDRESS)
+    current_nonce = web3.eth.getTransactionCount(CLOSER_WALLET_ADDRESS)
     for streamer in streamers:
 
         # Check if the streamers balance is less that 8 hours of streamer
