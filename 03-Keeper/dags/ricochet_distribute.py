@@ -64,6 +64,7 @@ for nonce_offset, exchange_address in enumerate(EXCHANGE_ADDRESSES):
         transaction_hash="{{task_instance.xcom_pull(task_ids='distribute_" + exchange_address + "')}}",
         confirmations=1,
         poke_interval=5,
+        timeout=60 * 3,
         dag=dag
     )
 

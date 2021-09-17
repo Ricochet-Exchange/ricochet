@@ -21,6 +21,7 @@ class RicochetStreamerCloseOperator(BaseOperator):
                  web3_conn_id='web3_default',
                  ethereum_wallet=None,
                  gas=1200000,
+                 gas_multiplier=1,
                  *args,
                  **kwargs):
         super().__init__(*args, **kwargs)
@@ -29,6 +30,7 @@ class RicochetStreamerCloseOperator(BaseOperator):
         self.streamer_address = streamer_address
         self.nonce = nonce
         self.gas = gas
+        self.gas_multiplier = gas_multiplier
         self.web3 = Web3Hook(web3_conn_id=self.web3_conn_id).http_client
         self.wallet = EthereumWalletHook(ethereum_wallet=ethereum_wallet)
 
@@ -43,7 +45,7 @@ class RicochetStreamerCloseOperator(BaseOperator):
         withdraw_txn = contract.functions.closeStream(self.streamer_address)\
                                          .buildTransaction(dict(
                                            nonce=int(self.nonce),
-                                           gasPrice = self.web3.eth.gasPrice,
+                                           gasPrice = self.web3.eth.gasPrice * self.gas_multiplier,
                                            gas = self.gas
                                           ))
         signed_txn = self.web3.eth.account.signTransaction(withdraw_txn, self.wallet.private_key)
