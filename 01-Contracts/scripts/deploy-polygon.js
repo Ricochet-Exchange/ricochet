@@ -13,22 +13,6 @@ async function main() {
   console.log("Deploying contracts with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
 
-  // // NOTE: Use our own oracle to start, switch to Mesosphere after its ready
-  // //  Deploy Tellor Oracle contracts
-  // const TellorPlayground = await ethers.getContractFactory("TellorPlayground");
-  // const tp = await TellorPlayground.deploy("Tellor oracle", "TRB");
-  // await tp.deployed();
-  // console.log("Deployed TellorPlayground at address:", tp.address);
-  //
-  // // Set the oracle price
-  // await tp.submitValue(1, 2143000000);
-  //
-  // const UsingTellor = await ethers.getContractFactory("UsingTellor");
-  // const usingTellor = await UsingTellor.deploy(tp.address);
-  // await usingTellor.deployed();
-  // console.log("Deployed UsingTellor at address:", usingTellor.address);
-
-
   console.log("Deploying StreamExchangeHelper")
   const StreamExchangeHelper = await ethers.getContractFactory("StreamExchangeHelper");
   let sed = await StreamExchangeHelper.deploy();

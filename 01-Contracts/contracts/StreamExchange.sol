@@ -38,6 +38,7 @@ import "./StreamExchangeHelper.sol";
 import "./tellor/ITellor.sol";
 
 
+
 contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     // TODO: uint256 public constant RATE_PERCISION = 1000000;
@@ -223,11 +224,11 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
    return _exchange.inputToken;
   }
 
-  function getOuputToken() external view returns (ISuperToken) {
+  function getOutputToken() external view returns (ISuperToken) {
    return _exchange.outputToken;
   }
 
-  function getOuputIndexId() external view returns (uint32) {
+  function getOutputIndexId() external view returns (uint32) {
    return _exchange.outputIndexId;
   }
 
@@ -308,7 +309,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       onlyHost
       returns (bytes memory newCtx)
   {
-      console.log("afterAgreementCreated");
       if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
       return _updateOutflow(_ctx, _agreementData, true);
   }
@@ -326,11 +326,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       onlyHost
       returns (bytes memory newCtx)
   {
-      console.log("afterAgreementUpdated");
-      console.log(_agreementClass);
-      console.log((address(_superToken)));
       if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
-      console.log("_updateOutflow");
       return _updateOutflow(_ctx, _agreementData, true);
   }
 

@@ -110,8 +110,6 @@ library StreamExchangeHelper {
      newCtx = ctx;
      require(self.host.isCtxValid(newCtx) || newCtx.length == 0, "!distributeCtx");
 
-     uint256 initialBalanceInput = ISuperToken(self.inputToken).balanceOf(address(this));
-
      // Get the exchange rate as inputToken per outputToken
      bool _didGet;
      uint _timestamp;
@@ -186,6 +184,7 @@ library StreamExchangeHelper {
     outputToken = self.outputToken.getUnderlyingToken();
 
     // Downgrade and scale the input amount
+    console.log("Amount", amount);
     self.inputToken.downgrade(amount);
     // Scale it to 1e18 for calculations
     amount = ERC20(inputToken).balanceOf(address(this)) * (10 ** (18 - ERC20(inputToken).decimals()));

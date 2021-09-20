@@ -41,7 +41,8 @@ module.exports = {
     // },
     hardhat: {
         forking: {
-          url: process.env.QUICK_NODE_URL,
+          url: "https://polygon-mainnet.infura.io/v3/" + process.env.INFURA_KEY,
+          // url: process.env.QUICK_NODE_URL,
           accounts: [process.env.MATIC_PRIVATE_KEY],
         }
       }
