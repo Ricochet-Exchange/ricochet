@@ -57,6 +57,8 @@ x-airflow-common:
     AIRFLOW__API__AUTH_BACKEND: 'airflow.api.auth.backend.basic_auth'
     AIRFLOW__CORE__EMAIL_BACKEND: 'airflow.providers.sendgrid.utils.emailer.send_email'
     AIRFLOW__CORE__EMAIL_CONN_ID: 'sendgrid'
+    AIRFLOW__CORE__PARALLELISM: '16'
+    AIRFLOW__CORE__DAG_CONCURRENCY: '8'
     _PIP_ADDITIONAL_REQUIREMENTS: 'web3 eth_abi eth-utils'
   volumes:
     - ./dags:/opt/airflow/dags
