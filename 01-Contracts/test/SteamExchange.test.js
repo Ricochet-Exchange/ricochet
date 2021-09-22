@@ -18,6 +18,7 @@ const ROUTER_ADDRESS = process.env.ROUTER_ADDRESS
 const TELLOR_ORACLE_ADDRESS = process.env.TELLOR_ORACLE_ADDRESS
 const TELLOR_REQUEST_ID = process.env.TELLOR_REQUEST_ID
 const SF_REG_KEY = process.env.SF_REG_KEY
+const COINGECKO_TOKEN_ID = process.env.COINGECKO_TOKEN_ID
 
 const CARL_ADDRESS = "0x8c3bf3EB2639b2326fF937D041292dA2e79aDBbf"
 const BOB_ADDRESS = "0x00Ce20EC71942B41F50fF566287B811bbef46DC8"
@@ -59,8 +60,8 @@ describe("StreamExchange", () => {
 
     before(async function () {
         //process.env.RESET_SUPERFLUID_FRAMEWORK = 1;
-        let response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=maker&vs_currencies=usd')
-        oraclePrice =  2550 * 1.02 * 1e6 // parseInt(response.data["maker"].usd * 1.02 * 1000000).toString()
+        let response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids='+COINGECKO_TOKEN_ID+'&vs_currencies=usd')
+        oraclePrice =  parseInt(response.data[COINGECKO_TOKEN_ID].usd * 1.02 * 1000000).toString()
         console.log("oraclePrice", oraclePrice)
     });
 
@@ -272,6 +273,13 @@ describe("StreamExchange", () => {
       this.timeout(1000000);
 
       it("should stream the same amount to all streamers with the same rates", async function() {
+
+        // Checks for unlimited approval
+        expect(await inputTokenUnderlying.allowance(app.address, ROUTER_ADDRESS)).to.be.equal(ethers.constants.MaxUint256);
+        expect(await outputTokenUnderlying.allowance(app.address, ROUTER_ADDRESS)).to.be.equal(ethers.constants.MaxUint256);
+        expect(await inputTokenUnderlying.allowance(app.address, inputToken.address)).to.be.equal(ethers.constants.MaxUint256);
+        expect(await outputTokenUnderlying.allowance(app.address, outputToken.address)).to.be.equal(ethers.constants.MaxUint256);
+
 
         let inflowRate = "1000000000000000";
         let inflowRate2x = "2000000000000000";

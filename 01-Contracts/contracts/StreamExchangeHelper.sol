@@ -191,9 +191,9 @@ library StreamExchangeHelper {
 
     // TODO: This needs to be "invertable"
     // USD >> TOK
-    minOutput = amount * 1e18 / exchangeRate / 1e12;
+    // minOutput = amount * 1e18 / exchangeRate / 1e12;
     // TOK >> USD
-    // minOutput = amount  * exchangeRate / 1e6;
+    minOutput = amount  * exchangeRate / 1e6;
     minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
 
     // Scale back from 1e18 to outputToken decimals
@@ -204,7 +204,9 @@ library StreamExchangeHelper {
     path = new address[](2);
     path[0] = inputToken;
     path[1] = outputToken;
-
+    console.log("amount",amount);
+    console.log("inputToken",inputToken);
+    console.log("outputToken",outputToken);
     self.sushiRouter.swapExactTokensForTokens(
        amount,
        0, // Accept any amount but fail if we're too far from the oracle price
@@ -214,6 +216,7 @@ library StreamExchangeHelper {
     );
     // Assumes `amount` was outputToken.balanceOf(address(this))
     outputAmount = ERC20(outputToken).balanceOf(address(this));
+    console.log("outputAmount", outputAmount);
     require(outputAmount >= minOutput, "BAD_EXCHANGE_RATE: Try again later");
 
     // Convert the outputToken back to its supertoken version
