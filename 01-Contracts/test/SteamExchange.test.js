@@ -61,7 +61,7 @@ describe("StreamExchange", () => {
     before(async function () {
         //process.env.RESET_SUPERFLUID_FRAMEWORK = 1;
         let response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids='+COINGECKO_TOKEN_ID+'&vs_currencies=usd')
-        oraclePrice =  parseInt(response.data[COINGECKO_TOKEN_ID].usd * 1.02 * 1000000).toString()
+        oraclePrice =  parseInt(response.data[COINGECKO_TOKEN_ID].usd * 1.05 * 1000000).toString()
         console.log("oraclePrice", oraclePrice)
     });
 

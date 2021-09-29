@@ -365,5 +365,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     _;
   }
 
+  receive() external payable {}
 
   }

@@ -16,6 +16,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import "./tellor/UsingTellor.sol";
 import "./StreamExchangeStorage.sol";
+import "./ISETHCustom.sol";
 
 
 library StreamExchangeHelper {
@@ -191,9 +192,9 @@ library StreamExchangeHelper {
 
     // TODO: This needs to be "invertable"
     // USD >> TOK
-    // minOutput = amount * 1e18 / exchangeRate / 1e12;
+    minOutput = amount * 1e18 / exchangeRate / 1e12;
     // TOK >> USD
-    minOutput = amount  * exchangeRate / 1e6;
+    // minOutput = amount  * exchangeRate / 1e6;
     minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
 
     // Scale back from 1e18 to outputToken decimals
@@ -201,13 +202,14 @@ library StreamExchangeHelper {
     // Scale it back to inputToken decimals
     amount = amount / (10 ** (18 - ERC20(inputToken).decimals()));
 
+    // TODO: Move to constructor or initalizer
     path = new address[](2);
     path[0] = inputToken;
     path[1] = outputToken;
     console.log("amount",amount);
     console.log("inputToken",inputToken);
     console.log("outputToken",outputToken);
-    self.sushiRouter.swapExactTokensForTokens(
+    self.sushiRouter.swapExactTokensForETH(
        amount,
        0, // Accept any amount but fail if we're too far from the oracle price
        path,
@@ -215,12 +217,12 @@ library StreamExchangeHelper {
        deadline
     );
     // Assumes `amount` was outputToken.balanceOf(address(this))
-    outputAmount = ERC20(outputToken).balanceOf(address(this));
+    outputAmount = address(this).balance;
     console.log("outputAmount", outputAmount);
     require(outputAmount >= minOutput, "BAD_EXCHANGE_RATE: Try again later");
 
     // Convert the outputToken back to its supertoken version
-    self.outputToken.upgrade(outputAmount * (10 ** (18 - ERC20(outputToken).decimals())));
+    ISETHCustom(address(self.outputToken)).upgradeByETH{value: outputAmount * (10 ** (18 - ERC20(outputToken).decimals()))}();
 
     return outputAmount;
   }
