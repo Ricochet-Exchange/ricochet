@@ -17,7 +17,7 @@ The price of TOK is the sum of streams divided by the distribution rate. Conside
 (100 + 100 + 200) = 400 USDCx/mo.
 100000 TOK / 400 USDCx = 250 USDC
 ```
-The price of the token at launch would be 250 USDCx per token.
+The price of the token at launch would be 250 tokens per USDCx (0.004 USDCx per token).
 
 ## Contract Architecture
 
