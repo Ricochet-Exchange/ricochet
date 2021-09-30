@@ -15,9 +15,9 @@ Rather than price discovery happening on a limit order book, it happens using a 
 The price of TOK is the sum of streams divided by the distribution rate. Consider the price of `TOK` in the above example:
 ```
 (100 + 100 + 200) = 400 USDCx/mo.
-100000 TOK / 400 USDCx = 250 USDC
+400 USDCx / 100000 TOK = 0.004 USDCx
 ```
-The price of the token at launch would be 250 tokens per USDCx (0.004 USDCx per token).
+The price of the token at launch would be 0.004 USDCx per token (250 tokens per USDCx).
 
 ## Contract Architecture
 
