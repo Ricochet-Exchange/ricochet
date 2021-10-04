@@ -8,7 +8,7 @@ const SuperfluidSDK = require("@superfluid-finance/js-sdk");
 
 const traveler = require("ganache-time-traveler");
 const TEST_TRAVEL_TIME = 3600 * 2; // 1 hours
-
+const RIC_TOKEN_ADDRESS = process.env.RIC_TOKEN_ADDRESS
 const SF_REG_KEY = process.env.SF_REG_KEY
 const CARL_ADDRESS = "0x8c3bf3EB2639b2326fF937D041292dA2e79aDBbf"
 const BOB_ADDRESS = "0x00Ce20EC71942B41F50fF566287B811bbef46DC8"
@@ -30,17 +30,20 @@ describe("RicochetLaunchpad", () => {
   let inputTokenUnderlying;  // DAI
   let outputToken; // RIC
   let outputTokenUnderlying; // RIC
-  let outputRate = "400000000000000000"
-  let feeRate = 20000
+  let outputRate = "40000000000000000"
+  let feeRate = 100000
   let sf;
   let app;
   let owner;
   let originator;
   let beneficiary;
+  let carl;
   let appBalances = {};
   let appDeltas = {};
   const u = {}; // object with all users
   const aliases = {};
+  let names;
+  let accounts;
 
   before(async function () {
     this.timeout(1000000);
@@ -68,9 +71,9 @@ describe("RicochetLaunchpad", () => {
     // Alice
     await hre.network.provider.request({
       method: "hardhat_impersonateAccount",
-      params: [ALICE_ADDRESS]}
+      params: [CARL_ADDRESS]}
     )
-    originator = await ethers.provider.getSigner(ALICE_ADDRESS)
+    originator = await ethers.provider.getSigner(CARL_ADDRESS)
 
     // Bob
     await hre.network.provider.request({
@@ -78,6 +81,12 @@ describe("RicochetLaunchpad", () => {
       params: [BOB_ADDRESS]}
     )
     beneficiary = await ethers.provider.getSigner(BOB_ADDRESS)
+
+    await hre.network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [ALICE_ADDRESS]}
+    )
+    carl = await ethers.provider.getSigner(ALICE_ADDRESS)
 
     // Setup contract connections
     console.log(inputTokenAddress);
@@ -89,8 +98,8 @@ describe("RicochetLaunchpad", () => {
     inputTokenUnderlying = await ERC20.attach(await inputToken.getUnderlyingToken());
     outputTokenUnderlying = await ERC20.attach(await outputToken.getUnderlyingToken());
 
-    const accounts = [owner, originator, beneficiary];
-    const names = ["owner", "originator", "beneficiary"];
+    accounts = [owner, originator, beneficiary, carl];
+    names = ["owner", "originator", "beneficiary", "carl"];
 
     // Setup users and setup to track user balances
     for (var i = 0; i < names.length; i++) {
@@ -137,7 +146,34 @@ describe("RicochetLaunchpad", () => {
                          outputRate,
                          feeRate);
 
+    ric = await ethers.getContractAt(superTokenAbi, RIC_TOKEN_ADDRESS);
+    ric = ric.connect(owner)
+    await ric.transfer(app.address, "1000000000000000000000");
+
     console.log("Deployed and initialized Ricochet Launchpad.")
+
+    // Approve IDA tokens, loop all output tokens for all users
+    let tokens = [outputToken.address]
+    let users = [u.carl.address, u.originator.address]
+    for (let t = 0; t < tokens.length; t++) {
+      for (let u = 0; u < users.length; u++) {
+        let index = 0
+
+        await web3tx(
+            sf.host.callAgreement,
+            users[u] + " approves subscription to the app " + tokens[t] + " " + index
+        )(
+            sf.agreements.ida.address,
+            sf.agreements.ida.contract.methods
+                .approveSubscription(tokens[t], app.address, t, "0x")
+                .encodeABI(),
+            "0x", // user data
+            {
+                from: users[u]
+            }
+        );
+      }
+    }
 
 
   });
@@ -148,6 +184,34 @@ describe("RicochetLaunchpad", () => {
     // Each test starts off with a clean IRO
 
   });
+
+  async function takeMeasurements() {
+
+    // Setup users and setup to track user balances
+    for (var i = 0; i < names.length; i++) {
+        appBalances[names[i]][inputToken.address].push((await inputToken.balanceOf(u[names[i].toLowerCase()].address)).toString());
+        appBalances[names[i]][outputToken.address].push((await outputToken.balanceOf(u[names[i].toLowerCase()].address)).toString());
+    }
+    // // Setup users and setup to track user balances
+    // if (appBalances[names[0]][inputToken.address].length >= 2) {
+    //   for (var i = 0; i < names.length; i++) {
+    //       let l = appDeltas[names[i]][inputToken.address].length-1
+    //       console.log("Changein", appDeltas[names[i]][inputToken.address][l])
+    //       console.log("Changein", appDeltas[names[i]][inputToken.address][l-1])
+    //       console.log("Changeout", appDeltas[names[i]][outputToken.address][l])
+    //       console.log("Changeout", appDeltas[names[i]][outputToken.address][l-1])
+    //       let changeInInToken = appDeltas[names[i]][inputToken.address][l-1] - appDeltas[names[i]][inputToken.address][l]
+    //       let changeInOutToken = appDeltas[names[i]][outputToken.address][l] - appDeltas[names[i]][outputToken.address][l-1]
+    //
+    //       appDeltas[names[i]][inputToken.address].push((await inputToken.balanceOf(u[names[i].toLowerCase()].address)).toString());
+    //       appDeltas[names[i]][outputToken.address].push((await outputToken.balanceOf(u[names[i].toLowerCase()].address)).toString());
+    //       console.log("Change in balances for ", names[i])
+    //       console.log("Input Token:", changeInInToken, "Bal:", appDeltas[names[i]][inputToken.address][i])
+    //       console.log("Output Token:", changeInOutToken, "Bal:", appDeltas[names[i]][outputToken.address][i])
+    //       console.log("Exchange Rate:", changeInInToken/changeInOutToken)
+    //   }
+    // }
+  }
 
   describe("RicochetLaunchpad", async function () {
     this.timeout(100000);
@@ -161,37 +225,36 @@ describe("RicochetLaunchpad", () => {
 
     });
 
-    // it("should allow changing Launchpad properties", async function() {
-    //   // 1. Initialize a Launchpad contract
-    //   // 2. Check all the setters work correctly
-    // });
-    //
-    // it("should createIRO with correct properties", async function() {
-    //   // 1. Init Launchpad
-    //   // 2. Create an IRO
-    //   // 3. Check all the IROs getters
-    //   // 4. Check the token balance changes (launchpad +, originator -)
-    // });
-    //
-    // it("should accept streams to an IRO and pay out to the beneficiary and owner", async function() {
-    //   // 1. Init Launchpad
-    //   // 2. Create an IRO
-    //   // 3. Start two streams to the IRO, one for 2x the other
-    //   // 4. Check the stream rates and flow rates
-    //   // 5. Wait 1 hour
-    //   // 6. Check the net amounts flowed and amounts distributed
-    //
-    // });
-    //
-    // it("should accept streams to many IROs using many paytokens and pay out to the beneficiary and owner", async function() {
-    //   // 1. Init Launchpad
-    //   // 2. Create 2 IROs
-    //   // 3. Start two streams to each IRO, one for 2x the other
-    //   // 4. Check the stream rates and flow rates
-    //   // 5. Wait 1 hour
-    //   // 6. Check the net amounts flowed and amounts distributed
-    // });
+    it("should distribute output tokens to streamer and collect fees", async function() {
+      await takeMeasurements()
+      let inflowRate = "1000000000";
+      await u.carl.flow({ flowRate: inflowRate, recipient: app.address });
+      await traveler.advanceTimeAndBlock(60*60*1);
+      await app.distribute()
+      await takeMeasurements()
 
+      expect(ethers.BigNumber.from((appBalances["carl"][outputToken.address][1] - appBalances["carl"][outputToken.address][0]).toString()))
+        .to.be.within(ethers.BigNumber.from("144000000000000000000"), ethers.BigNumber.from("145000000000000000000"))
+      expect(ethers.BigNumber.from((appBalances["beneficiary"][inputToken.address][1] - appBalances["beneficiary"][inputToken.address][0]).toString()))
+        .to.be.within(ethers.BigNumber.from("3200000000000"), ethers.BigNumber.from("3300000000000"))
+      expect(ethers.BigNumber.from((appBalances["owner"][inputToken.address][1] - appBalances["owner"][inputToken.address][0]).toString()))
+        .to.be.within(ethers.BigNumber.from("360000000000"), ethers.BigNumber.from("361000000000"))
+
+      // Connect a 2nd streamer
+      await u.originator.flow({ flowRate: inflowRate, recipient: app.address });
+      await traveler.advanceTimeAndBlock(60*60*1);
+      await app.distribute()
+      await takeMeasurements()
+
+      expect(ethers.BigNumber.from((appBalances["carl"][outputToken.address][2] - appBalances["carl"][outputToken.address][1]).toString()))
+        .to.be.within(ethers.BigNumber.from("72000000000000000000"), ethers.BigNumber.from("72100000000000000000"))
+      expect(ethers.BigNumber.from((appBalances["originator"][outputToken.address][2] - appBalances["originator"][outputToken.address][1]).toString()))
+        .to.be.within(ethers.BigNumber.from("72000000000000000000"), ethers.BigNumber.from("72100000000000000000"))
+      expect(ethers.BigNumber.from((appBalances["beneficiary"][inputToken.address][2] - appBalances["beneficiary"][inputToken.address][1]).toString()))
+        .to.be.within(ethers.BigNumber.from("6400000000000"), ethers.BigNumber.from("6500000000000"))
+      expect(ethers.BigNumber.from((appBalances["owner"][inputToken.address][2] - appBalances["owner"][inputToken.address][1]).toString()))
+        .to.be.within(ethers.BigNumber.from("720000000000"), ethers.BigNumber.from("721000000000"))
+
+    });
   });
-
 });

@@ -92,8 +92,8 @@ library RicochetLaunchpadHelper {
      uint256 inputAmount = self.inputToken.balanceOf(address(this));
      uint256 feeCollected = inputAmount * self.feeRate / 1e6;
      uint256 distAmount = inputAmount - feeCollected;
-     ISuperToken(self.outputToken).transfer(self.owner, feeCollected);
-     ISuperToken(self.outputToken).transfer(self.beneficiary, distAmount);
+     ISuperToken(self.inputToken).transfer(self.owner, feeCollected);
+     ISuperToken(self.inputToken).transfer(self.beneficiary, distAmount);
 
      // Distribute the output tokens to the streamers
      uint256 outputAmount = (block.timestamp - self.lastDistributionAt) * self.outputRate;
