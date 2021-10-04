@@ -462,8 +462,6 @@ describe('StreamExchange', () => {
       // Expect the parameters are correct
       expect(await app.getStreamRate(u.admin.address)).to.equal(inflowRate);
       expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal(`true,true,${inflowRateIDAShares},0`);
-
-      await app.distribute();
     });
 
     it('approval should be unlimited', async () => {
