@@ -1,0 +1,21 @@
+{
+     "extends": "airbnb-base",
+     "globals": {
+       "artifacts": true,
+       "contract": true,
+       "web3": true,
+       "assert": true,
+       "it": true,
+       "xit": true,
+       "before": true,
+       "beforeEach": true,
+       "describe": true,
+       "ethers": true
+     },
+     "rules": {
+       "strict": 0,
+       "func-names": "off",
+       "no-console": "off"
+     }
+}
+
