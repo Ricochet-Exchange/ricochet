@@ -37,16 +37,16 @@ library StreamExchangeHelper {
 
   /// @dev Close stream from `streamer` address if balance is less than 8 hours of streaming
   /// @param streamer is stream source (streamer) address
-  function _closeStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
-    // Only closable if their balance is less than 8 hours of streaming
-    (,int96 streamerFlowRate,,) = self.cfa.getFlow(self.inputToken, streamer, address(this));
-    require(int(self.inputToken.balanceOf(streamer)) <= streamerFlowRate * 8 hours,
+function _closeStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
+    // Only closable iff their balance is less than 8 hours of streaming
+    require(int(self.inputToken.balanceOf(streamer)) <= self.streams[streamer].rate * 8 hours,
               "!closable");
+
+    self.streams[streamer].rate = 0;
 
     // Update Subscriptions
     _updateSubscription(self, self.subsidyIndexId, streamer, 0, self.subsidyToken);
     _updateSubscription(self, self.outputIndexId, streamer, 0, self.outputToken);
-    emit UpdatedStream(streamer, 0, self.cfa.getNetFlow(self.inputToken, address(this)));
 
     // Close the streamers stream
     self.host.callAgreement(
@@ -150,6 +150,9 @@ library StreamExchangeHelper {
         address(this),
         self.outputIndexId,
         outputBalance);
+
+     console.log("outputBalance", outputBalance);
+     console.log("actualAmount", actualAmount);
 
       // Return if there's not anything to actually distribute
       if (actualAmount == 0) { return newCtx; }
