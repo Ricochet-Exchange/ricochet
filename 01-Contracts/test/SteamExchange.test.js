@@ -252,30 +252,6 @@ describe('StreamExchange', () => {
     wbtc = await ERC20.attach(await wbtcx.getUnderlyingToken());
     usdc = await ERC20.attach(await usdcx.getUnderlyingToken());
     ric = ric.connect(owner);
-
-    // ==============
-    // Add liquidity to wbtc/usdc
-    await impersonateAndSetBalance(WBTC_SOURCE_ADDRESS);
-    await impersonateAndSetBalance(USDC_SOURCE_ADDRESS);
-
-    await wbtc.connect(await ethers.getSigner(WBTC_SOURCE_ADDRESS))
-      .transfer(u.admin.address, '100000000000');
-    await usdc.connect(await ethers.getSigner(USDC_SOURCE_ADDRESS))
-      .transfer(u.admin.address, '100000000000');
-    await wbtc.connect(owner).approve(SUSHISWAP_ROUTER_ADDRESS, '100000000000');
-    await usdc.connect(owner).approve(SUSHISWAP_ROUTER_ADDRESS, '100000000000');
-
-    sr = await ethers.getContractAt('IUniswapV2Router02', SUSHISWAP_ROUTER_ADDRESS, owner);
-    await sr.addLiquidity(
-      wbtc.address,
-      usdc.address,
-      '100000000000',
-      '100000000000',
-      0,
-      0,
-      u.admin.address,
-      (await time.latest()).add(new BN(3600)).toString(),
-    );
   });
 
   beforeEach(async () => {
@@ -301,8 +277,8 @@ describe('StreamExchange', () => {
     console.log('SF HOST', sf.host.address);
     console.log('SF CFA', sf.agreements.cfa.address);
     console.log('SF IDA', sf.agreements.ida.address);
-    console.log('DAIx', daix.address);
-    console.log('ETHx', ethx.address);
+    console.log('USDCx', usdcx.address);
+    console.log('WBTCx', wbtcx.address);
     console.log('SF Registration Key', registrationKey);
 
     console.log('Deploying StreamExchange...');
@@ -323,7 +299,7 @@ describe('StreamExchange', () => {
 
     u.app = sf.user({
       address: app.address,
-      token: daix.address,
+      token: wbtcx.address,
     });
     u.app.alias = 'App';
     // ==============
