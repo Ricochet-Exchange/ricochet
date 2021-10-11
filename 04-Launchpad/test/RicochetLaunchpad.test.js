@@ -228,6 +228,7 @@ describe("RicochetLaunchpad", () => {
     it("should distribute output tokens to streamer and collect fees", async function() {
       await takeMeasurements()
       let inflowRate = "1000000000";
+      let inflowRate2x = "2000000000";
       await u.carl.flow({ flowRate: inflowRate, recipient: app.address });
       await traveler.advanceTimeAndBlock(60*60*1);
       await app.distribute()
@@ -239,6 +240,7 @@ describe("RicochetLaunchpad", () => {
         .to.be.within(ethers.BigNumber.from("3200000000000"), ethers.BigNumber.from("3300000000000"))
       expect(ethers.BigNumber.from((appBalances["owner"][inputToken.address][1] - appBalances["owner"][inputToken.address][0]).toString()))
         .to.be.within(ethers.BigNumber.from("360000000000"), ethers.BigNumber.from("361000000000"))
+      console.log("Share price", (await app.getSharePrice() / 1e18).toString())
 
       // Connect a 2nd streamer
       await u.originator.flow({ flowRate: inflowRate, recipient: app.address });
@@ -254,6 +256,25 @@ describe("RicochetLaunchpad", () => {
         .to.be.within(ethers.BigNumber.from("6400000000000"), ethers.BigNumber.from("6500000000000"))
       expect(ethers.BigNumber.from((appBalances["owner"][inputToken.address][2] - appBalances["owner"][inputToken.address][1]).toString()))
         .to.be.within(ethers.BigNumber.from("720000000000"), ethers.BigNumber.from("721000000000"))
+      console.log("Share price", (await app.getSharePrice() / 1e18 ).toString())
+
+      // Update the flow test 2:1 stream rates
+      await u.originator.flow({ flowRate: inflowRate2x, recipient: app.address });
+      await traveler.advanceTimeAndBlock(60*60*1);
+      await app.distribute()
+      await takeMeasurements()
+
+      expect(ethers.BigNumber.from((appBalances["carl"][outputToken.address][3] - appBalances["carl"][outputToken.address][2]).toString()))
+        .to.be.within(ethers.BigNumber.from("48000000000000000000"), ethers.BigNumber.from("48100000000000000000"))
+      expect(ethers.BigNumber.from((appBalances["originator"][outputToken.address][3] - appBalances["originator"][outputToken.address][2]).toString()))
+        .to.be.within(ethers.BigNumber.from("96000000000000000000"), ethers.BigNumber.from("96200000000000000000"))
+      expect(ethers.BigNumber.from((appBalances["beneficiary"][inputToken.address][3] - appBalances["beneficiary"][inputToken.address][2]).toString()))
+        .to.be.within(ethers.BigNumber.from("9700000000000"), ethers.BigNumber.from("9730000000000"))
+      expect(ethers.BigNumber.from((appBalances["owner"][inputToken.address][3] - appBalances["owner"][inputToken.address][2]).toString()))
+        .to.be.within(ethers.BigNumber.from("1080000000000"), ethers.BigNumber.from("1090000000000"))
+      console.log("Share price", (await app.getSharePrice() / 1e18).toString())
+
+
 
     });
   });

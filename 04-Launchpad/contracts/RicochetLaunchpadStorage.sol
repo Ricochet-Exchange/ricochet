@@ -27,6 +27,7 @@ library RicochetLaunchpadStorage  {
     uint256 lastDistributionAt;
     uint256 outputRate;
     uint32 outputIndexId;
-    uint128 feeRate;                      // The fee taken as a % with 6 decimals
+    uint128 feeRate;
+    uint256 lastSharePrice;
   }
 }

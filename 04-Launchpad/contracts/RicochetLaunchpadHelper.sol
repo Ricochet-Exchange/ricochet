@@ -99,6 +99,7 @@ library RicochetLaunchpadHelper {
      uint256 outputAmount = (block.timestamp - self.lastDistributionAt) * self.outputRate;
      if(self.outputToken.balanceOf(address(this)) >= outputAmount) {
        newCtx = _idaDistribute(self, self.outputIndexId, uint128(outputAmount), self.outputToken, newCtx);
+       self.lastSharePrice = inputAmount * 1e18 / outputAmount;
        emit Distribution(inputAmount, outputAmount, feeCollected);
      }
 
