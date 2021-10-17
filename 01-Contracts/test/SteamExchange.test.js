@@ -507,10 +507,11 @@ describe('StreamExchange', () => {
       await checkBalances([u.alice, u.bob]);
       // await takeMeasurements();
 
-      const inflowRate = '1000000000';
-      const inflowRatex2 = '2000000000';
-      const inflowRateIDAShares = '1';
-      const inflowRateIDASharesx2 = '2';
+      const inflowRate = '1000000000000000';
+      const inflowRatex2 = '2000000000000000';
+      const inflowRateIDAShares = '1000000';
+      const inflowRateIDASharesx2 = '2000000';
+
       // 1. Initialize a stream exchange
       // 2. Create 2 streamers, one with 2x the rate of the other
       await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
