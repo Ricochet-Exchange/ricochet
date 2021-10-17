@@ -37,16 +37,16 @@ library StreamExchangeHelper {
 
   /// @dev Close stream from `streamer` address if balance is less than 8 hours of streaming
   /// @param streamer is stream source (streamer) address
-function _closeStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
+  function _closeStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
     // Only closable iff their balance is less than 8 hours of streaming
-    require(int(self.inputToken.balanceOf(streamer)) <= self.streams[streamer].rate * 8 hours,
+    (,int96 streamerFlowRate,,) = self.cfa.getFlow(self.inputToken, streamer, address(this));
+    require(int(self.inputToken.balanceOf(streamer)) <= streamerFlowRate * 8 hours,
               "!closable");
-
-    self.streams[streamer].rate = 0;
 
     // Update Subscriptions
     _updateSubscription(self, self.subsidyIndexId, streamer, 0, self.subsidyToken);
     _updateSubscription(self, self.outputIndexId, streamer, 0, self.outputToken);
+    emit UpdatedStream(streamer, 0, self.cfa.getNetFlow(self.inputToken, address(this)));
 
     // Close the streamers stream
     self.host.callAgreement(
@@ -63,11 +63,12 @@ function _closeStream(StreamExchangeStorage.StreamExchange storage self, address
 
   }
 
+
   /// @dev Allows anyone to close any stream if the app is jailed.
   /// @param streamer is stream source (streamer) address
   function _emergencyCloseStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
     // Allows anyone to close any stream if the app is jailed
-    bool isJailed = ISuperfluid(msg.sender).isAppJailed(ISuperApp(address(this)));
+    bool isJailed = self.host.isAppJailed(ISuperApp(address(this)));
     require(isJailed, "!jailed");
     self.host.callAgreement(
         self.cfa,
