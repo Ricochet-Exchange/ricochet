@@ -37,7 +37,8 @@ import "./StreamExchangeStorage.sol";
 import "./StreamExchangeHelper.sol";
 import "./tellor/ITellor.sol";
 
-
+/// @title StreamExchange SuperApp
+/// @notice This contract is an SuperFluid SuperApp
 contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     // TODO: uint256 public constant RATE_PERCISION = 1000000;
@@ -48,6 +49,16 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     event UpdatedStream(address from, int96 newRate, int96 totalInflow);
 
+    /// @param host is SuperFluid protocol host address
+    /// @param cfa is SuperFluid Constant Flow Agreement (CFA) address
+    /// @param ida is SuperFluid Instant Distribution Agreement (IDA) address
+    /// @param inputToken is input SuperToken address
+    /// @param outputToken is input SuperToken address
+    /// @param subsidyToken is subsidy SuperToken address
+    /// @param sushiRouter is SushiSwap router address
+    /// @param oracle is the TellorMaster address
+    /// @param requestId is Tellor Oracle requiest id
+    /// @param registrationKey is SuperFluid protocol registration key
     constructor(
         ISuperfluid host,
         IConstantFlowAgreementV1 cfa,
@@ -116,8 +127,11 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     /**************************************************************************
      * Stream Exchange Logic
      *************************************************************************/
-
     /// @dev If a new stream is opened, or an existing one is opened
+    /// @param ctx is SuperFluid context data
+    /// @param agreementData is SuperFluid agreement data (non-compressed)
+    /// @param doDistributeFirst is distribution needed before outflow update
+    /// @return newCtx updated SuperFluid context data
   function _updateOutflow(bytes calldata ctx, bytes calldata agreementData, bool doDistributeFirst)
       private
       returns (bytes memory newCtx)
@@ -153,47 +167,73 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
   }
 
-
+  /// @dev Distribute a single `amount` of outputToken among all streamers
+  /// @dev Calculates the amount to distribute
+  /// @dev Usually called by Keeper
   function distribute() external {
    _exchange._distribute(new bytes(0));
   }
 
+  /// @dev Close stream from `streamer` address if balance is less than 8 hours of streaming
+  /// @param streamer is stream source (streamer) address
   function closeStream(address streamer) public {
     _exchange._closeStream(streamer);
   }
 
+  /// @dev Allows anyone to close any stream if the app is jailed.
+  /// @param streamer is stream source (streamer) address
   function emergencyCloseStream(address streamer) public {
     _exchange._emergencyCloseStream(streamer);
   }
 
+  /// @dev Drain contract's input and output tokens balance to owner if SuperApp dont have any input streams.
   function emergencyDrain() public {
     _exchange._emergencyDrain();
   }
 
+  /// @dev Set subsidy rate
+  /// @param subsidyRate is new rate
   function setSubsidyRate(uint128 subsidyRate) external onlyOwner {
     _exchange.subsidyRate = subsidyRate;
   }
 
+  /// @dev Set fee rate
+  /// @param feeRate is new fee rate
   function setFeeRate(uint128 feeRate) external onlyOwner {
     _exchange.feeRate = feeRate;
   }
 
+  /// @dev Set rate tolerance
+  /// @param rateTolerance is new rate tolerance
   function setRateTolerance(uint128 rateTolerance) external onlyOwner {
     _exchange.rateTolerance = rateTolerance;
   }
 
+  /// @dev Set Tellor Oracle address
+  /// @param oracle new Tellor Oracle address
   function setOracle(address oracle) external onlyOwner {
     _exchange.oracle = ITellor(oracle);
   }
 
+  /// @dev Set Tellor Oracle request ID
+  /// @param requestId Tellor Oracle request ID
   function setRequestId(uint256 requestId) external onlyOwner {
     _exchange.requestId = requestId;
   }
 
+  /// @dev Is app jailed in SuperFluid protocol
+  /// @return is app jailed in SuperFluid protocol
   function isAppJailed() external view returns (bool) {
    return _exchange.host.isAppJailed(this);
   }
 
+  /// @dev Get `streamer` IDA subscription info for token with index `index`
+  /// @param index is token index in IDA
+  /// @param streamer is streamer address
+  /// @return exist Does the subscription exist?
+  /// @return approved Is the subscription approved?
+  /// @return units Units of the suscription.
+  /// @return pendingDistribution Pending amount of tokens to be distributed for unapproved subscription.
   function getIDAShares(uint32 index, address streamer) external view returns (bool exist,
                 bool approved,
                 uint128 units,
@@ -219,62 +259,93 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
                                                                   streamer);
   }
 
+  /// @dev Get input token address
+  /// @return input token address
   function getInputToken() external view returns (ISuperToken) {
    return _exchange.inputToken;
   }
 
+  /// @dev Get output token address
+  /// @return output token address
   function getOuputToken() external view returns (ISuperToken) {
    return _exchange.outputToken;
   }
 
+  /// @dev Get output token IDA index
+  /// @return output token IDA index
   function getOuputIndexId() external view returns (uint32) {
    return _exchange.outputIndexId;
   }
 
+  /// @dev Get subsidy token address
+  /// @return subsidy token address
   function getSubsidyToken() external view returns (ISuperToken) {
    return _exchange.subsidyToken;
   }
 
+  /// @dev Get subsidy token IDA index
+  /// @return subsidy token IDA index
   function getSubsidyIndexId() external view returns (uint32) {
    return _exchange.subsidyIndexId;
   }
 
+  /// @dev Get subsidy rate
+  /// @return subsidy rate
   function getSubsidyRate() external view returns (uint256) {
     return _exchange.subsidyRate;
   }
 
+  /// @dev Get total input flow rate
+  /// @return input flow rate
   function getTotalInflow() external view returns (int96) {
     return _exchange.cfa.getNetFlow(_exchange.inputToken, address(this));
   }
 
+  /// @dev Get last distribution timestamp
+  /// @return last distribution timestamp
   function getLastDistributionAt() external view returns (uint256) {
     return _exchange.lastDistributionAt;
   }
 
+  /// @dev Get SushiSwap router address
+  /// @return SushiSwap router address
   function getSushiRouter() external view returns (address) {
     return address(_exchange.sushiRouter);
   }
 
+  /// @dev Get Tellor Oracle address
+  /// @return Tellor Oracle address
   function getTellorOracle() external view returns (address) {
     return address(_exchange.oracle);
   }
 
+  /// @dev Get Tellor Oracle request ID
+  /// @dev Tellor Oracle request ID
   function getRequestId() external view returns (uint256) {
     return _exchange.requestId;
   }
 
+  /// @dev Get Owner address
+  /// @return owner address
   function getOwner() external view returns (address) {
     return _exchange.owner;
   }
 
+  /// @dev Get fee rate
+  /// @return fee rate
   function getFeeRate() external view returns (uint128) {
     return _exchange.feeRate;
   }
 
+  /// @dev Get rate tolerance
+  /// @return rate tolerance
   function getRateTolerance() external view returns (uint256) {
     return _exchange.rateTolerance;
   }
 
+  /// @dev Get flow rate for `streamer`
+  /// @param streamer is streamer address
+  /// @return requesterFlowRate `streamer` flow rate
   function getStreamRate(address streamer) external view returns (int96 requesterFlowRate) {
     (, requesterFlowRate, , ) = _exchange.cfa.getFlow(_exchange.inputToken, streamer, address(this));
   }
@@ -295,6 +366,14 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
    * SuperApp callbacks
    *************************************************************************/
 
+  /// @dev SuperFluid protocol callback
+  /// @dev Callback after a new agreement is created.
+  /// @dev Can be called only by SuperFluid protocol host.
+  /// @param _superToken The super token used for the agreement.
+  /// @param _agreementClass The agreement class address.
+  /// @param _agreementData The agreement data (non-compressed)
+  /// @param _ctx The context data.
+  /// @return newCtx The current context of the transaction.
   function afterAgreementCreated(
       ISuperToken _superToken,
       address _agreementClass,
@@ -313,6 +392,14 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       return _updateOutflow(_ctx, _agreementData, true);
   }
 
+  /// @dev SuperFluid protocol callback
+  /// @dev Callback after a new agreement is updated.
+  /// @dev Can be called only by SuperFluid protocol host.
+  /// @param _superToken The super token used for the agreement.
+  /// @param _agreementClass The agreement class address.
+  /// @param _agreementData The agreement data (non-compressed)
+  /// @param _ctx The context data.
+  /// @return newCtx The current context of the transaction.
   function afterAgreementUpdated(
       ISuperToken _superToken,
       address _agreementClass,
@@ -334,6 +421,14 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       return _updateOutflow(_ctx, _agreementData, true);
   }
 
+  /// @dev SuperFluid protocol callback
+  /// @dev Callback after a new agreement is terminated.
+  /// @dev Can be called only by SuperFluid protocol host.
+  /// @param _superToken The super token used for the agreement.
+  /// @param _agreementClass The agreement class address.
+  /// @param _agreementData The agreement data (non-compressed)
+  /// @param _ctx The context data.
+  /// @return newCtx The current context of the transaction.
   function afterAgreementTerminated(
       ISuperToken _superToken,
       address _agreementClass,
@@ -354,12 +449,13 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
   }
 
 
-
+  /// @dev Restricts calls to only from SuperFluid host
   modifier onlyHost() {
       require(msg.sender == address(_exchange.host), "one host");
       _;
   }
 
+  /// @dev Accept only input token for CFA, output and subsidy tokens for IDA
   modifier onlyExpected(ISuperToken superToken, address agreementClass) {
     if (_exchange._isCFAv1(agreementClass)) {
       require(_exchange._isInputToken(superToken), "!inputAccepted");
