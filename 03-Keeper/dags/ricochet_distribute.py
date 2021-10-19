@@ -38,7 +38,6 @@ dag = DAG("ricochet_distribute",
           default_args=default_args,
           schedule_interval="0 * * * *")
 
-# TODO: Move to operator
 web3 = Web3Hook(web3_conn_id='infura').http_client
 current_nonce = web3.eth.getTransactionCount(DISTRIBUTOR_WALLET_ADDRESS)
 

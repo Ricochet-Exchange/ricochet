@@ -38,7 +38,7 @@ dag = DAG("ricochet_tellor_reporter",
           max_active_runs=1,
           catchup=False,
           default_args=default_args,
-          schedule_interval="*/5 * * * *")
+          schedule_interval="55 * * * *")
 
 
 done = BashOperator(
