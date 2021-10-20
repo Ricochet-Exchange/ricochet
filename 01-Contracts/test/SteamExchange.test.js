@@ -1,427 +1,713 @@
-const { web3tx, toWad, wad4human } = require("@decentral.ee/web3-helpers");
-const { expect } = require("chai");
+/* eslint-disable no-await-in-loop */
+const {
+  web3tx,
+  toWad,
+  wad4human,
+  fromDecimals,
+  BN,
+} = require('@decentral.ee/web3-helpers');
+const {
+  numberToHex,
+} = require('web3-utils');
+const {
+  expect,
+} = require('chai');
+const { time } = require('@openzeppelin/test-helpers');
 const axios = require('axios').default;
-const deployFramework = require("@superfluid-finance/ethereum-contracts/scripts/deploy-framework");
-const deployTestToken = require("@superfluid-finance/ethereum-contracts/scripts/deploy-test-token");
-const deploySuperToken = require("@superfluid-finance/ethereum-contracts/scripts/deploy-super-token");
-const SuperfluidSDK = require("@superfluid-finance/js-sdk");
-const traveler = require("ganache-time-traveler");
+const deployFramework = require('@superfluid-finance/ethereum-contracts/scripts/deploy-framework');
+const deployTestToken = require('@superfluid-finance/ethereum-contracts/scripts/deploy-test-token');
+const deploySuperToken = require('@superfluid-finance/ethereum-contracts/scripts/deploy-super-token');
+const SuperfluidSDK = require('@superfluid-finance/js-sdk');
+const traveler = require('ganache-time-traveler');
+const SuperfluidGovernanceBase = require('./artifacts/superfluid/SuperfluidGovernanceII.json');
 
-const superTokenAbi=[{"inputs":[{"internalType":"contract ISuperfluid","name":"host","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"agreementClass","type":"address"},{"indexed":true,"internalType":"address","name":"account","type":"address"},{"indexed":false,"internalType":"bytes","name":"state","type":"bytes"}],"name":"AgreementAccountStateUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"agreementClass","type":"address"},{"indexed":false,"internalType":"bytes32","name":"id","type":"bytes32"},{"indexed":false,"internalType":"bytes32[]","name":"data","type":"bytes32[]"}],"name":"AgreementCreated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"agreementClass","type":"address"},{"indexed":false,"internalType":"bytes32","name":"id","type":"bytes32"},{"indexed":true,"internalType":"address","name":"penaltyAccount","type":"address"},{"indexed":true,"internalType":"address","name":"rewardAccount","type":"address"},{"indexed":false,"internalType":"uint256","name":"rewardAmount","type":"uint256"}],"name":"AgreementLiquidated","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"address","name":"liquidatorAccount","type":"address"},{"indexed":true,"internalType":"address","name":"agreementClass","type":"address"},{"indexed":false,"internalType":"bytes32","name":"id","type":"bytes32"},{"indexed":true,"internalType":"address","name":"penaltyAccount","type":"address"},{"indexed":true,"internalType":"address","name":"bondAccount","type":"address"},{"indexed":false,"internalType":"uint256","name":"rewardAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"bailoutAmount","type":"uint256"}],"name":"AgreementLiquidatedBy","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"agreementClass","type":"address"},{"indexed":true,"internalType":"address","name":"account","type":"address"},{"indexed":false,"internalType":"uint256","name":"slotId","type":"uint256"}],"name":"AgreementStateUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"agreementClass","type":"address"},{"indexed":false,"internalType":"bytes32","name":"id","type":"bytes32"}],"name":"AgreementTerminated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"agreementClass","type":"address"},{"indexed":false,"internalType":"bytes32","name":"id","type":"bytes32"},{"indexed":false,"internalType":"bytes32[]","name":"data","type":"bytes32[]"}],"name":"AgreementUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"spender","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":true,"internalType":"address","name":"tokenHolder","type":"address"}],"name":"AuthorizedOperator","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"bailoutAccount","type":"address"},{"indexed":false,"internalType":"uint256","name":"bailoutAmount","type":"uint256"}],"name":"Bailout","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"bytes","name":"data","type":"bytes"},{"indexed":false,"internalType":"bytes","name":"operatorData","type":"bytes"}],"name":"Burned","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"bytes32","name":"uuid","type":"bytes32"},{"indexed":false,"internalType":"address","name":"codeAddress","type":"address"}],"name":"CodeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"bytes","name":"data","type":"bytes"},{"indexed":false,"internalType":"bytes","name":"operatorData","type":"bytes"}],"name":"Minted","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":true,"internalType":"address","name":"tokenHolder","type":"address"}],"name":"RevokedOperator","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"bytes","name":"data","type":"bytes"},{"indexed":false,"internalType":"bytes","name":"operatorData","type":"bytes"}],"name":"Sent","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"account","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"TokenDowngraded","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"account","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"TokenUpgraded","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Transfer","type":"event"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"address","name":"spender","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"}],"name":"authorizeOperator","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"balance","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"burn","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes32","name":"id","type":"bytes32"},{"internalType":"bytes32[]","name":"data","type":"bytes32[]"}],"name":"createAgreement","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"pure","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"subtractedValue","type":"uint256"}],"name":"decreaseAllowance","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"defaultOperators","outputs":[{"internalType":"address[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"downgrade","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"getAccountActiveAgreements","outputs":[{"internalType":"contract ISuperAgreement[]","name":"","type":"address[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"agreementClass","type":"address"},{"internalType":"bytes32","name":"id","type":"bytes32"},{"internalType":"uint256","name":"dataLength","type":"uint256"}],"name":"getAgreementData","outputs":[{"internalType":"bytes32[]","name":"data","type":"bytes32[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"agreementClass","type":"address"},{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"slotId","type":"uint256"},{"internalType":"uint256","name":"dataLength","type":"uint256"}],"name":"getAgreementStateSlot","outputs":[{"internalType":"bytes32[]","name":"slotData","type":"bytes32[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getCodeAddress","outputs":[{"internalType":"address","name":"codeAddress","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getHost","outputs":[{"internalType":"address","name":"host","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getUnderlyingToken","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"granularity","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"pure","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"addedValue","type":"uint256"}],"name":"increaseAllowance","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"contract IERC20","name":"underlyingToken","type":"address"},{"internalType":"uint8","name":"underlyingDecimals","type":"uint8"},{"internalType":"string","name":"n","type":"string"},{"internalType":"string","name":"s","type":"string"}],"name":"initialize","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"isAccountCritical","outputs":[{"internalType":"bool","name":"isCritical","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"isAccountCriticalNow","outputs":[{"internalType":"bool","name":"isCritical","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"isAccountSolvent","outputs":[{"internalType":"bool","name":"isSolvent","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"isAccountSolventNow","outputs":[{"internalType":"bool","name":"isSolvent","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"address","name":"tokenHolder","type":"address"}],"name":"isOperatorFor","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bytes32","name":"id","type":"bytes32"},{"internalType":"address","name":"liquidator","type":"address"},{"internalType":"address","name":"penaltyAccount","type":"address"},{"internalType":"uint256","name":"rewardAmount","type":"uint256"},{"internalType":"uint256","name":"bailoutAmount","type":"uint256"}],"name":"makeLiquidationPayouts","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"operationApprove","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"operationDowngrade","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"address","name":"spender","type":"address"},{"internalType":"address","name":"recipient","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"operationTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"operationUpgrade","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"},{"internalType":"bytes","name":"operatorData","type":"bytes"}],"name":"operatorBurn","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"address","name":"recipient","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"},{"internalType":"bytes","name":"operatorData","type":"bytes"}],"name":"operatorSend","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"proxiableUUID","outputs":[{"internalType":"bytes32","name":"","type":"bytes32"}],"stateMutability":"pure","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"realtimeBalanceOf","outputs":[{"internalType":"int256","name":"availableBalance","type":"int256"},{"internalType":"uint256","name":"deposit","type":"uint256"},{"internalType":"uint256","name":"owedDeposit","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"realtimeBalanceOfNow","outputs":[{"internalType":"int256","name":"availableBalance","type":"int256"},{"internalType":"uint256","name":"deposit","type":"uint256"},{"internalType":"uint256","name":"owedDeposit","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"}],"name":"revokeOperator","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"bytes","name":"userData","type":"bytes"}],"name":"selfBurn","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"bytes","name":"userData","type":"bytes"}],"name":"selfMint","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"recipient","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"send","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"int256","name":"delta","type":"int256"}],"name":"settleBalance","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"bytes32","name":"id","type":"bytes32"},{"internalType":"uint256","name":"dataLength","type":"uint256"}],"name":"terminateAgreement","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"recipient","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"recipient","type":"address"}],"name":"transferAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"holder","type":"address"},{"internalType":"address","name":"recipient","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes32","name":"id","type":"bytes32"},{"internalType":"bytes32[]","name":"data","type":"bytes32[]"}],"name":"updateAgreementData","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"slotId","type":"uint256"},{"internalType":"bytes32[]","name":"slotData","type":"bytes32[]"}],"name":"updateAgreementStateSlot","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newAddress","type":"address"}],"name":"updateCode","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"upgrade","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"upgradeTo","outputs":[],"stateMutability":"nonpayable","type":"function"}]
+const TEST_TRAVEL_TIME = 3600 * 2; // 1 hours
 
-// Prerequesites
-// 1. Setup Alice, Bob, and Carl with some inputTokens and NO outputTokens
-// 2. Owner needs some MATIC to deploy and show hold NO outputTokens
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-const RIC_TOKEN_ADDRESS = process.env.RIC_TOKEN_ADDRESS
-const ROUTER_ADDRESS = process.env.ROUTER_ADDRESS
-const TELLOR_ORACLE_ADDRESS = process.env.TELLOR_ORACLE_ADDRESS
-const TELLOR_REQUEST_ID = process.env.TELLOR_REQUEST_ID
-const SF_REG_KEY = process.env.SF_REG_KEY
+async function impersonateAccount(account) {
+  await hre.network.provider.request({
+    method: 'hardhat_impersonateAccount',
+    params: [account],
+  });
+}
 
-const CARL_ADDRESS = "0x8c3bf3EB2639b2326fF937D041292dA2e79aDBbf"
-const BOB_ADDRESS = "0x00Ce20EC71942B41F50fF566287B811bbef46DC8"
-const ALICE_ADDRESS = "0x9f348cdD00dcD61EE7917695D2157ef6af2d7b9B"
-const OWNER_ADDRESS = "0x3226C9EaC0379F04Ba2b1E1e1fcD52ac26309aeA"
+async function setBalance(account, balance) {
+  const hexBalance = numberToHex(toWad(balance));
+  await hre.network.provider.request({
+    method: 'hardhat_setBalance',
+    params: [
+      account,
+      hexBalance,
+    ],
+  });
+}
+async function impersonateAndSetBalance(account) {
+  await impersonateAccount(account);
+  await setBalance(account, 10000);
+}
 
-// MKR ETH LP: 0x5E8f882dD0d062e2d81bcBe4EC61d7AEaBf80c74
+async function createSFRegistrationKey(sf, deployer) {
+  const registrationKey = `testKey-${Date.now()}`;
+  const appKey = web3.utils.sha3(
+    web3.eth.abi.encodeParameters(
+      ['string', 'address', 'string'],
+      [
+        'org.superfluid-finance.superfluid.appWhiteListing.registrationKey',
+        deployer,
+        registrationKey,
+      ],
+    ),
+  );
 
+  const governance = await sf.host.getGovernance.call();
+  console.log(`SF Governance: ${governance}`);
 
-describe("StreamExchange", () => {
-    const errorHandler = (err) => {
-        if (err) throw err;
-    };
+  const sfGovernanceRO = await ethers
+    .getContractAt(SuperfluidGovernanceBase.abi, governance);
 
-    const names = ["Admin", "Alice", "Bob", "Carl"];
-    let inputTokenAddress = process.env.INPUT_TOKEN_ADDRESS;  // DAI
-    let outputTokenAddress = process.env.OUTPUT_TOKEN_ADDRESS; // MKR
-    let inputToken;  // DAI
-    let inputTokenUnderlying;  // DAI
-    let outputToken; // MKR
-    let outputTokenUnderlying; // MKR
-    let appBalances = {};
-    let appDeltas = {};
+  const govOwner = await sfGovernanceRO.owner();
+  await impersonateAndSetBalance(govOwner);
 
-    let sf;
-    let ric;
-    let app;
-    let tp; // Tellor playground
-    let usingTellor;
-    let sr;
-    let ricAddress = "0x263026e7e53dbfdce5ae55ade22493f828922965";
-    const u = {}; // object with all users
-    const aliases = {};
-    let owner;
-    let alice;
-    let bob;
-    let carl;
-    let oraclePrice;
+  const sfGovernance = await ethers
+    .getContractAt(SuperfluidGovernanceBase.abi, governance, await ethers.getSigner(govOwner));
 
-    before(async function () {
-        //process.env.RESET_SUPERFLUID_FRAMEWORK = 1;
-        let response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=maker&vs_currencies=usd')
-        oraclePrice =  2550 * 1.02 * 1e6 // parseInt(response.data["maker"].usd * 1.02 * 1000000).toString()
-        console.log("oraclePrice", oraclePrice)
+  await sfGovernance.whiteListNewApp(sf.host.address, appKey);
+
+  return registrationKey;
+}
+
+describe('StreamExchange', () => {
+  const errorHandler = (err) => {
+    if (err) throw err;
+  };
+
+  const names = ['Admin', 'Alice', 'Bob', 'Carl', 'Spender'];
+
+  let sf;
+  let dai;
+  let daix;
+  let ethx;
+  let wbtc;
+  let wbtcx;
+  let usd;
+  let usdcx;
+  let ric;
+  let usdc;
+  let eth;
+  let weth;
+  let app;
+  let tp; // Tellor playground
+  let usingTellor;
+  let sr; // Mock Sushi Router
+  const ricAddress = '0x263026e7e53dbfdce5ae55ade22493f828922965';
+  const u = {}; // object with all users
+  const aliases = {};
+  let owner;
+  let alice;
+  let bob;
+  let carl;
+  let spender;
+  const SF_RESOLVER = '0xE0cc76334405EE8b39213E620587d815967af39C';
+  const RIC_TOKEN_ADDRESS = '0x263026E7e53DBFDce5ae55Ade22493f828922965';
+  const SUSHISWAP_ROUTER_ADDRESS = '0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff';
+  const TELLOR_ORACLE_ADDRESS = '0xACC2d27400029904919ea54fFc0b18Bf07C57875';
+  const TELLOR_REQUEST_ID = 60;
+
+  // random address from polygonscan that have a lot of usdcx
+  const USDCX_SOURCE_ADDRESS = '0xA08f80dc1759b12fdC40A4dc64562b322C418E1f';
+  const WBTC_SOURCE_ADDRESS = '0x5c2ed810328349100A66B82b78a1791B101C9D61';
+  const USDC_SOURCE_ADDRESS = '0x1a13f4ca1d028320a707d99520abfefca3998b7f';
+
+  const CARL_ADDRESS = '0x8c3bf3EB2639b2326fF937D041292dA2e79aDBbf';
+  const BOB_ADDRESS = '0x00Ce20EC71942B41F50fF566287B811bbef46DC8';
+  const ALICE_ADDRESS = '0x9f348cdD00dcD61EE7917695D2157ef6af2d7b9B';
+  const OWNER_ADDRESS = '0x3226C9EaC0379F04Ba2b1E1e1fcD52ac26309aeA';
+  let oraclePrice;
+
+  const appBalances = {
+    ethx: [],
+    wbtcx: [],
+    daix: [],
+    usdcx: [],
+    ric: [],
+  };
+  const ownerBalances = {
+    ethx: [],
+    wbtcx: [],
+    daix: [],
+    usdcx: [],
+    ric: [],
+  };
+  const aliceBalances = {
+    ethx: [],
+    wbtcx: [],
+    daix: [],
+    usdcx: [],
+    ric: [],
+  };
+  const bobBalances = {
+    ethx: [],
+    wbtcx: [],
+    daix: [],
+    usdcx: [],
+    ric: [],
+  };
+
+  async function approveSubscriptions(
+    users = [u.alice.address, u.bob.address, u.admin.address],
+    tokens = [wbtcx.address, ricAddress],
+  ) {
+    // Do approvals
+    // Already approved?
+    console.log('Approving subscriptions...');
+
+    for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
+      for (let userIndex = 0; userIndex < users.length; userIndex += 1) {
+        let index = 0;
+        if (tokens[tokenIndex] === ricAddress) {
+          index = 1;
+        }
+
+        await web3tx(
+          sf.host.callAgreement,
+          `${users[userIndex]} approves subscription to the app ${tokens[tokenIndex]} ${index}`,
+        )(
+          sf.agreements.ida.address,
+          sf.agreements.ida.contract.methods
+            .approveSubscription(tokens[tokenIndex], app.address, tokenIndex, '0x')
+            .encodeABI(),
+          '0x', // user data
+          {
+            from: users[userIndex],
+          },
+        );
+      }
+    }
+    console.log('Approved.');
+  }
+
+  before(async () => {
+    // ==============
+    // impersonate accounts and set balances
+
+    const accountAddrs = [OWNER_ADDRESS, ALICE_ADDRESS, BOB_ADDRESS, CARL_ADDRESS, USDCX_SOURCE_ADDRESS];
+
+    accountAddrs.forEach(async (account) => {
+      await impersonateAndSetBalance(account);
     });
 
-    beforeEach(async function () {
-      this.timeout(1000000);
+    // ==============
+    // get signers
+    owner = await ethers.provider.getSigner(OWNER_ADDRESS);
+    alice = await ethers.provider.getSigner(ALICE_ADDRESS);
+    bob = await ethers.provider.getSigner(BOB_ADDRESS);
+    carl = await ethers.provider.getSigner(CARL_ADDRESS);
+    spender = await ethers.provider.getSigner(USDCX_SOURCE_ADDRESS);
+    const accounts = [owner, alice, bob, carl, spender];
 
-      // Initialize SF
-      sf = new SuperfluidSDK.Framework({
-          web3,
-          resolverAddress: "0xE0cc76334405EE8b39213E620587d815967af39C",
-          tokens: ["DAI"],
-          version: "v1"
-      });
-      await sf.initialize();
+    // ==============
+    // Init Superfluid Framework
 
-      // Setup Users
-      // Admin
-      await hre.network.provider.request({
-        method: "hardhat_impersonateAccount",
-        params: [OWNER_ADDRESS]}
-      )
-      owner = await ethers.provider.getSigner(OWNER_ADDRESS)
-      await deployFramework(errorHandler, {
-          web3,
-          from: owner.address,
-      });
-      // Alice
-      await hre.network.provider.request({
-        method: "hardhat_impersonateAccount",
-        params: [ALICE_ADDRESS]}
-      )
-      alice = await ethers.provider.getSigner(ALICE_ADDRESS)
-
-      // Bob
-      await hre.network.provider.request({
-        method: "hardhat_impersonateAccount",
-        params: [BOB_ADDRESS]}
-      )
-      bob = await ethers.provider.getSigner(BOB_ADDRESS)
-
-      await hre.network.provider.request({
-        method: "hardhat_impersonateAccount",
-        params: [CARL_ADDRESS]}
-      )
-      carl = await ethers.provider.getSigner(CARL_ADDRESS)
-
-      // Setup contract connections
-      console.log(inputTokenAddress);
-      console.log(outputTokenAddress)
-      inputToken = await ethers.getContractAt(superTokenAbi, inputTokenAddress);
-      outputToken = await ethers.getContractAt(superTokenAbi, outputTokenAddress);
-      ric = await ethers.getContractAt(superTokenAbi, RIC_TOKEN_ADDRESS);
-      ric = ric.connect(owner)
-
-      const ERC20 = await ethers.getContractFactory("ERC20");
-      inputTokenUnderlying = await ERC20.attach(await inputToken.getUnderlyingToken());
-      outputTokenUnderlying = await ERC20.attach(await outputToken.getUnderlyingToken());
-
-      const accounts = [owner, alice, bob, carl];
-
-      // Setup users and setup to track user balances
-      for (var i = 0; i < names.length; i++) {
-
-          u[names[i].toLowerCase()] = sf.user({
-              address: accounts[i]._address || accounts[i].address,
-              token: inputToken.address
-          });
-
-          u[names[i].toLowerCase()].alias = names[i];
-          aliases[u[names[i].toLowerCase()].address] = names[i];
-
-          appBalances[names[i]] = {}
-          appBalances[names[i]][inputToken.address] = [];
-          appBalances[names[i]][outputToken.address] = [];
-          appDeltas[names[i]] = {}
-          appDeltas[names[i]][inputToken.address] = [];
-          appDeltas[names[i]][outputToken.address] = [];
-      }
-
-
-
-      console.log("Owner:", u.admin.address);
-      console.log("Host:", sf.host.address);
-      console.log("Input Token: ", inputToken.address);
-      console.log("Output Token: ", outputToken.address);
-      console.log("Tellor Oracle Address:", TELLOR_ORACLE_ADDRESS)
-
-      console.log(sf.host.address,
-                  sf.agreements.cfa.address,
-                  sf.agreements.ida.address,
-                  inputToken.address,
-                  outputToken.address,
-                  RIC_TOKEN_ADDRESS,
-                  ROUTER_ADDRESS,
-                  TELLOR_ORACLE_ADDRESS,
-                  TELLOR_REQUEST_ID,
-                  SF_REG_KEY);
-
-      // Deploy Contracts
-      const TellorPlayground = await ethers.getContractFactory("TellorPlayground");
-      tp = await TellorPlayground.attach(TELLOR_ORACLE_ADDRESS);
-
-      const StreamExchangeHelper = await ethers.getContractFactory("StreamExchangeHelper");
-      let sed = await StreamExchangeHelper.deploy();
-
-      const StreamExchange = await ethers.getContractFactory("StreamExchange", {
-        libraries: {
-          StreamExchangeHelper: sed.address,
-        },
-        signer: owner
-      });
-      tp = tp.connect(owner)
-
-
-
-      app = await StreamExchange.deploy(sf.host.address,
-                                        sf.agreements.cfa.address,
-                                        sf.agreements.ida.address,
-                                        inputToken.address,
-                                        outputToken.address,
-                                        RIC_TOKEN_ADDRESS,
-                                        ROUTER_ADDRESS, //sr.address,
-                                        TELLOR_ORACLE_ADDRESS,
-                                        TELLOR_REQUEST_ID,
-                                        SF_REG_KEY);
-      console.log("Deployed StreamExchange.")
-
-      // Setup an app user for the deployed contract
-      u.app = sf.user({ address: app.address, token: inputToken.address });
-      u.app.alias = "App";
-      await checkBalance(u.app);
-
-      // Approve IDA tokens, loop all output tokens for all users
-      let tokens = [outputToken.address, ric.address]
-      let users = [u.alice.address, u.bob.address, u.carl.address, u.admin.address]
-      for (let t = 0; t < tokens.length; t++) {
-        for (let u = 0; u < users.length; u++) {
-          let index = 0
-          if (tokens[t] == ricAddress) {
-            index = 1
-          }
-
-          await web3tx(
-              sf.host.callAgreement,
-              users[u] + " approves subscription to the app " + tokens[t] + " " + index
-          )(
-              sf.agreements.ida.address,
-              sf.agreements.ida.contract.methods
-                  .approveSubscription(tokens[t], app.address, t, "0x")
-                  .encodeABI(),
-              "0x", // user data
-              {
-                  from: users[u]
-              }
-          );
-        }
-      }
-
+    sf = new SuperfluidSDK.Framework({
+      web3,
+      resolverAddress: SF_RESOLVER,
+      tokens: ['WBTC', 'DAI', 'USDC', 'ETH'],
+      version: 'v1',
     });
+    await sf.initialize();
+    ethx = sf.tokens.ETHx;
+    wbtcx = sf.tokens.WBTCx;
+    daix = sf.tokens.DAIx;
+    usdcx = sf.tokens.USDCx;
 
-    async function checkBalance(user) {
-        console.log("Balance of ", user.alias);
-        console.log("Input Token Balance: ", (await inputToken.balanceOf(user.address)).toString());
-        console.log("Ouput Token Balance: ", (await outputToken.balanceOf(user.address)).toString());
-    }
+    // ==============
+    // Init SF users
 
-    async function checkBalances(accounts) {
-        for (let i = 0; i < accounts.length; ++i) {
-            await checkBalance(accounts[i]);
-        }
-    }
-
-
-    async function takeMeasurements() {
-
-      // Setup users and setup to track user balances
-      for (var i = 0; i < names.length; i++) {
-          appBalances[names[i]][inputToken.address].push((await inputToken.balanceOf(u[names[i].toLowerCase()].address)).toString());
-          appBalances[names[i]][outputToken.address].push((await outputToken.balanceOf(u[names[i].toLowerCase()].address)).toString());
-      }
-      // Setup users and setup to track user balances
-      if (appBalances[names[0]][inputToken.address].length >= 2) {
-        for (var i = 0; i < names.length; i++) {
-            let l = appDeltas[names[i]][inputToken.address].length-1
-            console.log("Changein", appDeltas[names[i]][inputToken.address][l])
-            console.log("Changein", appDeltas[names[i]][inputToken.address][l-1])
-            console.log("Changeout", appDeltas[names[i]][outputToken.address][l])
-            console.log("Changeout", appDeltas[names[i]][outputToken.address][l-1])
-            let changeInInToken = appDeltas[names[i]][inputToken.address][l-1] - appDeltas[names[i]][inputToken.address][l]
-            let changeInOutToken = appDeltas[names[i]][outputToken.address][l] - appDeltas[names[i]][outputToken.address][l-1]
-
-            appDeltas[names[i]][inputToken.address].push((await inputToken.balanceOf(u[names[i].toLowerCase()].address)).toString());
-            appDeltas[names[i]][outputToken.address].push((await outputToken.balanceOf(u[names[i].toLowerCase()].address)).toString());
-            console.log("Change in balances for ", names[i])
-            console.log("Input Token:", changeInInToken, "Bal:", appDeltas[names[i]][inputToken.address][i])
-            console.log("Output Token:", changeInOutToken, "Bal:", appDeltas[names[i]][outputToken.address][i])
-            console.log("Exchange Rate:", changeInInToken/changeInOutToken)
-        }
-      }
-    }
-
-    async function delta() {
-
-
-
-    }
-
-    describe("Stream Exchange", async function () {
-      this.timeout(1000000);
-
-      it("should stream the same amount to all streamers with the same rates", async function() {
-
-        let inflowRate = "1000000000000000";
-        let inflowRate2x = "2000000000000000";
-        await tp.submitValue(TELLOR_REQUEST_ID, oraclePrice);
-        await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
-        await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
-        // await u.carl.flow({ flowRate: inflowRate, recipient: u.app });
-
-        for(var i = 0; i < 3; i++) {
-          await traveler.advanceTimeAndBlock(60*60*1);
-          await tp.submitValue(TELLOR_REQUEST_ID, oraclePrice);
-          await app.distribute()
-          await takeMeasurements()
-          // Make sure change in in/out tokens is always the same
-          if(appDeltas['Alice'][inputToken.address].length >= 1) {
-            expect(appDeltas['Alice'][inputToken.address][i]).to.equal(appDeltas['Bob'][inputToken.address][i])
-            expect(appDeltas['Alice'][outputToken.address][i]).to.equal(appDeltas['Bob'][outputToken.address][i])
-          }
-        }
-
-        await u.alice.flow({ flowRate: inflowRate2x, recipient: u.app });
-
-        for(var j = 3; j <= 6; j++) {
-          await traveler.advanceTimeAndBlock(60*60*1);
-          await tp.submitValue(TELLOR_REQUEST_ID, oraclePrice);
-          await app.distribute()
-          await takeMeasurements()
-        }
+    for (let i = 0; i < names.length; i += 1) {
+      u[names[i].toLowerCase()] = sf.user({
+        address: accounts[i]._address || accounts[i].address,
+        token: usdcx.address,
       });
+      u[names[i].toLowerCase()].alias = names[i];
+      aliases[u[names[i].toLowerCase()].address] = names[i];
+    }
 
-      // it("should distribute tokens to streamers correctly", async function() {
-      //
-      //   // // Check setup
-      //   // expect(await app.isAppJailed()).to.equal(false)
-      //   // expect(await app.getInputToken()).to.equal(inputToken.address)
-      //   // expect(await app.getOutputToken()).to.equal(outputToken.address)
-      //   // expect(await app.getOutputIndexId()).to.equal(0)
-      //   // expect(await app.getSubsidyToken()).to.equal(ric.address)
-      //   // expect(await app.getSubsidyIndexId()).to.equal(1)
-      //   // expect(await app.getSubsidyRate()).to.equal("400000000000000000")
-      //   // expect(await app.getTotalInflow()).to.equal(0)
-      //   // // expect(await app.getLastDistributionAt()).to.equal()
-      //   // expect(await app.getSushiRouter()).to.equal(ROUTER_ADDRESS)
-      //   // expect(await app.getTellorOracle()).to.equal(TELLOR_ORACLE_ADDRESS)
-      //   // expect(await app.getRequestId()).to.equal(TELLOR_REQUEST_ID)
-      //   // expect(await app.getOwner()).to.equal(u.admin.address)
-      //   // expect(await app.getFeeRate()).to.equal(20000)
-      //   //
-      //   // // Checks for unlimited approval
-      //   // expect(await inputTokenUnderlying.allowance(app.address, ROUTER_ADDRESS)).to.be.equal(ethers.constants.MaxUint256);
-      //   // expect(await outputTokenUnderlying.allowance(app.address, ROUTER_ADDRESS)).to.be.equal(ethers.constants.MaxUint256);
-      //   // expect(await inputTokenUnderlying.allowance(app.address, inputToken.address)).to.be.equal(ethers.constants.MaxUint256);
-      //   // expect(await outputTokenUnderlying.allowance(app.address, outputToken.address)).to.be.equal(ethers.constants.MaxUint256);
-      //
-      //   // await app.connect(owner).setFeeRate(20000);
-      //   // await app.connect(owner).setRateTolerance(20000);
-      //   // await app.connect(owner).setSubsidyRate("500000000000000000")
-      //   //
-      //   // expect(await app.getSubsidyRate()).to.equal("500000000000000000")
-      //   // expect(await app.getFeeRate()).to.equal(20000)
-      //   // expect(await app.getRateTolerance()).to.equal(20000)
-      //   console.log("Getters and setters correct")
-      //
-      //   const inflowRate1 = "77160493827160"
-      //   const inflowRate2 = "964506172839506"
-      //   const inflowRate3 = "38580246913580"
-      //   const inflowRateIDAShares1 = "77160"
-      //   const inflowRateIDAShares2 = "964506"
-      //   const inflowRateIDAShares3 = "38580"
-      //
-      //   await tp.submitValue(TELLOR_REQUEST_ID, oraclePrice);
-      //   await takeMeasurements();
-      //
-      //   // Test `closeStream`
-      //   // Try close stream and expect revert
-      //   // await expect(
-      //   //  u.admin.flow({ flowRate: toWad(10000), recipient: u.app })
-      //   // ).to.be.revertedWith("!enoughTokens");
-      //
-      //   // Test emergencyCloseStream
-      //   // Connect Admin and Bob
-      //  //  await u.bob.flow({ flowRate: inflowRate1, recipient: u.app });
-      //  //  await traveler.advanceTimeAndBlock(60*60*12);
-      //  //  await expect(
-      //  //   app.emergencyDrain()
-      //  // ).to.be.revertedWith("!zeroStreamers");
-      //  // await u.bob.flow({ flowRate: "0", recipient: u.app });
-      //  // await app.emergencyDrain();
-      //  // expect((await inputToken.balanceOf(app.address)).toString()).to.equal("0");
-      //  // expect((await outputToken.balanceOf(app.address)).toString()).to.equal("0");
-      //  // await takeMeasurements(u);
-      //
-      //
-      //   await u.alice.flow({ flowRate: inflowRate1, recipient: u.app });
-      //   // Expect the parameters are correct
-      //   expect(await app.getStreamRate(u.alice.address)).to.equal(inflowRate1);
-      //   expect((await app.getIDAShares(0, u.alice.address)).toString()).to.equal("true,true,"+inflowRateIDAShares1+",0");
-      //   expect((await app.getIDAShares(0, u.alice.address)).toString()).to.equal("true,true,"+inflowRateIDAShares1+",0");
-      //   await traveler.advanceTimeAndBlock(60*60*12);
-      //   await tp.submitValue(TELLOR_REQUEST_ID, oraclePrice);
-      //   await app.distribute()
-      //   await takeMeasurements();
-      //
-      //   console.log("Distribution.")
-      //   await traveler.advanceTimeAndBlock(60*60*1);
-      //   await tp.submitValue(TELLOR_REQUEST_ID, oraclePrice);
-      //
-      //
-      //   // Connect Admin and Bob
-      //   await u.bob.flow({ flowRate: inflowRate2, recipient: u.app });
-      //   await takeMeasurements();
-      //
-      //   // Expect the parameters are correct
-      //   expect(await app.getStreamRate(u.bob.address)).to.equal(inflowRate2);
-      //   expect((await app.getIDAShares(0, u.bob.address)).toString()).to.equal("true,true,"+inflowRateIDAShares2+",0");
-      //   expect((await app.getIDAShares(0, u.bob.address)).toString()).to.equal("true,true,"+inflowRateIDAShares2+",0");
-      //   await traveler.advanceTimeAndBlock(60*60*2);
-      //   await tp.submitValue(TELLOR_REQUEST_ID, oraclePrice);
-      //   await app.distribute()
-      //   await takeMeasurements();
-      //
-      //   console.log("Distribution.")
-      //
-      //   // Connect Admin and Bob
-      //   await u.alice.flow({ flowRate: inflowRate3, recipient: u.app });
-      //   // Expect the parameters are correct
-      //   expect(await app.getStreamRate(u.alice.address)).to.equal(inflowRate3);
-      //   expect((await app.getIDAShares(0, u.alice.address)).toString()).to.equal("true,true,"+inflowRateIDAShares3+",0");
-      //   expect((await app.getIDAShares(0, u.alice.address)).toString()).to.equal("true,true,"+inflowRateIDAShares3+",0");
-      //   await traveler.advanceTimeAndBlock(60*60*4);
-      //   await tp.submitValue(TELLOR_REQUEST_ID, oraclePrice);
-      //   await app.distribute()
-      //   console.log("Distribution.")
-      //   await takeMeasurements();
-      //
-      //
-      //
-      //   // Try close stream and expect revert
-      //   await expect(
-      //    app.closeStream(u.bob.address)
-      //   ).to.be.revertedWith("!closable");
-      //
-      //
-      //   console.log(appBalances);
-      //
-      //
-      //
-      //
-      // });
+    // ==============
+    // NOTE: Assume the oracle is up to date
+    // Deploy Tellor Oracle contracts
 
+    const TellorPlayground = await ethers.getContractFactory('TellorPlayground');
+    tp = await TellorPlayground.attach(TELLOR_ORACLE_ADDRESS);
+    tp = tp.connect(owner);
+
+    // ==============
+    // Setup tokens
+
+    const ERC20 = await ethers.getContractFactory('ERC20');
+    ric = await ERC20.attach(RIC_TOKEN_ADDRESS);
+    weth = await ERC20.attach(await ethx.getUnderlyingToken());
+    wbtc = await ERC20.attach(await wbtcx.getUnderlyingToken());
+    usdc = await ERC20.attach(await usdcx.getUnderlyingToken());
+    ric = ric.connect(owner);
   });
 
+  beforeEach(async () => {
+    // ==============
+    // Deploy Stream Exchange
+
+    const StreamExchangeHelper = await ethers.getContractFactory('StreamExchangeHelper');
+    const sed = await StreamExchangeHelper.deploy();
+
+    const StreamExchange = await ethers.getContractFactory('StreamExchange', {
+      libraries: {
+        StreamExchangeHelper: sed.address,
+      },
+      signer: owner,
+    });
+
+    const registrationKey = await createSFRegistrationKey(sf, u.admin.address);
+
+    // NOTE: To attach to existing SE
+    // let se = await StreamExchange.attach(STREAM_EXCHANGE_ADDRESS);
+
+    console.log('Deploy params:');
+    console.log('SF HOST', sf.host.address);
+    console.log('SF CFA', sf.agreements.cfa.address);
+    console.log('SF IDA', sf.agreements.ida.address);
+    console.log('USDCx', usdcx.address);
+    console.log('WBTCx', wbtcx.address);
+    console.log('SF Registration Key', registrationKey);
+
+    console.log('Deploying StreamExchange...');
+    app = await StreamExchange.deploy(sf.host.address,
+      sf.agreements.cfa.address,
+      sf.agreements.ida.address,
+      usdcx.address,
+      wbtcx.address,
+      RIC_TOKEN_ADDRESS,
+      SUSHISWAP_ROUTER_ADDRESS, // sr.address,
+      TELLOR_ORACLE_ADDRESS,
+      TELLOR_REQUEST_ID,
+      registrationKey);
+
+    console.log('Deployed');
+    // console.log(await ric.balanceOf(u.admin.address));
+    // await ric.transfer(app.address, "1000000000000000000000000")
+
+    u.app = sf.user({
+      address: app.address,
+      token: wbtcx.address,
+    });
+    u.app.alias = 'App';
+    // ==============
+    // Get actual price
+    const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=wrapped-bitcoin&vs_currencies=usd');
+    oraclePrice = parseInt(response.data['wrapped-bitcoin'].usd * 1.02 * 1000000).toString();
+    console.log('oraclePrice', oraclePrice);
+    await tp.submitValue(60, oraclePrice);
+  });
+
+  async function checkBalance(user) {
+    console.log('Balance of ', user.alias);
+    console.log('usdcx: ', (await usdcx.balanceOf(user.address)).toString());
+    console.log('wbtcx: ', (await wbtcx.balanceOf(user.address)).toString());
+  }
+
+  async function checkBalances(accounts) {
+    for (let i = 0; i < accounts.length; i += 1) {
+      await checkBalance(accounts[i]);
+    }
+  }
+
+  async function upgrade(accounts) {
+    for (let i = 0; i < accounts.length; ++i) {
+      await web3tx(
+        usdcx.upgrade,
+        `${accounts[i].alias} upgrades many USDCx`,
+      )(toWad(100000000), {
+        from: accounts[i].address,
+      });
+      await web3tx(
+        daix.upgrade,
+        `${accounts[i].alias} upgrades many DAIx`,
+      )(toWad(100000000), {
+        from: accounts[i].address,
+      });
+
+      await checkBalance(accounts[i]);
+    }
+  }
+
+  async function logUsers() {
+    let string = 'user\t\ttokens\t\tnetflow\n';
+    let p = 0;
+    for (const [, user] of Object.entries(u)) {
+      if (await hasFlows(user)) {
+        p++;
+        string += `${user.alias}\t\t${wad4human(
+          await usdcx.balanceOf(user.address),
+        )}\t\t${wad4human((await user.details()).cfa.netFlow)}
+            `;
+      }
+    }
+    if (p == 0) return console.warn('no users with flows');
+    console.log('User logs:');
+    console.log(string);
+  }
+
+  async function hasFlows(user) {
+    const {
+      inFlows,
+      outFlows,
+    } = (await user.details()).cfa.flows;
+    return inFlows.length + outFlows.length > 0;
+  }
+
+  async function appStatus() {
+    const isApp = await sf.host.isApp(u.app.address);
+    const isJailed = await sf.host.isAppJailed(app.address);
+    !isApp && console.error('App is not an App');
+    isJailed && console.error('app is Jailed');
+    await checkBalance(u.app);
+    await checkOwner();
+  }
+
+  async function checkOwner() {
+    const owner = await u.admin.address;
+    console.log('Contract Owner: ', aliases[owner], ' = ', owner);
+    return owner.toString();
+  }
+
+  async function subscribe(user) {
+    // Alice approves a subscription to the app
+    console.log(sf.host.callAgreement);
+    console.log(sf.agreements.ida.address);
+    console.log(usdcx.address);
+    console.log(app.address);
+    await web3tx(
+      sf.host.callAgreement,
+      'user approves subscription to the app',
+    )(
+      sf.agreements.ida.address,
+      sf.agreements.ida.contract.methods
+        .approveSubscription(ethx.address, app.address, 0, '0x')
+        .encodeABI(),
+      '0x', // user data
+      {
+        from: user,
+      },
+    );
+  }
+
+  async function delta(account, balances) {
+    const len = balances.wbtcx.length;
+    const changeInOutToken = balances.wbtcx[len - 1] - balances.wbtcx[len - 2];
+    const changeInInToken = balances.usdcx[len - 1] - balances.usdcx[len - 2];
+    console.log();
+    console.log('Change in balances for ', account);
+    console.log('Usdcx:', changeInInToken, 'Bal:', balances.usdcx[len - 1]);
+    console.log('Wbtcx:', changeInOutToken, 'Bal:', balances.wbtcx[len - 1]);
+    console.log('Exchange Rate:', changeInOutToken / changeInInToken);
+  }
+
+  async function takeMeasurements() {
+    appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
+    ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
+    aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
+    bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
+
+    appBalances.wbtcx.push((await wbtcx.balanceOf(app.address)).toString());
+    ownerBalances.wbtcx.push((await wbtcx.balanceOf(u.admin.address)).toString());
+    aliceBalances.wbtcx.push((await wbtcx.balanceOf(u.alice.address)).toString());
+    bobBalances.wbtcx.push((await wbtcx.balanceOf(u.bob.address)).toString());
+
+    appBalances.usdcx.push((await usdcx.balanceOf(app.address)).toString());
+    ownerBalances.usdcx.push((await usdcx.balanceOf(u.admin.address)).toString());
+    aliceBalances.usdcx.push((await usdcx.balanceOf(u.alice.address)).toString());
+    bobBalances.usdcx.push((await usdcx.balanceOf(u.bob.address)).toString());
+
+    appBalances.ric.push((await ric.balanceOf(app.address)).toString());
+    ownerBalances.ric.push((await ric.balanceOf(u.admin.address)).toString());
+    aliceBalances.ric.push((await ric.balanceOf(u.alice.address)).toString());
+    bobBalances.ric.push((await ric.balanceOf(u.bob.address)).toString());
+  }
+
+  describe('Stream Exchange', async () => {
+    it('should be correctly configured', async () => {
+      expect(await app.isAppJailed()).to.equal(false);
+      expect(await app.getInputToken()).to.equal(usdcx.address);
+      expect(await app.getOuputToken()).to.equal(wbtcx.address);
+      expect(await app.getOuputIndexId()).to.equal(0);
+      expect(await app.getSubsidyToken()).to.equal(ric.address);
+      expect(await app.getSubsidyIndexId()).to.equal(1);
+      expect(await app.getSubsidyRate()).to.equal('400000000000000000');
+      expect(await app.getTotalInflow()).to.equal(0);
+      expect(await app.getSushiRouter()).to.equal(SUSHISWAP_ROUTER_ADDRESS);
+      expect(await app.getTellorOracle()).to.equal(TELLOR_ORACLE_ADDRESS);
+      expect(await app.getRequestId()).to.equal(60);
+      expect(await app.getOwner()).to.equal(u.admin.address);
+      expect(await app.getFeeRate()).to.equal(20000);
+    });
+
+    it('should create a stream exchange with the correct parameters', async () => {
+      const inflowRate = '77160493827160';
+      const inflowRateIDAShares = '77160';
+
+      await approveSubscriptions([u.admin.address]);
+
+      await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
+      // Expect the parameters are correct
+      expect(await app.getStreamRate(u.admin.address)).to.equal(inflowRate);
+      expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal(`true,true,${inflowRateIDAShares},0`);
+    });
+
+    it('approval should be unlimited', async () => {
+      await approveSubscriptions();
+      expect(await wbtc.allowance(app.address, SUSHISWAP_ROUTER_ADDRESS))
+        .to.be.equal(ethers.constants.MaxUint256);
+      expect(await usdc.allowance(app.address, SUSHISWAP_ROUTER_ADDRESS))
+        .to.be.equal(ethers.constants.MaxUint256);
+      expect(await wbtc.allowance(app.address, wbtcx.address))
+        .to.be.equal(ethers.constants.MaxUint256);
+      expect(await usdc.allowance(app.address, usdcx.address))
+        .to.be.equal(ethers.constants.MaxUint256);
+    });
+
+    it('should let keepers close streams with < 8 hours left', async () => {
+      await approveSubscriptions([u.bob.address]);
+      // 1. Initialize a stream exchange
+      const bobUsdcxBalance = await usdcx.balanceOf(u.bob.address);
+      // When user create stream, SF locks 4 hour deposit called initial deposit
+      const initialDeposit = bobUsdcxBalance.div(new BN('13')).mul(new BN('4'));
+      const inflowRate = bobUsdcxBalance.sub(initialDeposit).div(new BN(9 * 3600)).toString();
+      // 2. Initialize a streamer with 9 hours of balance
+      await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
+      expect(await app.getStreamRate(u.bob.address)).to.equal(inflowRate);
+      // 3. Verfiy closing attempts revert
+      await expect(app.closeStream(u.bob.address)).to.revertedWith('!closable');
+      // 4. Advance time 1 hour
+      await traveler.advanceTimeAndBlock(3600);
+      // 5. Verify closing the stream works
+      await app.closeStream(u.bob.address);
+      expect(await app.getStreamRate(u.bob.address)).to.equal('0');
+    });
+
+    it('should distribute tokens to streamers', async () => {
+      await approveSubscriptions([u.alice.address, u.bob.address]);
+
+      console.log('Transfer alice');
+      await usdcx.transfer(u.alice.address, toWad(400), { from: u.spender.address });
+      console.log('Transfer bob');
+      await usdcx.transfer(u.bob.address, toWad(400), { from: u.spender.address });
+      console.log('Done');
+
+      await checkBalances([u.alice, u.bob]);
+      // await takeMeasurements();
+
+      const inflowRate = '1000000000000000';
+      const inflowRatex2 = '2000000000000000';
+      const inflowRateIDAShares = '1000000';
+      const inflowRateIDASharesx2 = '2000000';
+
+      // 1. Initialize a stream exchange
+      // 2. Create 2 streamers, one with 2x the rate of the other
+      await u.alice.flow({ flowRate: inflowRate, recipient: u.app });
+      await u.bob.flow({ flowRate: inflowRatex2, recipient: u.app });
+
+      expect(await app.getStreamRate(u.alice.address)).to.equal(inflowRate);
+      expect((await app.getIDAShares(0, u.alice.address)).toString()).to.equal(`true,true,${inflowRateIDAShares},0`);
+      expect(await app.getStreamRate(u.bob.address)).to.equal(inflowRatex2);
+      expect((await app.getIDAShares(0, u.bob.address)).toString()).to.equal(`true,true,${inflowRateIDASharesx2},0`);
+      // 3. Advance time 1 hour
+      await traveler.advanceTimeAndBlock(3600);
+      await tp.submitValue(60, oraclePrice);
+      // 4. Trigger a distribution
+      await app.distribute();
+      // 4. Verify streamer 1 streamed 1/2 streamer 2's amount and received 1/2 the output
+      await checkBalances([u.alice, u.bob]);
+      await takeMeasurements();
+      delta('alice', aliceBalances);
+      delta('bob', bobBalances);
+      console.log(aliceBalances[aliceBalances.length - 1]);
+      console.log(bobBalances[aliceBalances.length - 1]);
+      // 5. Verify the fee taken was 2% of the output
+    });
+
+    it('getters and setters should work properly', async () => {
+      await app.connect(owner).setFeeRate(30000);
+      await app.connect(owner).setRateTolerance(30000);
+      await app.connect(owner).setSubsidyRate('500000000000000000');
+      await app.connect(owner).setOracle(OWNER_ADDRESS);
+      await app.connect(owner).setRequestId(61);
+      await app.connect(owner).transferOwnership(ALICE_ADDRESS);
+
+      expect(await app.getSubsidyRate()).to.equal('500000000000000000');
+      expect(await app.getFeeRate()).to.equal(30000);
+      expect(await app.getRateTolerance()).to.equal(30000);
+      expect(await app.getTellorOracle()).to.equal(OWNER_ADDRESS);
+      expect(await app.getRequestId()).to.equal(61);
+      expect(await app.getOwner()).to.equal(ALICE_ADDRESS);
+    });
+
+    it('should correctly emergency drain', async () => {
+      await approveSubscriptions([u.bob.address]);
+      const inflowRate = '77160493827160';
+      await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
+      await traveler.advanceTimeAndBlock(60 * 60 * 12);
+      expect((await usdcx.balanceOf(app.address)).toString()).to.not.equal('0');
+      await expect(
+        app.emergencyDrain(),
+      ).to.be.revertedWith('!zeroStreamers');
+      await u.bob.flow({ flowRate: '0', recipient: u.app });
+      await app.emergencyDrain();
+      expect((await usdcx.balanceOf(app.address)).toString()).to.equal('0');
+      expect((await wbtcx.balanceOf(app.address)).toString()).to.equal('0');
+    });
+
+    it('should emergency close stream if app jailed', async () => {
+      const inflowRate = '100000000'; // ~200 * 1e18 per month
+      await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
+      expect(await app.getStreamRate(u.admin.address)).to.equal(inflowRate);
+      await expect(
+        app.emergencyCloseStream(u.admin.address),
+      ).to.be.revertedWith('!jailed');
+
+      await impersonateAndSetBalance(sf.agreements.cfa.address);
+      await web3tx(
+        sf.host.jailApp,
+        'CFA jails App',
+      )(
+        '0x',
+        app.address,
+        0,
+        {
+          from: sf.agreements.cfa.address,
+        },
+      );
+
+      expect(await sf.host.isAppJailed(app.address)).to.equal(true);
+
+      await app.emergencyCloseStream(u.admin.address);
+
+      expect(await app.getStreamRate(u.admin.address)).to.equal('0');
+    });
+
+    xit('should distribute tokens to streamers correctly', async () => {
+      const inflowRate1 = '77160493827160'; // ~200 * 1e18 per month
+      const inflowRate2 = '964506172839506'; // ~2500 per month
+      const inflowRate3 = '38580246913580'; // ~100 per month
+      const inflowRateIDAShares1 = '77160';
+      const inflowRateIDAShares2 = '964506';
+      const inflowRateIDAShares3 = '38580';
+
+      await approveSubscriptions();
+
+      console.log('Transfer bob');
+      await usdcx.transfer(u.bob.address, toWad(400), { from: u.spender.address });
+      console.log('Transfer alice');
+      await usdcx.transfer(u.alice.address, toWad(400), { from: u.spender.address });
+      console.log('Transfer admin');
+      await usdcx.transfer(u.admin.address, toWad(400), { from: u.spender.address });
+      console.log('Done');
+
+      await takeMeasurements();
+
+      // Test `closeStream`
+      // Try close stream and expect revert
+      await expect(
+        u.admin.flow({ flowRate: toWad(10000), recipient: u.app }),
+      ).to.be.revertedWith('!enoughTokens');
+
+      await u.admin.flow({ flowRate: inflowRate1, recipient: u.app });
+      // Expect the parameters are correct
+      expect(await app.getStreamRate(u.admin.address)).to.equal(inflowRate1);
+      expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal(`true,true,${inflowRateIDAShares1},0`);
+      await traveler.advanceTimeAndBlock(60 * 60 * 12);
+      await tp.submitValue(60, oraclePrice);
+      await app.distribute();
+      console.log('Distribution.');
+      await traveler.advanceTimeAndBlock(60 * 60 * 1);
+      await tp.submitValue(60, oraclePrice);
+
+      // Connect Admin and Bob
+      await u.admin.flow({ flowRate: inflowRate2, recipient: u.app });
+      // Expect the parameters are correct
+      expect(await app.getStreamRate(u.admin.address)).to.equal(inflowRate2);
+      expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal(`true,true,${inflowRateIDAShares2},0`);
+      expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal(`true,true,${inflowRateIDAShares2},0`);
+      await traveler.advanceTimeAndBlock(60 * 60 * 2);
+      await tp.submitValue(60, oraclePrice);
+      await app.distribute();
+      console.log('Distribution.');
+
+      // Connect Admin and Bob
+      // await u.admin.flow({ flowRate: inflowRate3, recipient: u.app });
+      // // Expect the parameters are correct
+      // expect(await app.getStreamRate(u.admin.address)).to.equal(inflowRate3);
+      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal(`true,true,${inflowRateIDAShares3},0`);
+      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal(`true,true,${inflowRateIDAShares3},0`);
+      // await traveler.advanceTimeAndBlock(60 * 60 * 4);
+      // await tp.submitValue(60, oraclePrice);
+      // await app.distribute();
+      // console.log('Distribution.');
+
+      // // Lower bobs rate
+      // await u.admin.flow({ flowRate: inflowRate2, recipient: u.app });
+      // // Expect the parameters are correct
+      // expect(await app.getStreamRate(u.admin.address)).to.equal(inflowRate);
+      // expect(await app.getStreamRate(u.bob.address)).to.equal(inflowRate);
+      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal("true,true,"+inflowRateIDAShares+",0");
+      // expect((await app.getIDAShares(1, u.bob.address)).toString()).to.equal("true,true,"+inflowRateIDAShares+",0");
+      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal("true,true,"+inflowRateIDAShares+",0");
+      // expect((await app.getIDAShares(1, u.bob.address)).toString()).to.equal("true,true,"+inflowRateIDAShares+",0");
+      // await traveler.advanceTimeAndBlock(60*60*8);
+      // await tp.submitValue(60, oraclePrice);
+      // await app.distribute()
+      // console.log("Distribution.")
+      // // Lower bobs rate
+      // await u.bob.flow({ flowRate: "0", recipient: u.app });
+      // // Expect the parameters are correct
+      // expect(await app.getStreamRate(u.admin.address)).to.equal(inflowRate);
+      // expect(await app.getStreamRate(u.bob.address)).to.equal("0");
+      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal("true,true,"+inflowRateIDAShares+",0");
+      // expect((await app.getIDAShares(1, u.bob.address)).toString()).to.equal("true,true,0,0");
+      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal("true,true,"+inflowRateIDAShares+",0");
+      // expect((await app.getIDAShares(1, u.bob.address)).toString()).to.equal("true,true,0,0");
+
+      // console.log("Running hourly distributions until bobs balances is below the closeout threshold")
+      // while((await usdcx.balanceOf(u.bob.address)) > inflowRateDecimal * 2 * 60 * 60 * 8 * 1e18 ) {
+      //   await traveler.advanceTimeAndBlock(60*60*8);
+      //   await tp.submitValue(60, oraclePrice);
+      //   await app.distribute()
+      //   console.log("Distribution.")
+      //   await takeMeasurements();
+      //   await delta("Bob", bobBalances)
+      //   await delta("Alice", aliceBalances)
+      //   await delta("Owner", ownerBalances)
+      //   console.log("Bob:", bobBalances[bobBalances.length - 1])
+      //   // console.log("Alice:", bobBalances[bobBalances.length - 1])
+      //   console.log("Admin:", ownerBalances[ownerBalances.length - 1])
+      //   await sleep(3000);
+      // }
+      //
+      // console.log("Bob's balance is low, closing")
+      // // Try to close bobs stream
+      // await app.closeStream(u.admin.address);
+      // // Verify its closed and cleaned up
+      // expect(await app.getStreamRate(u.admin.address)).to.equal("0")
+      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal("true,true,0,0")
+      // expect((await app.getIDAShares(1, u.admin.address)).toString()).to.equal("true,true,0,0")
+
+      // await traveler.advanceTimeAndBlock(60*60*1 + 13);
+      // await tp.submitValue(60, oraclePrice);
+      // await app.distribute()
+      // await u.admin.flow({ flowRate: "0", recipient: u.app });
+      // await traveler.advanceTimeAndBlock(60);
+      // await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
+      // await u.admin.flow({ flowRate: "0", recipient: u.app });
+    });
+  });
 });

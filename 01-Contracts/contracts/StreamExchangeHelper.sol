@@ -17,16 +17,27 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./tellor/UsingTellor.sol";
 import "./StreamExchangeStorage.sol";
 
-
+/// @title Stream Exchange SuperApp helper library
 library StreamExchangeHelper {
 
   using SafeERC20 for ERC20;
 
   // TODO: Emit these events where appropriate
+  /// @dev Distribution event. Emitted on each token distribution operation.
+  /// @param totalAmount is total distributed amount
+  /// @param feeCollected is fee amount collected during distribution
+  /// @param token is distributed token address
   event Distribution(uint256 totalAmount, uint256 feeCollected, address token);
   event UpdatedStream(address from, int96 newRate, int96 totalInflow);
 
+  /// @dev Stream update event. Emitted on each stream update.
+  /// @param from is stream origin address
+  /// @param newRate is new stream rate
+  /// @param totalInflow is total incoming input token flow rate
+  event UpdatedStream(address from, int96 newRate, int96 totalInflow);
 
+  /// @dev Close stream from `streamer` address if balance is less than 8 hours of streaming
+  /// @param streamer is stream source (streamer) address
   function _closeStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
     // Only closable iff their balance is less than 8 hours of streaming
     (,int96 streamerFlowRate,,) = self.cfa.getFlow(self.inputToken, streamer, address(this));
@@ -51,11 +62,16 @@ library StreamExchangeHelper {
         "0x"
     );
 
+    emit UpdatedStream(streamer, 0, self.cfa.getNetFlow(self.inputToken, address(this)));
+
   }
 
+
+  /// @dev Allows anyone to close any stream if the app is jailed.
+  /// @param streamer is stream source (streamer) address
   function _emergencyCloseStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
-    // Allows anyone to close any stream iff the app is jailed
-    bool isJailed = ISuperfluid(msg.sender).isAppJailed(ISuperApp(address(this)));
+    // Allows anyone to close any stream if the app is jailed
+    bool isJailed = self.host.isAppJailed(ISuperApp(address(this)));
     require(isJailed, "!jailed");
     self.host.callAgreement(
         self.cfa,
@@ -70,6 +86,7 @@ library StreamExchangeHelper {
     );
   }
 
+  /// @dev Drain contract's input and output tokens balance to owner if SuperApp dont have any input streams.
   function _emergencyDrain(StreamExchangeStorage.StreamExchange storage self) public {
     require(self.cfa.getNetFlow(self.inputToken, address(this)) == 0, "!zeroStreamers");
     self.inputToken.transfer(self.owner, self.inputToken.balanceOf(address(this)));
@@ -77,6 +94,11 @@ library StreamExchangeHelper {
   }
 
 
+  /// @dev Get currect value from Tellor Oracle
+  /// @param _requestId is request ID in Tellor Oracle
+  /// @return ifRetrieve is bool value that indicates that oracle returned value greater than 0.
+  /// @return value last value for request ID
+  /// @return _timestampRetrieved last value's timestamp
   function _getCurrentValue(
     StreamExchangeStorage.StreamExchange storage self,
     uint256 _requestId
@@ -98,8 +120,10 @@ library StreamExchangeHelper {
   }
 
 
-  // @dev Distribute a single `amount` of outputToken among all streamers
-  // @dev Calculates the amount to distribute
+  /// @dev Distribute a single `amount` amount of output token among all streamers
+  /// @dev Calculates the amount to distribute
+  /// @param ctx SuperFluid context data
+  /// @return newCtx updated SuperFluid context data
   function _distribute(
     StreamExchangeStorage.StreamExchange storage self,
     bytes memory ctx
@@ -191,9 +215,9 @@ library StreamExchangeHelper {
 
     // TODO: This needs to be "invertable"
     // USD >> TOK
-    minOutput = amount * 1e18 / exchangeRate / 1e12;
+    // minOutput = amount * 1e18 / exchangeRate / 1e12;
     // TOK >> USD
-    // minOutput = amount  * exchangeRate / 1e6;
+    minOutput = amount  * exchangeRate / 1e6;
     minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
 
     // Scale back from 1e18 to outputToken decimals
@@ -204,7 +228,6 @@ library StreamExchangeHelper {
     path = new address[](2);
     path[0] = inputToken;
     path[1] = outputToken;
-
     self.sushiRouter.swapExactTokensForTokens(
        amount,
        0, // Accept any amount but fail if we're too far from the oracle price
@@ -222,7 +245,7 @@ library StreamExchangeHelper {
     return outputAmount;
   }
 
-
+  /// @dev Creates SuperFluid IDA index for subsidy token and creates share for sender
   function _initalizeLiquidityMining(StreamExchangeStorage.StreamExchange storage self) internal {
     // Create the index for IDA
     _createIndex(self, self.subsidyIndexId, self.subsidyToken);
@@ -230,6 +253,12 @@ library StreamExchangeHelper {
     _updateSubscription(self, self.subsidyIndexId, msg.sender, 1, self.subsidyToken);
   }
 
+  /// @dev Distributes `distAmount` amount of `distToken` token among all IDA index subscribers
+  /// @param index IDA index ID
+  /// @param distAmount amount to distribute
+  /// @param distToken distribute token address
+  /// @param ctx SuperFluid context data
+  /// @return newCtx updated SuperFluid context data
   function _idaDistribute(StreamExchangeStorage.StreamExchange storage self, uint32 index, uint128 distAmount, ISuperToken distToken, bytes memory ctx) internal returns (bytes memory newCtx) {
     newCtx = ctx;
     if (newCtx.length == 0) { // No context provided
@@ -261,6 +290,9 @@ library StreamExchangeHelper {
     }
   }
 
+  /// @dev Create new IDA index for `distToken`
+  /// @param index IDA index ID
+  /// @param distToken token address
   function _createIndex(StreamExchangeStorage.StreamExchange storage self, uint256 index, ISuperToken distToken) internal {
     self.host.callAgreement(
        self.ida,
@@ -274,6 +306,11 @@ library StreamExchangeHelper {
      );
   }
 
+  /// @dev Set new `shares` share for `subscriber` address in IDA with `index` index
+  /// @param index IDA index ID
+  /// @param subscriber is subscriber address
+  /// @param shares is distribution shares count
+  /// @param distToken is distribution token address
   function _updateSubscription(
       StreamExchangeStorage.StreamExchange storage self,
       uint256 index,
@@ -295,6 +332,13 @@ library StreamExchangeHelper {
    );
   }
 
+  /// @dev Same as _updateSubscription but uses provided SuperFluid context data
+  /// @param ctx SuperFluid context data
+  /// @param index IDA index ID
+  /// @param subscriber is subscriber address
+  /// @param shares is distribution shares count
+  /// @param distToken is distribution token address
+  /// @return newCtx updated SuperFluid context data
   function _updateSubscriptionWithContext(
       StreamExchangeStorage.StreamExchange storage self,
       bytes memory ctx,
@@ -320,6 +364,13 @@ library StreamExchangeHelper {
       );
   }
 
+  /// @dev Cancel subscription for `receiver` to `index` IDA index
+  /// @param ctx SuperFluid context data
+  /// @param receiver index publisher address
+  /// @param index IDA index ID
+  /// @param subscriber subscriber address
+  /// @param distToken is distribution token address
+  /// @return newCtx updated SuperFluid context data
   function _deleteSubscriptionWithContext(
       StreamExchangeStorage.StreamExchange storage self,
       bytes memory ctx,
@@ -348,24 +399,38 @@ library StreamExchangeHelper {
   /**************************************************************************
    * SuperApp callbacks
    *************************************************************************/
-
+  /// @dev Is `superToken` address an input token?
+  /// @param superToken token address
+  /// @return bool - is `superToken` address an input token
   function _isInputToken(StreamExchangeStorage.StreamExchange storage self, ISuperToken superToken) internal view returns (bool) {
       return address(superToken) == address(self.inputToken);
   }
 
+  /// @dev Is `superToken` address an output token?
+  /// @param superToken token address
+  /// @return bool - is `superToken` address an output token
   function _isOutputToken(StreamExchangeStorage.StreamExchange storage self, ISuperToken superToken) internal view returns (bool) {
       return address(superToken) == address(self.outputToken);
   }
 
+  /// @dev Is `superToken` address an subsidy token?
+  /// @param superToken token address
+  /// @return bool - is `superToken` address an subsidy token
   function _isSubsidyToken(StreamExchangeStorage.StreamExchange storage self, ISuperToken superToken) internal view returns (bool) {
       return address(superToken) == address(self.subsidyToken);
   }
 
+  /// @dev Is provided agreement address an CFA?
+  /// @param agreementClass agreement address
+  /// @return bool - is provided address an CFA
   function _isCFAv1(StreamExchangeStorage.StreamExchange storage self, address agreementClass) internal view returns (bool) {
       return ISuperAgreement(agreementClass).agreementType()
           == keccak256("org.superfluid-finance.agreements.ConstantFlowAgreement.v1");
   }
 
+  /// @dev Is provided agreement address an IDA?
+  /// @param agreementClass agreement address
+  /// @return bool - is provided address an IDA
   function _isIDAv1(StreamExchangeStorage.StreamExchange storage self, address agreementClass) internal view returns (bool) {
       return ISuperAgreement(agreementClass).agreementType()
           == keccak256("org.superfluid-finance.agreements.InstantDistributionAgreement.v1");

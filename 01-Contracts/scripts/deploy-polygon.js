@@ -12,8 +12,8 @@ async function main() {
 
   console.log("Deploying contracts with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
-
   console.log("Deploying StreamExchangeHelper")
+
   const StreamExchangeHelper = await ethers.getContractFactory("StreamExchangeHelper");
   let sed = await StreamExchangeHelper.deploy();
   console.log("Deployed StreamExchangeHelper ")
