@@ -143,9 +143,9 @@ library StreamExchangeHelper {
      require(_didGet, "!getCurrentValue");
      require(_timestamp >= block.timestamp - 3600, "!currentValue");
 
-     _swap(self, ISuperToken(self.inputToken).balanceOf(address(this)), _value, block.timestamp + 3600);
+     _swapAndDeposit(self, self.inputToken.balanceOf(address(this)), _value, block.timestamp + 3600);
 
-     uint256 outputBalance = ISuperToken(self.outputToken).balanceOf(address(this));
+     uint256 outputBalance = self.outputToken.balanceOf(address(this));
      (uint256 actualAmount,) = self.ida.calculateDistribution(
         self.outputToken,
         address(this),
@@ -179,7 +179,7 @@ library StreamExchangeHelper {
      self.lastDistributionAt = block.timestamp;
 
      // Take the fee
-     ISuperToken(self.outputToken).transfer(self.owner, feeCollected);
+     self.outputToken.transfer(self.owner, feeCollected);
      // NOTE: After swapping any token with < 18 decimals, there may be dust left so just leave it
      require(self.inputToken.balanceOf(address(this)) /
              10 ** (18 - ERC20(self.inputToken.getUnderlyingToken()).decimals()) == 0,
@@ -190,59 +190,94 @@ library StreamExchangeHelper {
 
    }
 
-   function _swap(
+   // Credit: Pickle.finance
+   function _swapAndDeposit(
          StreamExchangeStorage.StreamExchange storage self,
          uint256 amount,  // Assumes this is outputToken.balanceOf(address(this))
          uint256 exchangeRate,
          uint256 deadline
      ) public returns(uint) {
 
-    address inputToken;           // The underlying input token address
-    address outputToken;          // The underlying output token address
-    address[] memory path;        // The path to take
-    uint256 minOutput;            // The minimum amount of output tokens based on Tellor
-    uint256 outputAmount; // The balance before the swap
+       ERC20 inputToken = ERC20(self.inputToken.getUnderlyingToken());
+       ERC20 pairToken = ERC20(self.pairToken.getUnderlyingToken());
 
-    inputToken = self.inputToken.getUnderlyingToken();
-    outputToken = self.outputToken.getUnderlyingToken();
+       // Downgrade all the input supertokens
+       self.inputToken.downgrade(self.inputToken.balanceOf(address(this)));
 
-    // Downgrade and scale the input amount
-    console.log("Amount", amount);
-    self.inputToken.downgrade(amount);
-    // Scale it to 1e18 for calculations
-    amount = ERC20(inputToken).balanceOf(address(this)) * (10 ** (18 - ERC20(inputToken).decimals()));
+        // Swap half of input tokens to pair tokens
+        uint256 _inTokenBalance = inputToken.balanceOf(address(this));
+        if (_inTokenBalance > 0) {
+          // TODO: proper swap method
+            _swapSushiswap(self.sushiRouter, address(inputToken), address(pairToken), _inTokenBalance / 2);
+        }
 
-    // TODO: This needs to be "invertable"
-    // USD >> TOK
-    // minOutput = amount * 1e18 / exchangeRate / 1e12;
-    // TOK >> USD
-    minOutput = amount  * exchangeRate / 1e6;
-    minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
+        // Adds in liquidity for ETH/token1
+        _inTokenBalance = inputToken.balanceOf(address(this));
+        uint256 _pairTokenBalance = pairToken.balanceOf(address(this));
+        if (_inTokenBalance > 0 && _pairTokenBalance > 0) {
+            pairToken.safeApprove(address(self.sushiRouter), 0);
+            pairToken.safeApprove(address(self.sushiRouter), _pairTokenBalance);
 
-    // Scale back from 1e18 to outputToken decimals
-    minOutput = minOutput * (10 ** (ERC20(outputToken).decimals())) / 1e18;
-    // Scale it back to inputToken decimals
-    amount = amount / (10 ** (18 - ERC20(inputToken).decimals()));
+            self.sushiRouter.addLiquidity(
+                address(inputToken),
+                address(pairToken),
+                _inTokenBalance,
+                _pairTokenBalance,
+                0,
+                0,
+                address(this),
+                block.timestamp + 60
+            );
 
-    path = new address[](2);
-    path[0] = inputToken;
-    path[1] = outputToken;
-    self.sushiRouter.swapExactTokensForTokens(
-       amount,
-       0, // Accept any amount but fail if we're too far from the oracle price
-       path,
-       address(this),
-       deadline
-    );
-    // Assumes `amount` was outputToken.balanceOf(address(this))
-    outputAmount = ERC20(outputToken).balanceOf(address(this));
-    require(outputAmount >= minOutput, "BAD_EXCHANGE_RATE: Try again later");
+            // Donates DUST
+            inputToken.transfer(
+                self.owner,
+                self.inputToken.balanceOf(address(this))
+            );
+            pairToken.safeTransfer(
+                self.owner,
+                self.pairToken.balanceOf(address(this))
+            );
+        }
 
-    // Convert the outputToken back to its supertoken version
-    self.outputToken.upgrade(outputAmount * (10 ** (18 - ERC20(outputToken).decimals())));
+        // Convert the outputToken back to its supertoken version
+        self.outputToken.upgrade(self.outputToken.balanceOf(address(this)));
 
-    return outputAmount;
-  }
+    }
+
+    // Credit: Pickle.finance
+    function _swapSushiswap(
+        IUniswapV2Router02 sushiRouter,
+        address _from,
+        address _to,
+        uint256 _amount
+    ) internal {
+        require(_to != address(0));
+
+        address[] memory path;
+
+        // TODO: This is direct pairs, probably not the best
+        // if (_from == weth || _to == weth) {
+            path = new address[](2);
+            path[0] = _from;
+            path[1] = _to;
+        // } else {
+        //     path = new address[](3);
+        //     path[0] = _from;
+        //     path[1] = weth;
+        //     path[2] = _to;
+        // }
+
+        sushiRouter.swapExactTokensForTokens(
+            _amount,
+            0,
+            path,
+            address(this),
+            block.timestamp + 60
+        );
+    }
+
+
 
   /// @dev Creates SuperFluid IDA index for subsidy token and creates share for sender
   function _initalizeLiquidityMining(StreamExchangeStorage.StreamExchange storage self) internal {

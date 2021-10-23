@@ -37,7 +37,7 @@ library StreamExchangeStorage  {
   /// @param outputIndexId
   /// @param subsidyToken The token to use as the subsidy
   /// @param subsidyRate The number of tokens to distribute subsidy in units per second
-  /// @param subsidyIndexId 
+  /// @param subsidyIndexId
   /// @param lastDistributionAt The last time a distribution was made
   /// @param sushiRouter Address of sushsiwap router
   /// @param oracle Address of deployed simple oracle for input/output token
@@ -50,7 +50,8 @@ library StreamExchangeStorage  {
     IConstantFlowAgreementV1 cfa;         // The stored constant flow agreement class address
     IInstantDistributionAgreementV1 ida;  // The stored instant dist. agreement class address
     ISuperToken inputToken;               // The input token (e.g. DAIx)
-    ISuperToken outputToken;              // The output token (e.g. ETHx)
+    ISuperToken pairToken;                // The pair token of the LP (e.g. ETHx)
+    ISuperToken outputToken;              // The output LP token (e.g. SLPx)
     uint32 outputIndexId;
     ISuperToken subsidyToken;             // The token to use as the subsidy
     uint256 subsidyRate;                  // The number of tokens to distribute subsidy in units per second
