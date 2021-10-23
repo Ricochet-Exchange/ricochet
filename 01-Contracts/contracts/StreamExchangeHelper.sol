@@ -28,7 +28,6 @@ library StreamExchangeHelper {
   /// @param feeCollected is fee amount collected during distribution
   /// @param token is distributed token address
   event Distribution(uint256 totalAmount, uint256 feeCollected, address token);
-  event UpdatedStream(address from, int96 newRate, int96 totalInflow);
 
   /// @dev Stream update event. Emitted on each stream update.
   /// @param from is stream origin address
