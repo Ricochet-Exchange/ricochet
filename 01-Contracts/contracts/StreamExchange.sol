@@ -2,8 +2,6 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-// import "hardhat/console.sol";
-
 import {
     ISuperfluid,
     ISuperToken,
@@ -33,6 +31,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import "./tellor/UsingTellor.sol";
 
+import "./IRicochetToken.sol";
 import "./StreamExchangeStorage.sol";
 import "./StreamExchangeHelper.sol";
 import "./tellor/ITellor.sol";
@@ -64,6 +63,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         IConstantFlowAgreementV1 cfa,
         IInstantDistributionAgreementV1  ida,
         ISuperToken inputToken,
+        ISuperToken pairToken,
         ISuperToken outputToken,
         ISuperToken subsidyToken,
         IUniswapV2Router02 sushiRouter,
@@ -83,6 +83,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         _exchange.cfa = cfa;
         _exchange.ida = ida;
         _exchange.inputToken = inputToken;
+        _exchange.pairToken = pairToken;
         _exchange.outputToken = outputToken;
         _exchange.subsidyToken = subsidyToken;
         _exchange.oracle = ITellor(oracle);
@@ -92,13 +93,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         _exchange.subsidyIndexId = 1;
         _exchange.subsidyRate = 4e17; // 0.4 tokens/second ~ 1,000,000 tokens in a month
         _exchange.owner = msg.sender;
-
-         // Unlimited approve for sushiswap
-        ERC20(_exchange.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**256 - 1);
-        ERC20(_exchange.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**256 - 1);
-        // and Supertoken upgrades
-        ERC20(_exchange.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.inputToken), 2**256 - 1);
-        ERC20(_exchange.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.outputToken), 2**256 - 1);
 
         uint256 configWord =
             SuperAppDefinitions.APP_LEVEL_FINAL |
@@ -112,16 +106,14 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
             _exchange.host.registerApp(configWord);
         }
 
-        // Set up the IDA for sending tokens back
-        _exchange._createIndex(_exchange.outputIndexId, _exchange.outputToken);
+    }
 
-        // Give the owner 1 share just to start up the contract
-        _exchange._updateSubscription(_exchange.outputIndexId, msg.sender, 1, _exchange.outputToken);
+    function initialize() public {
+      _exchange.initialize();
+    }
 
-        // Setup Liquidity Mining
-        _exchange._initalizeLiquidityMining();
-
-        _exchange.lastDistributionAt = block.timestamp;
+    function transferRexTokenOwnership(address newOwner) public {
+      IRicochetToken(address(_exchange.outputToken)).transferOwnership(newOwner);
     }
 
     /**************************************************************************
@@ -136,7 +128,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       private
       returns (bytes memory newCtx)
   {
-
+    console.log("msg.sender 1", msg.sender);
     newCtx = ctx;
 
     (, , uint128 totalUnitsApproved, uint128 totalUnitsPending) = _exchange.ida.getIndex(
@@ -387,7 +379,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       onlyHost
       returns (bytes memory newCtx)
   {
-      console.log("afterAgreementCreated");
       if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
       return _updateOutflow(_ctx, _agreementData, true);
   }
@@ -413,11 +404,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       onlyHost
       returns (bytes memory newCtx)
   {
-      console.log("afterAgreementUpdated");
-      console.log(_agreementClass);
-      console.log((address(_superToken)));
       if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
-      console.log("_updateOutflow");
       return _updateOutflow(_ctx, _agreementData, true);
   }
 
@@ -441,7 +428,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       onlyHost
       returns (bytes memory newCtx)
   {
-      console.log("afterAgreementTerminated");
       // According to the app basic law, we should never revert in a termination callback
       if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
       // Skip distribution when terminating to avoid reverts

@@ -87,6 +87,8 @@ describe('StreamExchange', () => {
   const names = ['Admin', 'Alice', 'Bob', 'Carl', 'Spender'];
 
   let sf;
+  let slp;
+  let slpx;
   let dai;
   let daix;
   let ethx;
@@ -120,6 +122,7 @@ describe('StreamExchange', () => {
   const USDCX_SOURCE_ADDRESS = '0xA08f80dc1759b12fdC40A4dc64562b322C418E1f';
   const WBTC_SOURCE_ADDRESS = '0x5c2ed810328349100A66B82b78a1791B101C9D61';
   const USDC_SOURCE_ADDRESS = '0x1a13f4ca1d028320a707d99520abfefca3998b7f';
+  const SLPX_SOURCE_ADDRESS = '0xa01e90f92eCf5b8735aE7cEAeA78B979A7a7c108';
 
   const CARL_ADDRESS = '0x8c3bf3EB2639b2326fF937D041292dA2e79aDBbf';
   const BOB_ADDRESS = '0x00Ce20EC71942B41F50fF566287B811bbef46DC8';
@@ -158,7 +161,7 @@ describe('StreamExchange', () => {
 
   async function approveSubscriptions(
     users = [u.alice.address, u.bob.address, u.admin.address],
-    tokens = [wbtcx.address, ricAddress],
+    tokens = [slpx.address, ricAddress],
   ) {
     // Do approvals
     // Already approved?
@@ -282,24 +285,28 @@ describe('StreamExchange', () => {
     console.log('SF Registration Key', registrationKey);
 
     console.log('Deploying StreamExchange...');
+    slpx = await ethers.getContractAt('IRicochetToken', SLPX_SOURCE_ADDRESS);
+
     app = await StreamExchange.deploy(sf.host.address,
       sf.agreements.cfa.address,
       sf.agreements.ida.address,
       usdcx.address,
-      wbtcx.address,
+      ethx.address,
+      slpx.address,
       RIC_TOKEN_ADDRESS,
       SUSHISWAP_ROUTER_ADDRESS, // sr.address,
       TELLOR_ORACLE_ADDRESS,
       TELLOR_REQUEST_ID,
       registrationKey);
-
+    console.log("Deployed")
+    slpx = slpx.connect(owner)
+    await slpx.transferOwnership(app.address)
+    await app.initialize();
     console.log('Deployed');
-    // console.log(await ric.balanceOf(u.admin.address));
-    // await ric.transfer(app.address, "1000000000000000000000000")
 
     u.app = sf.user({
       address: app.address,
-      token: wbtcx.address,
+      token: slpx.address,
     });
     u.app.alias = 'App';
     // ==============
@@ -309,6 +316,11 @@ describe('StreamExchange', () => {
     console.log('oraclePrice', oraclePrice);
     await tp.submitValue(60, oraclePrice);
   });
+
+  afterEach(async () => {
+    await app.transferRexTokenOwnership(OWNER_ADDRESS);
+
+  })
 
   async function checkBalance(user) {
     console.log('Balance of ', user.alias);
@@ -393,7 +405,7 @@ describe('StreamExchange', () => {
     )(
       sf.agreements.ida.address,
       sf.agreements.ida.contract.methods
-        .approveSubscription(ethx.address, app.address, 0, '0x')
+        .approveSubscription(slpx.address, app.address, 0, '0x')
         .encodeABI(),
       '0x', // user data
       {
@@ -439,7 +451,7 @@ describe('StreamExchange', () => {
     it('should be correctly configured', async () => {
       expect(await app.isAppJailed()).to.equal(false);
       expect(await app.getInputToken()).to.equal(usdcx.address);
-      expect(await app.getOuputToken()).to.equal(wbtcx.address);
+      expect(await app.getOuputToken()).to.equal(slpx.address);
       expect(await app.getOuputIndexId()).to.equal(0);
       expect(await app.getSubsidyToken()).to.equal(ric.address);
       expect(await app.getSubsidyIndexId()).to.equal(1);

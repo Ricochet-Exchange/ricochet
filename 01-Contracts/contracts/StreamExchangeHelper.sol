@@ -16,6 +16,8 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import "./tellor/UsingTellor.sol";
 import "./StreamExchangeStorage.sol";
+import "./IRicochetToken.sol";
+
 
 /// @title Stream Exchange SuperApp helper library
 library StreamExchangeHelper {
@@ -34,6 +36,13 @@ library StreamExchangeHelper {
   /// @param newRate is new stream rate
   /// @param totalInflow is total incoming input token flow rate
   event UpdatedStream(address from, int96 newRate, int96 totalInflow);
+
+  modifier unlocks(StreamExchangeStorage.StreamExchange storage self) {
+    console.log("msg.sender for unlock:", msg.sender);
+    IRicochetToken(address(self.outputToken)).lock(false);
+    _;
+    IRicochetToken(address(self.outputToken)).lock(true);
+  }
 
   /// @dev Close stream from `streamer` address if balance is less than 8 hours of streaming
   /// @param streamer is stream source (streamer) address
@@ -129,7 +138,7 @@ library StreamExchangeHelper {
   )
     external returns (bytes memory newCtx)
   {
-
+    console.log("msg.sender:", msg.sender);
      newCtx = ctx;
      require(self.host.isCtxValid(newCtx) || newCtx.length == 0, "!distributeCtx");
 
@@ -277,7 +286,28 @@ library StreamExchangeHelper {
         );
     }
 
+    function _executeApprovals(StreamExchangeStorage.StreamExchange storage self) internal {
+      // Unlimited approve for sushiswap
+      ERC20(self.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.sushiRouter), 2**256 - 1);
+      ERC20(self.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.sushiRouter), 2**256 - 1);
+      // and Supertoken upgrades
+      ERC20(self.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.inputToken), 2**256 - 1);
+      ERC20(self.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.outputToken), 2**256 - 1);
+    }
 
+    function initialize(StreamExchangeStorage.StreamExchange storage self) public {
+      _executeApprovals(self);
+      // Set up the IDA for sending tokens back
+      _createIndex(self, self.outputIndexId, self.outputToken);
+
+      // Give the owner 1 share just to start up the contract
+      _updateSubscription(self, self.outputIndexId, msg.sender, 1, self.outputToken);
+
+      // Setup Liquidity Mining
+      _initalizeLiquidityMining(self);
+
+      self.lastDistributionAt = block.timestamp;
+    }
 
   /// @dev Creates SuperFluid IDA index for subsidy token and creates share for sender
   function _initalizeLiquidityMining(StreamExchangeStorage.StreamExchange storage self) internal {
@@ -327,7 +357,12 @@ library StreamExchangeHelper {
   /// @dev Create new IDA index for `distToken`
   /// @param index IDA index ID
   /// @param distToken token address
-  function _createIndex(StreamExchangeStorage.StreamExchange storage self, uint256 index, ISuperToken distToken) internal {
+  function _createIndex(
+    StreamExchangeStorage.StreamExchange storage self,
+    uint256 index,
+    ISuperToken distToken
+  ) internal unlocks(self) {
+
     self.host.callAgreement(
        self.ida,
        abi.encodeWithSelector(
@@ -350,7 +385,7 @@ library StreamExchangeHelper {
       uint256 index,
       address subscriber,
       uint128 shares,
-      ISuperToken distToken) internal {
+      ISuperToken distToken) internal unlocks(self) {
     self.host.callAgreement(
        self.ida,
        abi.encodeWithSelector(
@@ -380,7 +415,7 @@ library StreamExchangeHelper {
       address subscriber,
       uint128 shares,
       ISuperToken distToken)
-      internal returns (bytes memory newCtx)  {
+      internal unlocks(self) returns (bytes memory newCtx)  {
 
       newCtx = ctx;
       (newCtx, ) = self.host.callAgreementWithContext(
@@ -412,7 +447,7 @@ library StreamExchangeHelper {
       uint256 index,
       address subscriber,
       ISuperToken distToken)
-      internal returns (bytes memory newCtx)  {
+      internal unlocks(self) returns (bytes memory newCtx)  {
 
       (newCtx, ) = self.host.callAgreementWithContext(
         self.ida,
