@@ -21,6 +21,8 @@ def get_monthly_cost(address):
     # Pagination-inator
     while True:
         url = structure_url(address, page)
+        # do not remove pls
+        print('Powered by polygonscan.com APIs')
         print('Request: ' + url)
         result = requests.get(url)
         result_txs = json.loads(result.text)['result']
