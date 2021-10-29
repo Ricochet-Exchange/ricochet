@@ -30,8 +30,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import "./tellor/UsingTellor.sol";
-
-import "./IRicochetToken.sol";
 import "./StreamExchangeStorage.sol";
 import "./StreamExchangeHelper.sol";
 import "./tellor/ITellor.sol";
@@ -78,6 +76,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         require(address(outputToken) != address(0), "output");
         require(!host.isApp(ISuperApp(msg.sender)), "owner SA");
 
+        _exchange.miniChef = IMiniChefV2(0x0769fd68dFb93167989C6f7254cd0D766Fb2841F);
         _exchange.sushiRouter = sushiRouter;
         _exchange.host = host;
         _exchange.cfa = cfa;
@@ -112,23 +111,18 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       _exchange.initialize();
     }
 
-    function transferRexTokenOwnership(address newOwner) public {
-      IRicochetToken(address(_exchange.outputToken)).transferOwnership(newOwner);
-    }
-
     /**************************************************************************
      * Stream Exchange Logic
      *************************************************************************/
     /// @dev If a new stream is opened, or an existing one is opened
     /// @param ctx is SuperFluid context data
     /// @param agreementData is SuperFluid agreement data (non-compressed)
-    /// @param doDistributeFirst is distribution needed before outflow update
+    /// @param isTerminating is distribution needed before outflow update
     /// @return newCtx updated SuperFluid context data
-  function _updateOutflow(bytes calldata ctx, bytes calldata agreementData, bool doDistributeFirst)
+  function _updateOutflow(bytes calldata ctx, bytes calldata agreementData, bool isTerminating)
       private
       returns (bytes memory newCtx)
   {
-    console.log("msg.sender 1", msg.sender);
     newCtx = ctx;
 
     (, , uint128 totalUnitsApproved, uint128 totalUnitsPending) = _exchange.ida.getIndex(
@@ -139,11 +133,19 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     uint256 balance = ISuperToken(_exchange.inputToken).balanceOf(address(this)) /
                       (10 ** (18 - ERC20(_exchange.inputToken.getUnderlyingToken()).decimals()));
 
-    if (doDistributeFirst && totalUnitsApproved + totalUnitsPending > 0 && balance > 0) {
+    if (!isTerminating && totalUnitsApproved + totalUnitsPending > 0 && balance > 0) {
       newCtx = _exchange._distribute(newCtx);
     }
 
     (address requester, address flowReceiver) = abi.decode(agreementData, (address, address));
+
+    if (isTerminating) {
+      // Burn the requesters SLPx balance and return SLP tokens
+      balance = self.outputToken.balanceOf(requester);
+      self.outputToken.burnFrom(requester, balance);
+      self.miniChef.withdraw(self.pid, balance, requester);
+    }
+
     require(flowReceiver == address(this), "!appflow");
     int96 appFlowRate = _exchange.cfa.getNetFlow(_exchange.inputToken, address(this));
     (, int96 requesterFlowRate, , ) = _exchange.cfa.getFlow(_exchange.inputToken, requester, address(this));
@@ -153,6 +155,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     require(requesterFlowRate >= 0, "!negativeRates");
     newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.outputIndexId, requester, uint128(uint(int(requesterFlowRate))), _exchange.outputToken);
+    newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.sushixIndexId, requester, uint128(uint(int(requesterFlowRate))), _exchange.sushixToken);
+    newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.maticxIndexId, requester, uint128(uint(int(requesterFlowRate))), _exchange.maticxToken);
     newCtx = _exchange._updateSubscriptionWithContext(newCtx, _exchange.subsidyIndexId, requester, uint128(uint(int(requesterFlowRate))), _exchange.subsidyToken);
 
     emit UpdatedStream(requester, requesterFlowRate, appFlowRate);
@@ -380,7 +384,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       returns (bytes memory newCtx)
   {
       if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
-      return _updateOutflow(_ctx, _agreementData, true);
+      return _updateOutflow(_ctx, _agreementData, false);
   }
 
   /// @dev SuperFluid protocol callback
@@ -405,7 +409,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       returns (bytes memory newCtx)
   {
       if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
-      return _updateOutflow(_ctx, _agreementData, true);
+      return _updateOutflow(_ctx, _agreementData, false);
   }
 
   /// @dev SuperFluid protocol callback
@@ -431,7 +435,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       // According to the app basic law, we should never revert in a termination callback
       if (!_exchange._isInputToken(_superToken) || !_exchange._isCFAv1(_agreementClass)) return _ctx;
       // Skip distribution when terminating to avoid reverts
-      return _updateOutflow(_ctx, _agreementData, false);
+      return _updateOutflow(_ctx, _agreementData, true);
   }
 
 

@@ -20,9 +20,10 @@ interface IRicochetToken {
      */
     function getHost() external view returns(address host);
 
-    // Ricochet Token lock methods
+    // Ricochet Token lock
     function lock(bool _lockIt) external;
     function transferOwnership(address newOwner) external;
+    function downgradeFrom(address account, uint256 amount) external;
 
     /**************************************************************************
      * Real-time balance functions
