@@ -2,6 +2,8 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
+import "hardhat/console.sol";
+
 import {
     ISuperfluid,
     ISuperToken,
@@ -23,6 +25,7 @@ import {
 } from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperAppBase.sol";
 
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
+import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -78,7 +81,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         require(!host.isApp(ISuperApp(msg.sender)), "owner SA");
 
         _exchange.miniChef = IMiniChefV2(0x0769fd68dFb93167989C6f7254cd0D766Fb2841F);
-        _exchange.slpToken = ERC20(0x34965ba0ac2451A34a0471F04CCa3F990b8dea27);
         _exchange.sushiRouter = sushiRouter;
         _exchange.host = host;
         _exchange.cfa = cfa;
@@ -86,6 +88,15 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         _exchange.inputToken = inputToken;
         _exchange.pairToken = pairToken;
         _exchange.outputToken = outputToken;
+        _exchange.pid = 1;
+        _exchange.slpToken = ERC20(IUniswapV2Factory(0xc35DADB65012eC5796536bD9864eD8773aBc74C4).getPair(
+          address(_exchange.inputToken.getUnderlyingToken()),
+          address(_exchange.pairToken.getUnderlyingToken())));
+
+          console.log("intoken", address(_exchange.inputToken.getUnderlyingToken()));
+          console.log("pairToken", address(_exchange.pairToken.getUnderlyingToken()));
+          console.log("slp", address(_exchange.slpToken));
+
         _exchange.subsidyToken = subsidyToken;
         _exchange.oracle = ITellor(oracle);
         _exchange.requestId = requestId;
@@ -466,5 +477,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     _;
   }
 
+  fallback() external payable { }
 
-  }
+}

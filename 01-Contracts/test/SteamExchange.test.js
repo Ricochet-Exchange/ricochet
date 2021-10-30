@@ -116,7 +116,7 @@ describe('StreamExchange', () => {
   let spender;
   const SF_RESOLVER = '0xE0cc76334405EE8b39213E620587d815967af39C';
   const RIC_TOKEN_ADDRESS = '0x263026E7e53DBFDce5ae55Ade22493f828922965';
-  const SUSHISWAP_ROUTER_ADDRESS = '0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff';
+  const SUSHISWAP_ROUTER_ADDRESS = '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506';
   const SUSHISWAP_MINICHEF_ADDRESS = '0x0769fd68dFb93167989C6f7254cd0D766Fb2841F';
   const TELLOR_ORACLE_ADDRESS = '0xACC2d27400029904919ea54fFc0b18Bf07C57875';
   const TELLOR_REQUEST_ID = 60;
@@ -357,7 +357,7 @@ describe('StreamExchange', () => {
   async function checkBalance(user) {
     console.log('Balance of ', user.alias);
     console.log('usdcx: ', (await usdcx.balanceOf(user.address)).toString());
-    console.log('wbtcx: ', (await wbtcx.balanceOf(user.address)).toString());
+    console.log('slpx: ', (await slpx.balanceOf(user.address)).toString());
   }
 
   async function checkBalances(accounts) {
@@ -568,7 +568,10 @@ describe('StreamExchange', () => {
       await tp.submitValue(60, oraclePrice);
       // 4. Trigger a distribution
       console.log("Distribute")
-      await app.distribute();
+      let tx = await app.distribute();
+      let receipt = await tx.wait();
+      console.log(receipt);
+      console.log(receipt.logs?.filter((x) => {return x.topics[0] == "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"}));
       // 4. Verify streamer 1 streamed 1/2 streamer 2's amount and received 1/2 the output
       await checkBalances([u.alice, u.bob]);
       await takeMeasurements();

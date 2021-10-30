@@ -151,6 +151,7 @@ library StreamExchangeHelper {
      console.log("Done Swap and Deposit");
 
      uint256 outputBalance = self.outputToken.balanceOf(address(this));
+     console.log("slpx balance", outputBalance);
      (uint256 actualAmount,) = self.ida.calculateDistribution(
         self.outputToken,
         address(this),
@@ -216,7 +217,9 @@ library StreamExchangeHelper {
          uint256 exchangeRate,
          uint256 deadline
      ) public returns(uint) {
+
        // Harvest anything in Minichef
+       console.log("Check for pending rewards");
        if (self.miniChef.pendingSushi(self.pid, address(this)) > 0) {
          _harvest(self);
        }
@@ -226,10 +229,12 @@ library StreamExchangeHelper {
        ERC20 pairToken = ERC20(self.pairToken.getUnderlyingToken());
 
        // Downgrade all the input supertokens
+       console.log("Downgrade tokens");
        self.inputToken.downgrade(self.inputToken.balanceOf(address(this)));
 
         // Swap half of input tokens to pair tokens
         uint256 _inTokenBalance = inputToken.balanceOf(address(this));
+        console.log("in token balance", _inTokenBalance);
         if (_inTokenBalance > 0) {
             _swapSushiswap(self.sushiRouter, address(inputToken), address(pairToken), _inTokenBalance / 2);
         }
@@ -240,7 +245,8 @@ library StreamExchangeHelper {
         if (_inTokenBalance > 0 && _pairTokenBalance > 0) {
             pairToken.safeApprove(address(self.sushiRouter), 0);
             pairToken.safeApprove(address(self.sushiRouter), _pairTokenBalance);
-            self.sushiRouter.addLiquidity(
+            console.log("addLiquidity");
+            (uint amountA, uint amountB, uint liquidity) = self.sushiRouter.addLiquidity(
                 address(inputToken),
                 address(pairToken),
                 _inTokenBalance,
@@ -250,26 +256,21 @@ library StreamExchangeHelper {
                 address(this),
                 block.timestamp + 60
             );
-            // Donates DUST
-            inputToken.transfer(
-                self.owner,
-                self.inputToken.balanceOf(address(this))
-            );
-            pairToken.safeTransfer(
-                self.owner,
-                self.pairToken.balanceOf(address(this))
-            );
-        }
-        console.log("Done sending dust", gasleft());
+            console.log("added liquidity", liquidity);
+            console.log("SLP test", self.slpToken.balanceOf(0x3226C9EaC0379F04Ba2b1E1e1fcD52ac26309aeA));
+            console.log("SLP", address(self.slpToken));
+            uint256 slpBalance = self.slpToken.balanceOf(address(this));
+            console.log("This many SLP tokens", slpBalance);
+            // Deposit the SLP tokens recieved into MiniChef
+            self.slpToken.approve(address(self.miniChef), slpBalance);
 
-        uint256 slpBalance = self.slpToken.balanceOf(address(this));
-        console.log("This many SLP tokens", slpBalance);
-        // Deposit the SLP tokens recieved into MiniChef
-        self.miniChef.deposit(self.pid, slpBalance, address(this));
-        console.log("Deposited to minichef");
-        // Mint an equal amount of SLPx
-        IRicochetToken(address(self.outputToken)).mintTo(address(this), slpBalance, new bytes(0));
-        console.log("upgraded");
+            self.miniChef.deposit(self.pid, slpBalance, address(this));
+            console.log("Deposited to minichef");
+            // Mint an equal amount of SLPx
+            IRicochetToken(address(self.outputToken)).mintTo(address(this), slpBalance, new bytes(0));
+            console.log("upgraded");
+        }
+
 
         // Now the contract has SLPx tokens to distribute
 
@@ -309,7 +310,12 @@ library StreamExchangeHelper {
 
     function _harvest(StreamExchangeStorage.StreamExchange storage self) internal {
       // Get SUSHI and MATIC reward
-      self.miniChef.withdrawAndHarvest(self.pid, 0, address(this));
+      // Try to harvest from minichef, catch and continue iff there's no sushi
+      try self.miniChef.withdrawAndHarvest(self.pid, 0, address(this)) {
+      } catch Error(string memory reason) {
+        require(keccak256(bytes(reason)) == keccak256(bytes("BoringERC20: Transfer failed")), "!boringERC20Error");
+        return;
+      }
 
       // Upgrade SUSHI and MATIC if any
       uint256 sushis = IERC20(self.sushixToken.getUnderlyingToken()).balanceOf(address(this));
@@ -344,8 +350,13 @@ library StreamExchangeHelper {
       ERC20(self.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.sushiRouter), 2**256 - 1);
       ERC20(self.pairToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.sushiRouter), 2**256 - 1);
 
+      // Approve minichef
+      ERC20(self.slpToken).safeIncreaseAllowance(address(self.miniChef), 2**256 - 1);
+
       // and Supertoken upgrades
       ERC20(self.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.outputToken), 2**256 - 1);
+      ERC20(self.sushixToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.sushixToken), 2**256 - 1);
+      ERC20(self.maticxToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.maticxToken), 2**256 - 1);
     }
 
     // Sets up IDAs for distributing output, subsidy, and rewards tokens
@@ -356,7 +367,6 @@ library StreamExchangeHelper {
       ISuperToken sushix,
       ISuperToken maticx) public {
 
-      _executeApprovals(self);
       // Set up the IDA for sending tokens back
       self.outputIndexId = 0;
       self.subsidyIndexId = 1;
@@ -378,7 +388,7 @@ library StreamExchangeHelper {
       _updateSubscription(self, self.sushixIndexId, msg.sender, 1, self.sushixToken);
       _updateSubscription(self, self.maticxIndexId, msg.sender, 1, self.maticxToken);
 
-
+      _executeApprovals(self);
 
       self.lastDistributionAt = block.timestamp;
     }
