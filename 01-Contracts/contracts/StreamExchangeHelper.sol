@@ -181,17 +181,17 @@ library StreamExchangeHelper {
      }
 
      // Distribute MiniChef rewards iff there are rewards to distribute
-     subsidyAmount = uint128(self.sushixToken.balanceOf(address(this)));
+     subsidyAmount = self.sushixToken.balanceOf(address(this));
      if (subsidyAmount > 0) {
        // TODO: Take fee
-       _idaDistribute(self, self.sushixIndexId, subsidyAmount, self.sushixToken);
-       emit Distribution(subsidyAmount, 0, address(self.self.sushixToken));
+       newCtx = _idaDistribute(self, self.sushixIndexId, uint128(subsidyAmount), self.sushixToken, newCtx);
+       emit Distribution(subsidyAmount, 0, address(self.sushixToken));
      }
 
      subsidyAmount = uint128(self.maticxToken.balanceOf(address(this)));
      if (self.maticxToken.balanceOf(address(this)) > 0) {
        // TODO: Take fee
-       _idaDistribute(self, self.maticxIndexId, subsidyAmount, self.maticxToken);
+       newCtx = _idaDistribute(self, self.maticxIndexId, uint128(subsidyAmount), self.maticxToken, newCtx);
        emit Distribution(subsidyAmount, 0, address(self.maticxToken));
      }
 
@@ -216,7 +216,6 @@ library StreamExchangeHelper {
          uint256 exchangeRate,
          uint256 deadline
      ) public returns(uint) {
-
        // Harvest anything in Minichef
        if (self.miniChef.pendingSushi(self.pid, address(this)) > 0) {
          _harvest(self);
@@ -241,7 +240,6 @@ library StreamExchangeHelper {
         if (_inTokenBalance > 0 && _pairTokenBalance > 0) {
             pairToken.safeApprove(address(self.sushiRouter), 0);
             pairToken.safeApprove(address(self.sushiRouter), _pairTokenBalance);
-
             self.sushiRouter.addLiquidity(
                 address(inputToken),
                 address(pairToken),
@@ -252,7 +250,6 @@ library StreamExchangeHelper {
                 address(this),
                 block.timestamp + 60
             );
-
             // Donates DUST
             inputToken.transfer(
                 self.owner,
@@ -263,13 +260,16 @@ library StreamExchangeHelper {
                 self.pairToken.balanceOf(address(this))
             );
         }
+        console.log("Done sending dust", gasleft());
 
-        uint256 = self.slpToken.balanceOf(address(this));
+        uint256 slpBalance = self.slpToken.balanceOf(address(this));
+        console.log("This many SLP tokens", slpBalance);
         // Deposit the SLP tokens recieved into MiniChef
-        self.miniChef.deposit(slpBalance);
-
+        self.miniChef.deposit(self.pid, slpBalance, address(this));
+        console.log("Deposited to minichef");
         // Mint an equal amount of SLPx
-        self.outputToken.mint(slpBalance);
+        IRicochetToken(address(self.outputToken)).mintTo(address(this), slpBalance, new bytes(0));
+        console.log("upgraded");
 
         // Now the contract has SLPx tokens to distribute
 
@@ -312,26 +312,26 @@ library StreamExchangeHelper {
       self.miniChef.withdrawAndHarvest(self.pid, 0, address(this));
 
       // Upgrade SUSHI and MATIC if any
-      uint256 sushis = IERC20(self.sushix.getUnderlyingToken()).balanceOf(address(this));
-      uint256 matics = IERC20(self.maticx.getUnderlyingToken()).balanceOf(address(this));
+      uint256 sushis = IERC20(self.sushixToken.getUnderlyingToken()).balanceOf(address(this));
+      uint256 matics = IERC20(self.maticxToken.getUnderlyingToken()).balanceOf(address(this));
 
       // Calculate the fee for MATIC
       uint256 feeCollected = matics * self.harvestFeeRate / 1e6;
       matics = matics - feeCollected;
 
       // Upgrade and take a fee
-      IWMATIC(self.maticx.getUnderlyingToken()).withdraw(matics);
+      IWMATIC(self.maticxToken.getUnderlyingToken()).withdraw(matics);
       if (matics > 0) {
-        IMATICx(address(self.maticx)).upgradeByETH{value: matics}();
-        self.maticx.transfer(owner(), feeCollected);
+        IMATICx(address(self.maticxToken)).upgradeByETH{value: matics}();
+        self.maticxToken.transfer(self.owner, feeCollected);
       }
 
       // Calculate the fee
       feeCollected = sushis * self.harvestFeeRate / 1e6;
       sushis = sushis - feeCollected;
       if (sushis > 0) {
-        self.sushix.upgrade(sushis);
-        self.sushix.transfer(owner(), feeCollected);
+        self.sushixToken.upgrade(sushis);
+        self.sushixToken.transfer(self.owner, feeCollected);
       }
 
 
@@ -348,31 +348,40 @@ library StreamExchangeHelper {
       ERC20(self.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.outputToken), 2**256 - 1);
     }
 
-    function initialize(StreamExchangeStorage.StreamExchange storage self) public {
+    // Sets up IDAs for distributing output, subsidy, and rewards tokens
+    function initialize(
+      StreamExchangeStorage.StreamExchange storage self,
+      ISuperToken output,
+      ISuperToken subsidy,
+      ISuperToken sushix,
+      ISuperToken maticx) public {
+
       _executeApprovals(self);
       // Set up the IDA for sending tokens back
+      self.outputIndexId = 0;
+      self.subsidyIndexId = 1;
+      self.sushixIndexId = 2;
+      self.maticxIndexId = 3;
+      self.outputToken = output;
+      self.subsidyToken = subsidy;
+      self.sushixToken = sushix;
+      self.maticxToken = maticx;
+
       _createIndex(self, self.outputIndexId, self.outputToken);
+      _createIndex(self, self.subsidyIndexId, self.subsidyToken);
       _createIndex(self, self.sushixIndexId, self.sushixToken);
       _createIndex(self, self.maticxIndexId, self.maticxToken);
 
       // Give the owner 1 share just to start up the contract
       _updateSubscription(self, self.outputIndexId, msg.sender, 1, self.outputToken);
+      _updateSubscription(self, self.subsidyIndexId, msg.sender, 1, self.subsidyToken);
       _updateSubscription(self, self.sushixIndexId, msg.sender, 1, self.sushixToken);
       _updateSubscription(self, self.maticxIndexId, msg.sender, 1, self.maticxToken);
 
-      // Setup Liquidity Mining
-      _initalizeLiquidityMining(self);
+
 
       self.lastDistributionAt = block.timestamp;
     }
-
-  /// @dev Creates SuperFluid IDA index for subsidy token and creates share for sender
-  function _initalizeLiquidityMining(StreamExchangeStorage.StreamExchange storage self) internal {
-    // Create the index for IDA
-    _createIndex(self, self.subsidyIndexId, self.subsidyToken);
-    // Give the initalizer 1 share to get it started
-    _updateSubscription(self, self.subsidyIndexId, msg.sender, 1, self.subsidyToken);
-  }
 
   /// @dev Distributes `distAmount` amount of `distToken` token among all IDA index subscribers
   /// @param index IDA index ID
@@ -418,7 +427,7 @@ library StreamExchangeHelper {
     StreamExchangeStorage.StreamExchange storage self,
     uint256 index,
     ISuperToken distToken
-  ) internal unlocks(self) {
+  ) internal {
 
     self.host.callAgreement(
        self.ida,
@@ -442,7 +451,7 @@ library StreamExchangeHelper {
       uint256 index,
       address subscriber,
       uint128 shares,
-      ISuperToken distToken) internal unlocks(self) {
+      ISuperToken distToken) internal {
     self.host.callAgreement(
        self.ida,
        abi.encodeWithSelector(
@@ -472,7 +481,7 @@ library StreamExchangeHelper {
       address subscriber,
       uint128 shares,
       ISuperToken distToken)
-      internal unlocks(self) returns (bytes memory newCtx)  {
+      internal returns (bytes memory newCtx)  {
 
       newCtx = ctx;
       (newCtx, ) = self.host.callAgreementWithContext(
@@ -504,7 +513,7 @@ library StreamExchangeHelper {
       uint256 index,
       address subscriber,
       ISuperToken distToken)
-      internal unlocks(self) returns (bytes memory newCtx)  {
+      internal returns (bytes memory newCtx)  {
 
       (newCtx, ) = self.host.callAgreementWithContext(
         self.ida,
@@ -544,6 +553,13 @@ library StreamExchangeHelper {
   /// @return bool - is `superToken` address an subsidy token
   function _isSubsidyToken(StreamExchangeStorage.StreamExchange storage self, ISuperToken superToken) internal view returns (bool) {
       return address(superToken) == address(self.subsidyToken);
+  }
+
+  /// @dev Is `superToken` address an rewards token?
+  /// @param superToken token address
+  /// @return bool - is `superToken` address an subsidy token
+  function _isRewardsToken(StreamExchangeStorage.StreamExchange storage self, ISuperToken superToken) internal view returns (bool) {
+      return address(superToken) == address(self.sushixToken) || address(superToken) == address(self.maticxToken);
   }
 
   /// @dev Is provided agreement address an CFA?

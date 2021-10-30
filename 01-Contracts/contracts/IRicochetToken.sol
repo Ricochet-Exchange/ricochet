@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPLv3
-pragma solidity >= 0.7.0;
+pragma solidity ^0.8.0;
 
 import { ISuperAgreement } from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperAgreement.sol";
 
@@ -24,6 +24,8 @@ interface IRicochetToken {
     function lock(bool _lockIt) external;
     function transferOwnership(address newOwner) external;
     function downgradeFrom(address account, uint256 amount) external;
+    function mintTo(address account, uint256 amount, bytes memory userData) external;
+    function burnFrom(address account, uint256 amount, bytes memory userData) external;
 
     /**************************************************************************
      * Real-time balance functions

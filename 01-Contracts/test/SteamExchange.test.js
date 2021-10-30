@@ -89,6 +89,8 @@ describe('StreamExchange', () => {
   let sf;
   let slp;
   let slpx;
+  let sushix;
+  let maticx;
   let dai;
   let daix;
   let ethx;
@@ -125,6 +127,8 @@ describe('StreamExchange', () => {
   const USDC_SOURCE_ADDRESS = '0x1a13f4ca1d028320a707d99520abfefca3998b7f';
   const SLP_SOURCE_ADDRESS = '0x34965ba0ac2451A34a0471F04CCa3F990b8dea27';
   const SLPX_SOURCE_ADDRESS = '0xEF9d55f9107dA7F85f545330884AacD364FB9670';
+  const MATICX_ADDRESS = '0x3aD736904E9e65189c3000c7DD2c8AC8bB7cD4e3';
+  const SUSHIX_ADDRESS = '0xDaB943C03f9e84795DC7BF51DdC71DaF0033382b';
 
   const CARL_ADDRESS = '0x8c3bf3EB2639b2326fF937D041292dA2e79aDBbf';
   const BOB_ADDRESS = '0x00Ce20EC71942B41F50fF566287B811bbef46DC8';
@@ -163,7 +167,7 @@ describe('StreamExchange', () => {
 
   async function approveSubscriptions(
     users = [u.alice.address, u.bob.address, u.admin.address],
-    tokens = [slpx.address, ricAddress],
+    tokens = [slpx.address, ricAddress, sushix.address, maticx.address],
   ) {
     // Do approvals
     // Already approved?
@@ -171,14 +175,10 @@ describe('StreamExchange', () => {
 
     for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
       for (let userIndex = 0; userIndex < users.length; userIndex += 1) {
-        let index = 0;
-        if (tokens[tokenIndex] === ricAddress) {
-          index = 1;
-        }
 
         await web3tx(
           sf.host.callAgreement,
-          `${users[userIndex]} approves subscription to the app ${tokens[tokenIndex]} ${index}`,
+          `${users[userIndex]} approves subscription to the app ${tokens[tokenIndex]} ${tokenIndex}`,
         )(
           sf.agreements.ida.address,
           sf.agreements.ida.contract.methods
@@ -257,11 +257,34 @@ describe('StreamExchange', () => {
     wbtc = await ERC20.attach(await wbtcx.getUnderlyingToken());
     usdc = await ERC20.attach(await usdcx.getUnderlyingToken());
     ric = ric.connect(owner);
+
+    // Attach alice to the SLP token
+    const RT = await ethers.getContractFactory("RicochetToken");
+    sushix = await RT.attach(SUSHIX_ADDRESS);
+    maticx = await RT.attach(MATICX_ADDRESS);
+    sushix = sushix.connect(owner)
+    sushix = sushix.connect(owner)
+
   });
 
   beforeEach(async () => {
     // ==============
     // Deploy Stream Exchange
+
+    const SLPx = await ethers.getContractFactory("RicochetToken",{
+      signer: owner
+    });
+    slpx = await SLPx.deploy(sf.host.address);
+    await slpx.deployed();
+
+    // Initialize Ricochet SLP
+    await slpx.initialize(
+            SLP_SOURCE_ADDRESS,
+            18,
+            "Ricochet SLP (USDC/ETH)",
+            "rexSLP");
+
+
 
     const StreamExchangeHelper = await ethers.getContractFactory('StreamExchangeHelper');
     const sed = await StreamExchangeHelper.deploy();
@@ -287,8 +310,8 @@ describe('StreamExchange', () => {
     console.log('SF Registration Key', registrationKey);
 
     console.log('Deploying StreamExchange...');
-    slpx = await ethers.getContractAt('IRicochetToken', SLPX_SOURCE_ADDRESS);
-    const ERC20 = await ethers.getContractFactory('ERC20');
+
+    ERC20 = await ethers.getContractFactory('ERC20');
     slp = await ERC20.attach(SLP_SOURCE_ADDRESS);
 
 
@@ -306,8 +329,9 @@ describe('StreamExchange', () => {
     console.log("Deployed")
     slpx = slpx.connect(owner)
     await slpx.transferOwnership(app.address)
-    await app.initialize();
+    await app.initialize(slpx.address, ric.address, sushix.address, maticx.address)
     console.log('Deployed');
+
 
     u.app = sf.user({
       address: app.address,
@@ -326,7 +350,7 @@ describe('StreamExchange', () => {
   });
 
   afterEach(async () => {
-    await app.transferRexTokenOwnership(OWNER_ADDRESS);
+    await app.transferOwnership(OWNER_ADDRESS);
 
   })
 

@@ -18,6 +18,8 @@ import {
 
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
 import "./tellor/ITellor.sol";
 import "./sushiswap/IMiniChefV2.sol";
 
@@ -52,7 +54,7 @@ library StreamExchangeStorage  {
     IInstantDistributionAgreementV1 ida;  // The stored instant dist. agreement class address
     ISuperToken inputToken;               // The input token (e.g. DAIx)
     ISuperToken pairToken;                // The pair token of the LP (e.g. ETHx)
-    ISuperToken slpToken;                 // The output LP token (e.g. SLPx)
+    ERC20 slpToken;                 // The output LP token (e.g. SLPx)
     ISuperToken outputToken;              // The output supertoken used to track SLP credits for users
     ISuperToken sushixToken;             // The token to use as the subsidy
     ISuperToken maticxToken;             // The token to use as the subsidy

@@ -33,6 +33,7 @@ import "./tellor/UsingTellor.sol";
 import "./StreamExchangeStorage.sol";
 import "./StreamExchangeHelper.sol";
 import "./tellor/ITellor.sol";
+import "./IRicochetToken.sol";
 
 /// @title StreamExchange SuperApp
 /// @notice This contract is an SuperFluid SuperApp
@@ -77,6 +78,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         require(!host.isApp(ISuperApp(msg.sender)), "owner SA");
 
         _exchange.miniChef = IMiniChefV2(0x0769fd68dFb93167989C6f7254cd0D766Fb2841F);
+        _exchange.slpToken = ERC20(0x34965ba0ac2451A34a0471F04CCa3F990b8dea27);
         _exchange.sushiRouter = sushiRouter;
         _exchange.host = host;
         _exchange.cfa = cfa;
@@ -107,8 +109,14 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     }
 
-    function initialize() public {
-      _exchange.initialize();
+    function initialize(
+      ISuperToken output,
+      ISuperToken subsidy,
+      ISuperToken sushix,
+      ISuperToken maticx) public {
+
+      // Set up the IDAs for output, subsidy, and rewards
+      _exchange.initialize(output, subsidy, sushix, maticx);
     }
 
     /**************************************************************************
@@ -141,9 +149,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     if (isTerminating) {
       // Burn the requesters SLPx balance and return SLP tokens
-      balance = self.outputToken.balanceOf(requester);
-      self.outputToken.burnFrom(requester, balance);
-      self.miniChef.withdraw(self.pid, balance, requester);
+      balance = _exchange.outputToken.balanceOf(requester);
+      IRicochetToken(address(_exchange.outputToken)).burnFrom(requester, balance, new bytes(0));
+      // Withdraw from Minichef to requester
+      _exchange.miniChef.withdraw(_exchange.pid, balance, requester);
     }
 
     require(flowReceiver == address(this), "!appflow");
@@ -450,7 +459,9 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
     if (_exchange._isCFAv1(agreementClass)) {
       require(_exchange._isInputToken(superToken), "!inputAccepted");
     } else if (_exchange._isIDAv1(agreementClass)) {
-      require(_exchange._isOutputToken(superToken) || _exchange._isSubsidyToken(superToken), "!outputAccepted");
+      require(_exchange._isOutputToken(superToken) ||
+              _exchange._isSubsidyToken(superToken) ||
+              _exchange._isRewardsToken(superToken), "!outputAccepted");
     }
     _;
   }
