@@ -216,6 +216,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
   /// @dev Set fee rate
   /// @param feeRate is new fee rate
+  function setHarvestFeeRate(uint128 feeRate) external onlyOwner {
+    _exchange.feeRate = feeRate;
+  }
+
+  /// @dev Set fee rate
+  /// @param feeRate is new fee rate
   function setFeeRate(uint128 feeRate) external onlyOwner {
     _exchange.feeRate = feeRate;
   }
@@ -352,6 +358,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
   /// @return fee rate
   function getFeeRate() external view returns (uint128) {
     return _exchange.feeRate;
+  }
+
+  /// @dev Get fee rate
+  /// @return fee rate
+  function getHarvestFeeRate() external view returns (uint128) {
+    return _exchange.harvestFeeRate;
   }
 
   /// @dev Get rate tolerance
