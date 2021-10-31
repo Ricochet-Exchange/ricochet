@@ -318,7 +318,6 @@ describe('StreamExchange', () => {
     ERC20 = await ethers.getContractFactory('ERC20');
     slp = await ERC20.attach(SLP_SOURCE_ADDRESS);
 
-
     app = await StreamExchange.deploy(sf.host.address,
       sf.agreements.cfa.address,
       sf.agreements.ida.address,
@@ -334,6 +333,8 @@ describe('StreamExchange', () => {
     slpx = slpx.connect(owner)
     await slpx.transferOwnership(app.address)
     await app.initialize(slpx.address, ric.address, sushix.address, maticx.address)
+    await app.executeApprovals();
+    console.log(slpx.address, ric.address, sushix.address, maticx.address)
     console.log('Deployed');
 
 
@@ -631,7 +632,7 @@ describe('StreamExchange', () => {
 
       expect(await app.getSubsidyRate()).to.equal('500000000000000000');
       expect(await app.getFeeRate()).to.equal(30000);
-      expect(await app.getHarvestFeeRate()).to.equal(30000);
+      expect(await app.getHarvestFeeRate()).to.equal(100000);
       expect(await app.getRateTolerance()).to.equal(30000);
       expect(await app.getTellorOracle()).to.equal(OWNER_ADDRESS);
       expect(await app.getRequestId()).to.equal(61);

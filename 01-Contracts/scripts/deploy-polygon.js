@@ -9,9 +9,39 @@ async function main() {
   const IDA_ADDRESS = "0xB0aABBA4B2783A72C52956CDEF62d438ecA2d7a1";
   const TELLOR_ORACLE_ADDRESS = "0xACC2d27400029904919ea54fFc0b18Bf07C57875";
   const RIC_CONTRACT_ADDRESS = "0x263026e7e53dbfdce5ae55ade22493f828922965";
+  const SLP_ADDRESS = '0x34965ba0ac2451A34a0471F04CCa3F990b8dea27';
+  const USDCX_ADDRESS = '0xCAa7349CEA390F89641fe306D93591f87595dc1F';
+  const MATICX_ADDRESS = '0x3aD736904E9e65189c3000c7DD2c8AC8bB7cD4e3';
+  const SUSHIX_ADDRESS = '0xDaB943C03f9e84795DC7BF51DdC71DaF0033382b';
+  const ETHX_ADDRESS = '0x27e1e4E6BC79D93032abef01025811B7E4727e85';
+  const ROUTER_ADDRESS = '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506';
+  const TELLOR_REQUEST_ID = 60;
+  const SF_REG_KEY = '';
 
   console.log("Deploying contracts with the account:", deployer.address);
   console.log("Account balance:", (await deployer.getBalance()).toString());
+
+  // Attach alice to the SLP token
+  const RT = await ethers.getContractFactory("RicochetToken");
+  usdcx = await RT.attach(USDCX_ADDRESS);
+  ethx = await RT.attach(ETHX_ADDRESS);
+  sushix = await RT.attach(SUSHIX_ADDRESS);
+  maticx = await RT.attach(MATICX_ADDRESS);
+
+
+  console.log("Depolying rexSLP")
+
+  const SLPx = await ethers.getContractFactory("RicochetToken");
+  slpx = await SLPx.deploy(HOST_ADDRESS);
+  await slpx.deployed();
+
+  // Initialize Ricochet SLP
+  await slpx.initialize(
+          SLP_ADDRESS,
+          18,
+          "Ricochet SLP (USDC/ETH)",
+          "rexSLP");
+
   console.log("Deploying StreamExchangeHelper")
 
   const StreamExchangeHelper = await ethers.getContractFactory("StreamExchangeHelper");
@@ -24,29 +54,46 @@ async function main() {
     },
   });
   console.log("Deploying StreamExchange with params")
-  console.log("\tHOST_ADDRESS", HOST_ADDRESS)
-  console.log("\tCFA_ADDRESS", CFA_ADDRESS)
-  console.log("\tIDA_ADDRESS", IDA_ADDRESS)
-  console.log("\tINPUT_TOKEN", process.env.INPUT_TOKEN_ADDRESS)
-  console.log("\tOUTPUT_TOKEN", process.env.OUTPUT_TOKEN_ADDRESS)
-  console.log("\tROUTER_ADDRESS", process.env.ROUTER_ADDRESS)
-  console.log("\tTELLOR_ORACLE_ADDRESS", process.env.TELLOR_ORACLE_ADDRESS)
-  console.log("\tTELLOR_REQUEST_ID", process.env.TELLOR_REQUEST_ID)
-  console.log("\tSF_REG_KEY", process.env.SF_REG_KEY)
+  // console.log("\tHOST_ADDRESS", HOST_ADDRESS)
+  // console.log("\tCFA_ADDRESS", CFA_ADDRESS)
+  // console.log("\tIDA_ADDRESS", IDA_ADDRESS)
+  // console.log("\tINPUT_TOKEN", process.env.INPUT_TOKEN_ADDRESS)
+  // console.log("\tOUTPUT_TOKEN", process.env.OUTPUT_TOKEN_ADDRESS)
+  // console.log("\tROUTER_ADDRESS", process.env.ROUTER_ADDRESS)
+  // console.log("\tTELLOR_ORACLE_ADDRESS", process.env.TELLOR_ORACLE_ADDRESS)
+  // console.log("\tTELLOR_REQUEST_ID", process.env.TELLOR_REQUEST_ID)
+  // console.log("\tSF_REG_KEY", process.env.SF_REG_KEY)
+
+  console.log(HOST_ADDRESS,
+              CFA_ADDRESS,
+              IDA_ADDRESS,
+              usdcx.address,
+              ethx.address,
+              slpx.address,
+              RIC_CONTRACT_ADDRESS,
+              ROUTER_ADDRESS,
+              TELLOR_ORACLE_ADDRESS,
+              TELLOR_REQUEST_ID,
+              process.env.SF_REG_KEY)
 
 
 
   const streamExchange = await StreamExchange.deploy( HOST_ADDRESS,
                                                       CFA_ADDRESS,
                                                       IDA_ADDRESS,
-                                                      process.env.INPUT_TOKEN_ADDRESS,
-                                                      process.env.OUTPUT_TOKEN_ADDRESS,
+                                                      usdcx.address,
+                                                      ethx.address,
+                                                      slpx.address,
                                                       RIC_CONTRACT_ADDRESS,
-                                                      process.env.ROUTER_ADDRESS,
-                                                      process.env.TELLOR_ORACLE_ADDRESS,
-                                                      process.env.TELLOR_REQUEST_ID,
+                                                      ROUTER_ADDRESS,
+                                                      TELLOR_ORACLE_ADDRESS,
+                                                      TELLOR_REQUEST_ID,
                                                       process.env.SF_REG_KEY );
   await streamExchange.deployed();
+  console.log("Deployed!")
+  await streamExchange.initialize(slpx.address, RIC_CONTRACT_ADDRESS, sushix.address, maticx.address)
+  await streamExchange.executeApprovals();
+  console.log("Deployed rexSLP at address:", slpx.address);
   console.log("Deployed StreamExchangeHelper at address:", sed.address);
   console.log("Deployed StreamExchange at address:", streamExchange.address);
 }

@@ -2,20 +2,14 @@ async function main() {
 
   const [owner] = await ethers.getSigners();
 
-
-
   const StreamExchange = await ethers.getContractFactory("StreamExchange", {
     libraries: {
-      StreamExchangeHelper: seh.address,
+      StreamExchangeHelper: "0xf54bfB9FbE5282766870134E670968116D1c686A",
     },
   });
-  const rickoshea = await StreamExchange.attach("0x7E2E5f06e36da0BA58B08940a72Fd6b68FbDfD61")
+  const se = await StreamExchange.attach("0xaA40cD75a94E0863f5585fEa9521E320F6ED219b")
 
-  console.log("getOuputToken", await rickoshea.getOuputToken())
-  console.log("getInputToken", await rickoshea.getInputToken())
-
-
-  // let dr = await rickoshea.distribute();
+  let dr = await se.distribute({nonce:4422});
 
   console.log("Distribute:", dr);
 

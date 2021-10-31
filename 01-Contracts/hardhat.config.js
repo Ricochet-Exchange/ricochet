@@ -5,6 +5,7 @@ require('@openzeppelin/hardhat-upgrades');
 require('hardhat-contract-sizer');
 require('@nomiclabs/hardhat-etherscan');
 require('solidity-coverage');
+require('hardhat-gas-reporter');
 require('dotenv').config();
 
 // This is a sample Hardhat task. To learn how to create your own go to
@@ -32,16 +33,26 @@ module.exports = {
         runs: 200
       }
     }
-  }, 
+  },
+  gasReporter: {
+    currency: 'USD',
+    gasPrice: 21
+  },
   mocha: {
     timeout: 1e6,
   },
   networks: {
     polygon: {
-      url: `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_KEY}`,
+      url:  `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_KEY}`,
+      accounts: [`0x${process.env.MATIC_PRIVATE_KEY}`],
+      gas: 2000000,
+      gasPrice: 45000000000,
+    },
+    local: {
+      url: 'http://127.0.0.1:8545/',
       accounts: [process.env.MATIC_PRIVATE_KEY],
       gas: 2000000,
-      gasPrice: 20000000000,
+      gasPrice: 20000000000
     },
     // kovan: {
     //   url: "https://kovan.infura.io/v3/" + process.env.INFURA_KEY,
@@ -51,6 +62,7 @@ module.exports = {
     // },
     hardhat: {
       forking: {
+        gas: 2000000,
         url: `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_KEY}`,
         accounts: [process.env.MATIC_PRIVATE_KEY],
         // blockNumber: 19403280

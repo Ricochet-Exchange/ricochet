@@ -30,6 +30,7 @@
     "ethers": "^5.1.3",
     "ganache-time-traveler": "^1.0.15",
     "hardhat": "^2.6.4",
+    "hardhat-gas-reporter": "^1.0.4",
     "solidity-coverage": "^0.7.17",
     "web3": "^1.3.5",
     "web3-utils": "^1.5.1"
@@ -39,6 +40,7 @@
     "@truffle/abi-utils": "^0.2.3",
     "@uniswap/v2-core": "^1.0.1",
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
+    "eth-revert-reason": "^1.0.3",
     "hardhat-contract-sizer": "^2.0.3",
     "usingtellor": "^3.0.2"
   }

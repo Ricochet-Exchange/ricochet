@@ -342,17 +342,7 @@ library StreamExchangeHelper {
     }
 
     function _executeApprovals(StreamExchangeStorage.StreamExchange storage self) internal {
-      // Unlimited approve for sushiswap
-      ERC20(self.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.sushiRouter), 2**256 - 1);
-      ERC20(self.pairToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.sushiRouter), 2**256 - 1);
-
-      // Approve minichef
-      ERC20(self.slpToken).safeIncreaseAllowance(address(self.miniChef), 2**256 - 1);
-
-      // and Supertoken upgrades
-      ERC20(self.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.outputToken), 2**256 - 1);
-      ERC20(self.sushixToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.sushixToken), 2**256 - 1);
-      ERC20(self.maticxToken.getUnderlyingToken()).safeIncreaseAllowance(address(self.maticxToken), 2**256 - 1);
+      
     }
 
     // Sets up IDAs for distributing output, subsidy, and rewards tokens
@@ -363,30 +353,6 @@ library StreamExchangeHelper {
       ISuperToken sushix,
       ISuperToken maticx) public {
 
-      // Set up the IDA for sending tokens back
-      self.outputIndexId = 0;
-      self.subsidyIndexId = 1;
-      self.sushixIndexId = 2;
-      self.maticxIndexId = 3;
-      self.outputToken = output;
-      self.subsidyToken = subsidy;
-      self.sushixToken = sushix;
-      self.maticxToken = maticx;
-
-      _createIndex(self, self.outputIndexId, self.outputToken);
-      _createIndex(self, self.subsidyIndexId, self.subsidyToken);
-      _createIndex(self, self.sushixIndexId, self.sushixToken);
-      _createIndex(self, self.maticxIndexId, self.maticxToken);
-
-      // Give the owner 1 share just to start up the contract
-      _updateSubscription(self, self.outputIndexId, msg.sender, 1, self.outputToken);
-      _updateSubscription(self, self.subsidyIndexId, msg.sender, 1, self.subsidyToken);
-      _updateSubscription(self, self.sushixIndexId, msg.sender, 1, self.sushixToken);
-      _updateSubscription(self, self.maticxIndexId, msg.sender, 1, self.maticxToken);
-
-      _executeApprovals(self);
-
-      self.lastDistributionAt = block.timestamp;
     }
 
   /// @dev Distributes `distAmount` amount of `distToken` token among all IDA index subscribers
