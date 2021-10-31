@@ -22,11 +22,30 @@ import "./tellor/ITellor.sol";
 
 library StreamExchangeStorage  {
 
+  /// @dev Stream structure
+  /// @param rate stream rate
   struct Stream {
     int96 rate;
   }
 
-  struct StreamExchange {                 // An exchange generate when StreamExchange is deployed
+  /// @dev An exchange generate when StreamExchange is deployed
+  /// @param host Superfluid host contract
+  /// @param cfa The stored constant flow agreement class address
+  /// @param ida The stored instant dist. agreement class address
+  /// @param inputToken The input token (e.g. DAIx)
+  /// @param outputToken The output token (e.g. ETHx)
+  /// @param outputIndexId
+  /// @param subsidyToken The token to use as the subsidy
+  /// @param subsidyRate The number of tokens to distribute subsidy in units per second
+  /// @param subsidyIndexId 
+  /// @param lastDistributionAt The last time a distribution was made
+  /// @param sushiRouter Address of sushsiwap router
+  /// @param oracle Address of deployed simple oracle for input/output token
+  /// @param requestId The id of the tellor request that has input/output exchange rate
+  /// @param feeRate The fee taken as a % with 6 decimals
+  /// @param owner The owner of the exchange
+  /// @param rateTolerance The percentage to deviate from the oracle scaled to 1e6
+  struct StreamExchange {
     ISuperfluid host;                     // Superfluid host contract
     IConstantFlowAgreementV1 cfa;         // The stored constant flow agreement class address
     IInstantDistributionAgreementV1 ida;  // The stored instant dist. agreement class address

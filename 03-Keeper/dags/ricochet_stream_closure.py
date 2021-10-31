@@ -23,7 +23,7 @@ default_args = {
     "depends_on_past": False,
     "start_date": datetime(2020, 3, 29),
     "email": ["mike@mikeghen.com"],
-    "email_on_failure": False,
+    "email_on_failure": True,
     "email_on_retry": False,
     "retries": 3,
     "retry_delay": timedelta(minutes=5)

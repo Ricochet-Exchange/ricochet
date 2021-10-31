@@ -22,38 +22,37 @@ The price of the token at launch would be 0.004 USDCx per token (250 tokens per 
 ## Contract Architecture
 
 ### Overview
-* REX Launchpad allows anyone to launch a token sale (IRO)
-* The user that creates a new IRO is called the `originator`
-* The users who participate in the IRO are called `streamers`
-* The IRO is defined by the following parameters:
-  * An `beneficiary` address that will receive the proceeds of the sale
+* REX Launchpad allows anyone to launch a token sale (IDO)
+* The user that creates a new IDO is called the `originator`
+* The users who participate in the IDO are called `streamers`
+* The IDO is defined by the following parameters:
+  * A `beneficiary` address that will receive the proceeds of the sale
   * The contract address of the `buyToken` being offered
   * The contract address of the `payToken` used to purchase the `buyToken`
   * The `rate` in tokens per second to distribute tokens to `streamers`
-  * A `duration` in seconds for the IRO to run
-* To create a new IRO the `originator` must:
+  * A `duration` in seconds for the IDO to run
+* To start a new IDO the `originator` must:
   * `approve` REX Launchpad to transfer `rate * duration` `buyTokens`
-  * Call `createIRO` method on the REX Launchpad with the parameters listed above
-* Once the REX IRO is created:
+  * Call `createIDO` method on the REX Launchpad with the parameters listed above
+  * Call `startIDO` method to allow streamers to start streaming
+* Once the REX IDO is running:
   * `streamers` can open a stream to REX Launch pad
   * `payTokens` flow from `streamers` directly to the `beneficiary` using Superfluid CFA
   * `buyTokens` are distributed to `streamers` periodically using Superfluid IDA
 * `streamers` pass in the `buyToken` address as `userData` when starting/stoping streams to the Launchpad
-* IROs
 
 ### Structures
 
-**`IRO`** - Models a single REX Launchpad IRO
-* `address originator` - the address that calls `createIRO`
+**`IDO`** - Models a single REX Launchpad IDO
+* `address originator` - the address that calls `createIDO`
 * `address beneficiary` - the address that received the `payTokens`
-* `address buyToken` - the token sold as part of this IRO
-* `address payToken` - the token accepted as part of this IRO
+* `address buyToken` - the token sold as part of this IDO
+* `address payToken` - the token accepted as part of this IDO
 * `int96 rate` - the rate to distribute `buyTokens` in tokens/second
-* `uint256 duration` - the duration of the IRO in seconds
+* `uint256 duration` - the duration of the IDO in seconds
 * `mapping(address => int96) streamers` - maps addresses to flow rates
 * `int96 totalInflow` - the total amount of `payTokens` streaming per second
-* `uint256 idaIndex` - The index for the IDA
-* `uint256 lastDistributionAt` - The unix timestamp for the last IDA distribution
+* `bool isActive` - True if the IDO has started, False otherwise
 
 **`Launchpad`** - Models the REX Launchpad
 * `address owner` - the owner of the Launchpad
@@ -61,61 +60,53 @@ The price of the token at launch would be 0.004 USDCx per token (250 tokens per 
 * `ISuperfluid host` - Superfluid host contract
 * `IConstantFlowAgreementV1 cfa` - The stored constant flow agreement class address
 * `IInstantDistributionAgreementV1 ida` - The stored instant dist. agreement class address
-* `mapping(address => IRO) iros` - A mapping that maps the `buyToken` address to it's IRO
-* `mapping(address => IRO) payTokenStreams` - A mapping that maps the `payTokens` address to the current Launchpad inflow rate
-* `uint256 countIROs` - The number of IROs created, used to set the ida index
+* `mapping(address => IDO) idosrate` - A mapping that maps the `buyToken` address to it's IDO
 
-### Modifiers
-* `onlyOriginator(ISuperToken buyToken)` - requires `msg.sender` to the originator of the `buyToken`
-* `onlyOwner` - requires `msg.sender` to be the owner of Ricochet Launchpad
 
 ### Events
-* `NewIRO` - Emits when a new IRO is created in `createIDO` method
-* `UpdatedStream` - Emits when a streamer starts/edits/stops their stream
-* `Distribution` - Emits when a IDA distribution is triggered for a IRO
+
 
 ### Methods
-**createIRO(address beneficiary, address payToken, address buyToken, int96 rate, uint duration)**
+**createIDO(address beneficiary, address payToken, address buyToken, int96 rate, uint duration)**
 * Parameters
   * `beneficiary` - the address that received the `payTokens`
-  * `buyToken` - the token sold as part of this IRO
-  * `payToken` - the token accepted as part of this IRO
+  * `buyToken` - the token sold as part of this IDO
+  * `payToken` - the token accepted as part of this IDO
   * `rate` - the rate to distribute `buyTokens` in tokens/second
-  * `duration` - the duration of the IRO in seconds
+  * `duration` - the duration of the IDO in seconds
 * Pre-conditions
-  * There does not exist another IRO with the same `buyToken`
+  * There does not exist another IDO with the same `buyToken`
   * `msg.sender` has `rate * duration` `buyTokens`
   * `msg.sender` has approved this contract to spend `rate * duration` `buyTokens`
 * Post-conditions
-  * A new `IRO`is created and added to the `Launchpad` `iros` mapping
+  * A new `IDO`is created and added to the `Launchpad` `idos` mapping
   * A new IDA pool is created for the `buyToken` and 1 share is added for the `beneficiary`
+  * The `IDO` `isActive` property is set to False
 
-**destroyIRO(address buyToken)**
+**startIDO(address buyToken)**
 * Parameters
-  * `buyToken` - the token sold as part of this IRO
+  * `buyToken` - the token sold as part of this IDO
 * Preconditions
-  * This IROs `totalInflow == 0`
+  * There exists an IDO for the `buyToken`
 * Postconditions
-  * The IRO at in `iros` are cleared
-  * The remain `buyTokens` are returned to the `originator`
-
+  * The IDO `isActive` property is set to True
 
 **distribute(address buyToken)**
 * Parameters
-  * `buyToken` - the token sold as part of this IRO
+  * `buyToken` - the token sold as part of this IDO
 * Preconditions
-  * There exists an IRO for the `buyToken`
+  * There exists an IDO for the `buyToken`
   * There is enough `buyToken` to do a distribution
 * Postconditions
-  * Streamers in the IRO's IDA pool receive their `buyTokens`
+  * Streamers in the IDO's IDA pool receive their `buyTokens`
 
 **closeStream(address buyToken, address streamer)**
 * Parameters
-  * `buyToken` - the token sold as part of this IRO
+  * `buyToken` - the token sold as part of this IDO
   * `streamer` - the address of a streamer
 * Preconditions
   * EITHER the contract `isJailed`
-  * OR the IRO for `buyToken` has run out of tokens to sell
+  * OR the IDO for `buyToken` has run out of tokens to sell
 * Postconditions
   * The `streamers` stream is closed
   * The streamer is unsubscribed from the IDA pool
@@ -126,11 +117,16 @@ The price of the token at launch would be 0.004 USDCx per token (250 tokens per 
   * `agreementData` - the Superfluid agreement data
   * `buyToken` - the `buyToken` this streamer is streaming to receive
 * Preconditions
-  * There exists a IRO for `buyToken` and it `isActive`
+  * There exists a IDO for `buyToken` and it `isActive`
 * Postconditions
   * A `distribute` is triggered before updating anything
-  * The streamer's address is added to the IRO's streamers
+  * The streamer's address is added to the IDO's streamers
   * The `totalInflow` is updated to include this streamers flow rate
   * The streamer's is added to the IDA pool
-  * The outflow stream to the IRO's `beneficiary` is updated
+  * The outflow stream to the IDO's `beneficiary` is updated
   * The outflow stream to the Launchpad's `owner` is updated so the fee is taken
+
+
+### Integration Points
+
+**Starting streams requires `userData`** - Opening a stream looks for the `buyToken` address to be abi encoded into the `userData` when starting/editing/stoping a stream.
