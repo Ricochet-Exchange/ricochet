@@ -339,10 +339,6 @@ library StreamExchangeHelper {
         self.sushixToken.upgrade(sushis);
         self.sushixToken.transfer(self.owner, feeCollected);
       }
-
-
-
-
     }
 
     function _executeApprovals(StreamExchangeStorage.StreamExchange storage self) internal {

@@ -137,30 +137,30 @@ describe('StreamExchange', () => {
   let oraclePrice;
 
   const appBalances = {
-    ethx: [],
-    wbtcx: [],
-    daix: [],
+    sushix: [],
+    maticx: [],
+    slpx: [],
     usdcx: [],
     ric: [],
   };
   const ownerBalances = {
-    ethx: [],
-    wbtcx: [],
-    daix: [],
+    sushix: [],
+    maticx: [],
+    slpx: [],
     usdcx: [],
     ric: [],
   };
   const aliceBalances = {
-    ethx: [],
-    wbtcx: [],
-    daix: [],
+    sushix: [],
+    maticx: [],
+    slpx: [],
     usdcx: [],
     ric: [],
   };
   const bobBalances = {
-    ethx: [],
-    wbtcx: [],
-    daix: [],
+    sushix: [],
+    maticx: [],
+    slpx: [],
     usdcx: [],
     ric: [],
   };
@@ -447,26 +447,34 @@ describe('StreamExchange', () => {
   }
 
   async function delta(account, balances) {
-    const len = balances.wbtcx.length;
-    const changeInOutToken = balances.wbtcx[len - 1] - balances.wbtcx[len - 2];
+    const len = balances.maticx.length;
+    const changeInMaticxToken = balances.maticx[len - 1] - balances.maticx[len - 2];
+    const changeInSushixToken = balances.sushix[len - 1] - balances.sushix[len - 2];
+    const changeInSlpxToken = balances.slpx[len - 1] - balances.slpx[len - 2];
     const changeInInToken = balances.usdcx[len - 1] - balances.usdcx[len - 2];
     console.log();
     console.log('Change in balances for ', account);
+    console.log('Maticx:', changeInMaticxToken, 'Bal:', balances.maticx[len - 1]);
+    console.log('Sushix:', changeInSushixToken, 'Bal:', balances.sushix[len - 1]);
+    console.log('Slpx:', changeInSlpxToken, 'Bal:', balances.slpx[len - 1]);
     console.log('Usdcx:', changeInInToken, 'Bal:', balances.usdcx[len - 1]);
-    console.log('Wbtcx:', changeInOutToken, 'Bal:', balances.wbtcx[len - 1]);
-    console.log('Exchange Rate:', changeInOutToken / changeInInToken);
   }
 
   async function takeMeasurements() {
-    appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
-    ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
-    aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
-    bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
+    appBalances.sushix.push((await sushix.balanceOf(app.address)).toString());
+    ownerBalances.sushix.push((await sushix.balanceOf(u.admin.address)).toString());
+    aliceBalances.sushix.push((await sushix.balanceOf(u.alice.address)).toString());
+    bobBalances.sushix.push((await sushix.balanceOf(u.bob.address)).toString());
 
-    appBalances.wbtcx.push((await wbtcx.balanceOf(app.address)).toString());
-    ownerBalances.wbtcx.push((await wbtcx.balanceOf(u.admin.address)).toString());
-    aliceBalances.wbtcx.push((await wbtcx.balanceOf(u.alice.address)).toString());
-    bobBalances.wbtcx.push((await wbtcx.balanceOf(u.bob.address)).toString());
+    appBalances.maticx.push((await maticx.balanceOf(app.address)).toString());
+    ownerBalances.maticx.push((await maticx.balanceOf(u.admin.address)).toString());
+    aliceBalances.maticx.push((await maticx.balanceOf(u.alice.address)).toString());
+    bobBalances.maticx.push((await maticx.balanceOf(u.bob.address)).toString());
+
+    appBalances.slpx.push((await slpx.balanceOf(app.address)).toString());
+    ownerBalances.slpx.push((await slpx.balanceOf(u.admin.address)).toString());
+    aliceBalances.slpx.push((await slpx.balanceOf(u.alice.address)).toString());
+    bobBalances.slpx.push((await slpx.balanceOf(u.bob.address)).toString());
 
     appBalances.usdcx.push((await usdcx.balanceOf(app.address)).toString());
     ownerBalances.usdcx.push((await usdcx.balanceOf(u.admin.address)).toString());
@@ -545,13 +553,13 @@ describe('StreamExchange', () => {
       await usdcx.transfer(u.bob.address, toWad(400), { from: u.spender.address });
       console.log('Done');
 
-      await checkBalances([u.alice, u.bob]);
       // await takeMeasurements();
 
       const inflowRate = '1000000000000000';
       const inflowRatex2 = '2000000000000000';
       const inflowRateIDAShares = '1000000';
       const inflowRateIDASharesx2 = '2000000';
+      await takeMeasurements();
 
       // 1. Initialize a stream exchange
       // 2. Create 2 streamers, one with 2x the rate of the other
@@ -577,9 +585,9 @@ describe('StreamExchange', () => {
       await takeMeasurements();
       delta('alice', aliceBalances);
       delta('bob', bobBalances);
-      console.log(aliceBalances[aliceBalances.length - 1]);
-      console.log(bobBalances[aliceBalances.length - 1]);
+      delta('owner', ownerBalances);
       // 5. Verify the fee taken was 2% of the output
+
     });
 
     xit('getters and setters should work properly', async () => {
