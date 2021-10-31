@@ -53,6 +53,7 @@ for nonce_offset, exchange_address in enumerate(EXCHANGE_ADDRESSES):
         web3_conn_id="infura",
         ethereum_wallet=DISTRIBUTOR_WALLET_ADDRESS,
         gas_multiplier=1.1,
+        gas=3000000,
         contract_address=exchange_address,
         nonce=current_nonce + nonce_offset,
         dag=dag
