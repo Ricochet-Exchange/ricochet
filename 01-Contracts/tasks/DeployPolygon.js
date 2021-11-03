@@ -1,4 +1,4 @@
-task("DeployPolygon", "Deploys stream exchange contracts on Rinkeby testnet")
+task("DeployPolygon", "Deploys stream exchange contracts on Polygon mainnet")
     .addParam("input", "Input token address")
     .addParam("output", "Output token address")
     .addParam("router", "Router address (UniswapV2 type router) for swapping")
