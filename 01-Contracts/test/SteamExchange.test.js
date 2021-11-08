@@ -586,8 +586,10 @@ describe('StreamExchange', () => {
       await traveler.advanceTimeAndBlock(3600);
       await tp.submitValue(60, oraclePrice);
       console.log("Distribute")
-      let tx = await app.distribute();
+      let tx = await app.harvest();
       let receipt = await tx.wait();
+      tx = await app.distribute();
+      receipt = await tx.wait();
       console.log(receipt);
       console.log(receipt.logs?.filter((x) => {return x.topics[0] == "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"}));
       await checkBalances([u.alice, u.bob]);

@@ -229,6 +229,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
    _exchange._distribute(new bytes(0));
   }
 
+  /// @dev Harvest matic and sushi from minichef
+  /// @dev Usually called by Keeper
+  function harvest() external {
+   _exchange._harvest();
+  }
+
   /// @dev Close stream from `streamer` address if balance is less than 8 hours of streaming
   /// @param streamer is stream source (streamer) address
   function closeStream(address streamer) public {

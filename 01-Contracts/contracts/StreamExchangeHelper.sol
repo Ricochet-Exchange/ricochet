@@ -147,7 +147,7 @@ library StreamExchangeHelper {
      require(_timestamp >= block.timestamp - 3600, "!currentValue");
 
      console.log("Swap and Deposit");
-     _harvestSwapAndDeposit(self, self.inputToken.balanceOf(address(this)), _value, block.timestamp + 3600);
+     _swapAndDeposit(self, self.inputToken.balanceOf(address(this)), _value, block.timestamp + 3600);
      console.log("Done Swap and Deposit");
 
      uint256 outputBalance = self.outputToken.balanceOf(address(this));
@@ -190,7 +190,7 @@ library StreamExchangeHelper {
      }
 
      subsidyAmount = uint128(self.maticxToken.balanceOf(address(this)));
-     if (self.maticxToken.balanceOf(address(this)) > 0) {
+     if (subsidyAmount > 0) {
        // TODO: Take fee
        newCtx = _idaDistribute(self, self.maticxIndexId, uint128(subsidyAmount), self.maticxToken, newCtx);
        emit Distribution(subsidyAmount, 0, address(self.maticxToken));
@@ -211,19 +211,12 @@ library StreamExchangeHelper {
    }
 
    // Credit: Pickle.finance
-   function _harvestSwapAndDeposit(
+   function _swapAndDeposit(
          StreamExchangeStorage.StreamExchange storage self,
          uint256 amount,  // Assumes this is outputToken.balanceOf(address(this))
          uint256 exchangeRate,
          uint256 deadline
      ) public returns(uint) {
-
-       // Harvest anything in Minichef
-       console.log("Check for pending rewards");
-       if (self.miniChef.pendingSushi(self.pid, address(this)) > 0) {
-         _harvest(self);
-       }
-
 
        ERC20 inputToken = ERC20(self.inputToken.getUnderlyingToken());
        ERC20 pairToken = ERC20(self.pairToken.getUnderlyingToken());
@@ -270,9 +263,6 @@ library StreamExchangeHelper {
             IRicochetToken(address(self.outputToken)).mintTo(address(this), slpBalance, new bytes(0));
             console.log("upgraded");
         }
-
-
-        // Now the contract has SLPx tokens to distribute
 
     }
 
@@ -329,6 +319,7 @@ library StreamExchangeHelper {
       IWMATIC(self.maticxToken.getUnderlyingToken()).withdraw(matics);
       if (matics > 0) {
         IMATICx(address(self.maticxToken)).upgradeByETH{value: matics}();
+        // TODO: Move this into IDA shares to reduce gas
         self.maticxToken.transfer(self.owner, feeCollected);
       }
 
@@ -337,23 +328,11 @@ library StreamExchangeHelper {
       sushis = sushis - feeCollected;
       if (sushis > 0) {
         self.sushixToken.upgrade(sushis);
+        // TODO: Move this into IDA shares to reduce gas
         self.sushixToken.transfer(self.owner, feeCollected);
       }
     }
 
-    function _executeApprovals(StreamExchangeStorage.StreamExchange storage self) internal {
-      
-    }
-
-    // Sets up IDAs for distributing output, subsidy, and rewards tokens
-    function initialize(
-      StreamExchangeStorage.StreamExchange storage self,
-      ISuperToken output,
-      ISuperToken subsidy,
-      ISuperToken sushix,
-      ISuperToken maticx) public {
-
-    }
 
   /// @dev Distributes `distAmount` amount of `distToken` token among all IDA index subscribers
   /// @param index IDA index ID
