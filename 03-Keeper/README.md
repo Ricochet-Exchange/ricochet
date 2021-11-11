@@ -23,7 +23,7 @@ After starting up Airflow, navigate to `Admin > Connections` and setup the follo
   * Set the `Password` to `YOUR_PRIVATE_KEY` (private key is needed to execute txns automatically)
 
 Lastly, navigate to `Admin > Variables` and add the following:
-* `distributor-address` - the address used for reporting to the oracle
+* `distributor-address` - the address used for executing `distribute` transactions (i.e. `YOUR_DISTRIBUTOR_WALLET_ADDRESS`)
 
 # Run 
 Run the keeper using Docker Compose
