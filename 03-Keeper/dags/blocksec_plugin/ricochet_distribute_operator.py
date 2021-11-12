@@ -55,8 +55,8 @@ class RicochetDistributeOperator(BaseOperator):
         withdraw_txn = contract.functions.distribute()\
                                          .buildTransaction(dict(
                                            nonce=int(self.nonce),
-                                           gasPrice = self.web3.eth.gasPrice *\
-                                                      self.gas_multiplier,
+                                           gasPrice = int(self.web3.eth.gasPrice *\
+                                                      self.gas_multiplier),
                                            gas = self.gas
                                           ))
         signed_txn = self.web3.eth.account.signTransaction(withdraw_txn, self.wallet.private_key)
