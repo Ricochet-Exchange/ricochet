@@ -24,7 +24,17 @@ task('accounts', 'Prints the list of accounts', async () => {
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
-  solidity: '0.8.3',
+  solidity: {
+    version: '0.8.3', // Fetch exact version from solc-bin (default: truffle's version)
+    settings: {
+        // See the solidity docs for advice about optimization and evmVersion
+        optimizer: {
+            enabled: true,
+            runs: 200,
+        },
+        // evmVersion: use default
+    },
+  },
   mocha: {
     timeout: 1e6,
   },
