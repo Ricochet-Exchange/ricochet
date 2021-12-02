@@ -112,21 +112,23 @@ describe('StreamExchange', () => {
   let spender;
   const SF_RESOLVER = '0xE0cc76334405EE8b39213E620587d815967af39C';
   const RIC_TOKEN_ADDRESS = '0x263026E7e53DBFDce5ae55Ade22493f828922965';
-  const SUSHISWAP_ROUTER_ADDRESS = '0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff';
+  const SUSHISWAP_ROUTER_ADDRESS = '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506';
   const TELLOR_ORACLE_ADDRESS = '0xACC2d27400029904919ea54fFc0b18Bf07C57875';
-  const TELLOR_REQUEST_ID = 60;
+  const TELLOR_REQUEST_ID = 79;
+  const COINGECKO_KEY = 'idle';
 
   // random address from polygonscan that have a lot of usdcx
   const USDCX_SOURCE_ADDRESS = '0xf7f0CFC3772d29d4CC1482A2ACB7Be16a85a2223';
   const WBTC_SOURCE_ADDRESS = '0x5c2ed810328349100A66B82b78a1791B101C9D61';
   const USDC_SOURCE_ADDRESS = '0x1a13f4ca1d028320a707d99520abfefca3998b7f';
-  const SUSHIX_ADDRESS = '0x4086eBf75233e8492F1BCDa41C7f2A8288c2fB92';
+  const OUTPUT_TOKEN_ADDRESS = '0xB63E38D21B31719e6dF314D3d2c351dF0D4a9162'; // IDLE
 
 
   const CARL_ADDRESS = '0x8c3bf3EB2639b2326fF937D041292dA2e79aDBbf';
   const BOB_ADDRESS = '0x00Ce20EC71942B41F50fF566287B811bbef46DC8';
   const ALICE_ADDRESS = '0x9f348cdD00dcD61EE7917695D2157ef6af2d7b9B';
   const OWNER_ADDRESS = '0x3226C9EaC0379F04Ba2b1E1e1fcD52ac26309aeA';
+  const REPORTER_ADDRESS = '0xeA74b2093280bD1E6ff887b8f2fE604892EBc89f';
   let oraclePrice;
 
   const appBalances = {
@@ -208,6 +210,7 @@ describe('StreamExchange', () => {
     // ==============
     // get signers
     owner = await ethers.provider.getSigner(OWNER_ADDRESS);
+    reporter = await ethers.provider.getSigner(REPORTER_ADDRESS);
     alice = await ethers.provider.getSigner(ALICE_ADDRESS);
     bob = await ethers.provider.getSigner(BOB_ADDRESS);
     carl = await ethers.provider.getSigner(CARL_ADDRESS);
@@ -261,7 +264,7 @@ describe('StreamExchange', () => {
 
     // Attach alice to the SLP token
     const RT = await ethers.getContractFactory("RicochetToken");
-    outputx = await RT.attach(SUSHIX_ADDRESS);
+    outputx = await RT.attach(OUTPUT_TOKEN_ADDRESS);
     outputx = outputx.connect(owner);
     output = await ERC20.attach(await outputx.getUnderlyingToken());
 
@@ -318,10 +321,13 @@ describe('StreamExchange', () => {
     u.app.alias = 'App';
     // ==============
     // Get actual price
-    const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=wrapped-bitcoin&vs_currencies=usd');
-    oraclePrice = parseInt(response.data['wrapped-bitcoin'].usd * 1.02 * 1000000).toString();
+    const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids='+COINGECKO_KEY+'&vs_currencies=usd');
+    oraclePrice = parseInt(response.data[COINGECKO_KEY].usd * 1.02 * 1000000).toString();
     console.log('oraclePrice', oraclePrice);
     await tp.submitValue(TELLOR_REQUEST_ID, oraclePrice);
+    // tp = tp.connect(reporter);
+    await tp.submitValue(TELLOR_REQUEST_ID, oraclePrice);
+
   });
 
   async function checkBalance(user) {
