@@ -214,9 +214,9 @@ library StreamExchangeHelper {
 
     // TODO: This needs to be "invertable"
     // USD >> TOK
-    // minOutput = amount * 1e18 / exchangeRate / 1e12;
+    minOutput = amount * 1e18 / exchangeRate / 1e12;
     // TOK >> USD
-    minOutput = amount  * exchangeRate / 1e6;
+    // minOutput = amount  * exchangeRate / 1e6;
     minOutput = minOutput * (1e6 - self.rateTolerance) / 1e6;
 
     // Scale back from 1e18 to outputToken decimals
@@ -224,9 +224,10 @@ library StreamExchangeHelper {
     // Scale it back to inputToken decimals
     amount = amount / (10 ** (18 - ERC20(inputToken).decimals()));
 
-    path = new address[](2);
+    path = new address[](3);
     path[0] = inputToken;
-    path[1] = outputToken;
+    path[1] = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619; // WETH
+    path[2] = outputToken;
     self.sushiRouter.swapExactTokensForTokens(
        amount,
        0, // Accept any amount but fail if we're too far from the oracle price
