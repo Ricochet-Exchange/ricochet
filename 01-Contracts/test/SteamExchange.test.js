@@ -117,9 +117,11 @@ describe('StreamExchange', () => {
   const TELLOR_REQUEST_ID = 60;
 
   // random address from polygonscan that have a lot of usdcx
-  const USDCX_SOURCE_ADDRESS = '0xA08f80dc1759b12fdC40A4dc64562b322C418E1f';
+  const USDCX_SOURCE_ADDRESS = '0xf7f0CFC3772d29d4CC1482A2ACB7Be16a85a2223';
   const WBTC_SOURCE_ADDRESS = '0x5c2ed810328349100A66B82b78a1791B101C9D61';
   const USDC_SOURCE_ADDRESS = '0x1a13f4ca1d028320a707d99520abfefca3998b7f';
+  const SUSHIX_ADDRESS = '0x4086eBf75233e8492F1BCDa41C7f2A8288c2fB92';
+
 
   const CARL_ADDRESS = '0x8c3bf3EB2639b2326fF937D041292dA2e79aDBbf';
   const BOB_ADDRESS = '0x00Ce20EC71942B41F50fF566287B811bbef46DC8';
@@ -128,6 +130,7 @@ describe('StreamExchange', () => {
   let oraclePrice;
 
   const appBalances = {
+    sushix: [],
     ethx: [],
     wbtcx: [],
     daix: [],
@@ -135,6 +138,7 @@ describe('StreamExchange', () => {
     ric: [],
   };
   const ownerBalances = {
+    sushix: [],
     ethx: [],
     wbtcx: [],
     daix: [],
@@ -142,6 +146,7 @@ describe('StreamExchange', () => {
     ric: [],
   };
   const aliceBalances = {
+    sushix: [],
     ethx: [],
     wbtcx: [],
     daix: [],
@@ -149,6 +154,7 @@ describe('StreamExchange', () => {
     ric: [],
   };
   const bobBalances = {
+    sushix: [],
     ethx: [],
     wbtcx: [],
     daix: [],
@@ -158,7 +164,7 @@ describe('StreamExchange', () => {
 
   async function approveSubscriptions(
     users = [u.alice.address, u.bob.address, u.admin.address],
-    tokens = [wbtcx.address, ricAddress],
+    tokens = [sushix.address, ricAddress],
   ) {
     // Do approvals
     // Already approved?
@@ -252,6 +258,14 @@ describe('StreamExchange', () => {
     wbtc = await ERC20.attach(await wbtcx.getUnderlyingToken());
     usdc = await ERC20.attach(await usdcx.getUnderlyingToken());
     ric = ric.connect(owner);
+
+    // Attach alice to the SLP token
+    const RT = await ethers.getContractFactory("RicochetToken");
+    sushix = await RT.attach(SUSHIX_ADDRESS);
+    sushix = sushix.connect(owner);
+    sushi = await ERC20.attach(await sushix.getUnderlyingToken());
+
+
   });
 
   beforeEach(async () => {
@@ -286,7 +300,7 @@ describe('StreamExchange', () => {
       sf.agreements.cfa.address,
       sf.agreements.ida.address,
       usdcx.address,
-      wbtcx.address,
+      sushix.address,
       RIC_TOKEN_ADDRESS,
       SUSHISWAP_ROUTER_ADDRESS, // sr.address,
       TELLOR_ORACLE_ADDRESS,
@@ -299,7 +313,7 @@ describe('StreamExchange', () => {
 
     u.app = sf.user({
       address: app.address,
-      token: wbtcx.address,
+      token: sushix.address,
     });
     u.app.alias = 'App';
     // ==============
@@ -307,122 +321,35 @@ describe('StreamExchange', () => {
     const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=wrapped-bitcoin&vs_currencies=usd');
     oraclePrice = parseInt(response.data['wrapped-bitcoin'].usd * 1.02 * 1000000).toString();
     console.log('oraclePrice', oraclePrice);
-    await tp.submitValue(60, oraclePrice);
+    await tp.submitValue(TELLOR_REQUEST_ID, oraclePrice);
   });
 
   async function checkBalance(user) {
     console.log('Balance of ', user.alias);
     console.log('usdcx: ', (await usdcx.balanceOf(user.address)).toString());
-    console.log('wbtcx: ', (await wbtcx.balanceOf(user.address)).toString());
-  }
-
-  async function checkBalances(accounts) {
-    for (let i = 0; i < accounts.length; i += 1) {
-      await checkBalance(accounts[i]);
-    }
-  }
-
-  async function upgrade(accounts) {
-    for (let i = 0; i < accounts.length; ++i) {
-      await web3tx(
-        usdcx.upgrade,
-        `${accounts[i].alias} upgrades many USDCx`,
-      )(toWad(100000000), {
-        from: accounts[i].address,
-      });
-      await web3tx(
-        daix.upgrade,
-        `${accounts[i].alias} upgrades many DAIx`,
-      )(toWad(100000000), {
-        from: accounts[i].address,
-      });
-
-      await checkBalance(accounts[i]);
-    }
-  }
-
-  async function logUsers() {
-    let string = 'user\t\ttokens\t\tnetflow\n';
-    let p = 0;
-    for (const [, user] of Object.entries(u)) {
-      if (await hasFlows(user)) {
-        p++;
-        string += `${user.alias}\t\t${wad4human(
-          await usdcx.balanceOf(user.address),
-        )}\t\t${wad4human((await user.details()).cfa.netFlow)}
-            `;
-      }
-    }
-    if (p == 0) return console.warn('no users with flows');
-    console.log('User logs:');
-    console.log(string);
-  }
-
-  async function hasFlows(user) {
-    const {
-      inFlows,
-      outFlows,
-    } = (await user.details()).cfa.flows;
-    return inFlows.length + outFlows.length > 0;
-  }
-
-  async function appStatus() {
-    const isApp = await sf.host.isApp(u.app.address);
-    const isJailed = await sf.host.isAppJailed(app.address);
-    !isApp && console.error('App is not an App');
-    isJailed && console.error('app is Jailed');
-    await checkBalance(u.app);
-    await checkOwner();
-  }
-
-  async function checkOwner() {
-    const owner = await u.admin.address;
-    console.log('Contract Owner: ', aliases[owner], ' = ', owner);
-    return owner.toString();
-  }
-
-  async function subscribe(user) {
-    // Alice approves a subscription to the app
-    console.log(sf.host.callAgreement);
-    console.log(sf.agreements.ida.address);
-    console.log(usdcx.address);
-    console.log(app.address);
-    await web3tx(
-      sf.host.callAgreement,
-      'user approves subscription to the app',
-    )(
-      sf.agreements.ida.address,
-      sf.agreements.ida.contract.methods
-        .approveSubscription(ethx.address, app.address, 0, '0x')
-        .encodeABI(),
-      '0x', // user data
-      {
-        from: user,
-      },
-    );
+    console.log('sushix: ', (await sushix.balanceOf(user.address)).toString());
   }
 
   async function delta(account, balances) {
-    const len = balances.wbtcx.length;
-    const changeInOutToken = balances.wbtcx[len - 1] - balances.wbtcx[len - 2];
+    const len = balances.sushix.length;
+    const changeInSushixToken = balances.sushix[len - 1] - balances.sushix[len - 2];
     const changeInInToken = balances.usdcx[len - 1] - balances.usdcx[len - 2];
     console.log();
     console.log('Change in balances for ', account);
+    console.log('Sushix:', changeInSushixToken, 'Bal:', balances.sushix[len - 1]);
     console.log('Usdcx:', changeInInToken, 'Bal:', balances.usdcx[len - 1]);
-    console.log('Wbtcx:', changeInOutToken, 'Bal:', balances.wbtcx[len - 1]);
-    console.log('Exchange Rate:', changeInOutToken / changeInInToken);
+    return {
+      sushix: changeInSushixToken,
+      usdcx: changeInInToken,
+    }
   }
 
   async function takeMeasurements() {
-    appBalances.ethx.push((await ethx.balanceOf(app.address)).toString());
-    ownerBalances.ethx.push((await ethx.balanceOf(u.admin.address)).toString());
-    aliceBalances.ethx.push((await ethx.balanceOf(u.alice.address)).toString());
-    bobBalances.ethx.push((await ethx.balanceOf(u.bob.address)).toString());
 
-    appBalances.wbtcx.push((await wbtcx.balanceOf(app.address)).toString());
-    ownerBalances.wbtcx.push((await wbtcx.balanceOf(u.admin.address)).toString());
-    aliceBalances.wbtcx.push((await wbtcx.balanceOf(u.alice.address)).toString());
-    bobBalances.wbtcx.push((await wbtcx.balanceOf(u.bob.address)).toString());
+    appBalances.sushix.push((await sushix.balanceOf(app.address)).toString());
+    ownerBalances.sushix.push((await sushix.balanceOf(u.admin.address)).toString());
+    aliceBalances.sushix.push((await sushix.balanceOf(u.alice.address)).toString());
+    bobBalances.sushix.push((await sushix.balanceOf(u.bob.address)).toString());
 
     appBalances.usdcx.push((await usdcx.balanceOf(app.address)).toString());
     ownerBalances.usdcx.push((await usdcx.balanceOf(u.admin.address)).toString());
@@ -436,10 +363,10 @@ describe('StreamExchange', () => {
   }
 
   describe('Stream Exchange', async () => {
-    it('should be correctly configured', async () => {
+    xit('should be correctly configured', async () => {
       expect(await app.isAppJailed()).to.equal(false);
       expect(await app.getInputToken()).to.equal(usdcx.address);
-      expect(await app.getOuputToken()).to.equal(wbtcx.address);
+      expect(await app.getOuputToken()).to.equal(sushix.address);
       expect(await app.getOuputIndexId()).to.equal(0);
       expect(await app.getSubsidyToken()).to.equal(ric.address);
       expect(await app.getSubsidyIndexId()).to.equal(1);
@@ -447,12 +374,12 @@ describe('StreamExchange', () => {
       expect(await app.getTotalInflow()).to.equal(0);
       expect(await app.getSushiRouter()).to.equal(SUSHISWAP_ROUTER_ADDRESS);
       expect(await app.getTellorOracle()).to.equal(TELLOR_ORACLE_ADDRESS);
-      expect(await app.getRequestId()).to.equal(60);
+      expect(await app.getRequestId()).to.equal(TELLOR_REQUEST_ID);
       expect(await app.getOwner()).to.equal(u.admin.address);
       expect(await app.getFeeRate()).to.equal(20000);
     });
 
-    it('should create a stream exchange with the correct parameters', async () => {
+    xit('should create a stream exchange with the correct parameters', async () => {
       const inflowRate = '77160493827160';
       const inflowRateIDAShares = '77160';
 
@@ -464,19 +391,19 @@ describe('StreamExchange', () => {
       expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal(`true,true,${inflowRateIDAShares},0`);
     });
 
-    it('approval should be unlimited', async () => {
+    xit('approval should be unlimited', async () => {
       await approveSubscriptions();
-      expect(await wbtc.allowance(app.address, SUSHISWAP_ROUTER_ADDRESS))
+      expect(await sushi.allowance(app.address, SUSHISWAP_ROUTER_ADDRESS))
         .to.be.equal(ethers.constants.MaxUint256);
       expect(await usdc.allowance(app.address, SUSHISWAP_ROUTER_ADDRESS))
         .to.be.equal(ethers.constants.MaxUint256);
-      expect(await wbtc.allowance(app.address, wbtcx.address))
+      expect(await sushi.allowance(app.address, sushix.address))
         .to.be.equal(ethers.constants.MaxUint256);
       expect(await usdc.allowance(app.address, usdcx.address))
         .to.be.equal(ethers.constants.MaxUint256);
     });
 
-    it('should let keepers close streams with < 8 hours left', async () => {
+    xit('should let keepers close streams with < 8 hours left', async () => {
       await approveSubscriptions([u.bob.address]);
       // 1. Initialize a stream exchange
       const bobUsdcxBalance = await usdcx.balanceOf(u.bob.address);
@@ -504,8 +431,7 @@ describe('StreamExchange', () => {
       await usdcx.transfer(u.bob.address, toWad(400), { from: u.spender.address });
       console.log('Done');
 
-      await checkBalances([u.alice, u.bob]);
-      // await takeMeasurements();
+      await takeMeasurements();
 
       const inflowRate = '1000000000000000';
       const inflowRatex2 = '2000000000000000';
@@ -523,20 +449,26 @@ describe('StreamExchange', () => {
       expect((await app.getIDAShares(0, u.bob.address)).toString()).to.equal(`true,true,${inflowRateIDASharesx2},0`);
       // 3. Advance time 1 hour
       await traveler.advanceTimeAndBlock(3600);
-      await tp.submitValue(60, oraclePrice);
+      await tp.submitValue(TELLOR_REQUEST_ID, oraclePrice);
       // 4. Trigger a distribution
       await app.distribute();
       // 4. Verify streamer 1 streamed 1/2 streamer 2's amount and received 1/2 the output
-      await checkBalances([u.alice, u.bob]);
       await takeMeasurements();
-      delta('alice', aliceBalances);
-      delta('bob', bobBalances);
-      console.log(aliceBalances[aliceBalances.length - 1]);
-      console.log(bobBalances[aliceBalances.length - 1]);
-      // 5. Verify the fee taken was 2% of the output
+
+      let deltaAlice = await delta('alice', aliceBalances);
+      let deltaBob = await delta('bob', bobBalances);
+      let deltaOwner = await delta('owner', ownerBalances);
+      // verify
+      console.log(deltaOwner)
+      console.log(deltaAlice)
+      console.log(deltaBob)
+      // Fee taken during harvest, can be a larger % of what's actually distributed via IDA due to rounding the actual amount
+      expect(deltaOwner.sushix / (deltaAlice.sushix + deltaBob.sushix + deltaOwner.sushix)).to.within(0.02, 0.02001)
+      expect(deltaAlice.sushix * 2).to.be.within(deltaBob.sushix * 0.998, deltaBob.sushix * 1.008)
+
     });
 
-    it('getters and setters should work properly', async () => {
+    xit('getters and setters should work properly', async () => {
       await app.connect(owner).setFeeRate(30000);
       await app.connect(owner).setRateTolerance(30000);
       await app.connect(owner).setSubsidyRate('500000000000000000');
@@ -552,7 +484,7 @@ describe('StreamExchange', () => {
       expect(await app.getOwner()).to.equal(ALICE_ADDRESS);
     });
 
-    it('should correctly emergency drain', async () => {
+    xit('should correctly emergency drain', async () => {
       await approveSubscriptions([u.bob.address]);
       const inflowRate = '77160493827160';
       await u.bob.flow({ flowRate: inflowRate, recipient: u.app });
@@ -564,10 +496,10 @@ describe('StreamExchange', () => {
       await u.bob.flow({ flowRate: '0', recipient: u.app });
       await app.emergencyDrain();
       expect((await usdcx.balanceOf(app.address)).toString()).to.equal('0');
-      expect((await wbtcx.balanceOf(app.address)).toString()).to.equal('0');
+      expect((await sushix.balanceOf(app.address)).toString()).to.equal('0');
     });
 
-    it('should emergency close stream if app jailed', async () => {
+    xit('should emergency close stream if app jailed', async () => {
       const inflowRate = '100000000'; // ~200 * 1e18 per month
       await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
       expect(await app.getStreamRate(u.admin.address)).to.equal(inflowRate);
@@ -643,71 +575,6 @@ describe('StreamExchange', () => {
       await app.distribute();
       console.log('Distribution.');
 
-      // Connect Admin and Bob
-      // await u.admin.flow({ flowRate: inflowRate3, recipient: u.app });
-      // // Expect the parameters are correct
-      // expect(await app.getStreamRate(u.admin.address)).to.equal(inflowRate3);
-      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal(`true,true,${inflowRateIDAShares3},0`);
-      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal(`true,true,${inflowRateIDAShares3},0`);
-      // await traveler.advanceTimeAndBlock(60 * 60 * 4);
-      // await tp.submitValue(60, oraclePrice);
-      // await app.distribute();
-      // console.log('Distribution.');
-
-      // // Lower bobs rate
-      // await u.admin.flow({ flowRate: inflowRate2, recipient: u.app });
-      // // Expect the parameters are correct
-      // expect(await app.getStreamRate(u.admin.address)).to.equal(inflowRate);
-      // expect(await app.getStreamRate(u.bob.address)).to.equal(inflowRate);
-      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal("true,true,"+inflowRateIDAShares+",0");
-      // expect((await app.getIDAShares(1, u.bob.address)).toString()).to.equal("true,true,"+inflowRateIDAShares+",0");
-      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal("true,true,"+inflowRateIDAShares+",0");
-      // expect((await app.getIDAShares(1, u.bob.address)).toString()).to.equal("true,true,"+inflowRateIDAShares+",0");
-      // await traveler.advanceTimeAndBlock(60*60*8);
-      // await tp.submitValue(60, oraclePrice);
-      // await app.distribute()
-      // console.log("Distribution.")
-      // // Lower bobs rate
-      // await u.bob.flow({ flowRate: "0", recipient: u.app });
-      // // Expect the parameters are correct
-      // expect(await app.getStreamRate(u.admin.address)).to.equal(inflowRate);
-      // expect(await app.getStreamRate(u.bob.address)).to.equal("0");
-      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal("true,true,"+inflowRateIDAShares+",0");
-      // expect((await app.getIDAShares(1, u.bob.address)).toString()).to.equal("true,true,0,0");
-      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal("true,true,"+inflowRateIDAShares+",0");
-      // expect((await app.getIDAShares(1, u.bob.address)).toString()).to.equal("true,true,0,0");
-
-      // console.log("Running hourly distributions until bobs balances is below the closeout threshold")
-      // while((await usdcx.balanceOf(u.bob.address)) > inflowRateDecimal * 2 * 60 * 60 * 8 * 1e18 ) {
-      //   await traveler.advanceTimeAndBlock(60*60*8);
-      //   await tp.submitValue(60, oraclePrice);
-      //   await app.distribute()
-      //   console.log("Distribution.")
-      //   await takeMeasurements();
-      //   await delta("Bob", bobBalances)
-      //   await delta("Alice", aliceBalances)
-      //   await delta("Owner", ownerBalances)
-      //   console.log("Bob:", bobBalances[bobBalances.length - 1])
-      //   // console.log("Alice:", bobBalances[bobBalances.length - 1])
-      //   console.log("Admin:", ownerBalances[ownerBalances.length - 1])
-      //   await sleep(3000);
-      // }
-      //
-      // console.log("Bob's balance is low, closing")
-      // // Try to close bobs stream
-      // await app.closeStream(u.admin.address);
-      // // Verify its closed and cleaned up
-      // expect(await app.getStreamRate(u.admin.address)).to.equal("0")
-      // expect((await app.getIDAShares(0, u.admin.address)).toString()).to.equal("true,true,0,0")
-      // expect((await app.getIDAShares(1, u.admin.address)).toString()).to.equal("true,true,0,0")
-
-      // await traveler.advanceTimeAndBlock(60*60*1 + 13);
-      // await tp.submitValue(60, oraclePrice);
-      // await app.distribute()
-      // await u.admin.flow({ flowRate: "0", recipient: u.app });
-      // await traveler.advanceTimeAndBlock(60);
-      // await u.admin.flow({ flowRate: inflowRate, recipient: u.app });
-      // await u.admin.flow({ flowRate: "0", recipient: u.app });
     });
   });
 });
