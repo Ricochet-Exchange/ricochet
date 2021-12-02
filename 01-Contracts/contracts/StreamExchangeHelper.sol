@@ -22,7 +22,6 @@ library StreamExchangeHelper {
 
   using SafeERC20 for ERC20;
 
-  // TODO: Emit these events where appropriate
   /// @dev Distribution event. Emitted on each token distribution operation.
   /// @param totalAmount is total distributed amount
   /// @param feeCollected is fee amount collected during distribution
@@ -34,36 +33,6 @@ library StreamExchangeHelper {
   /// @param newRate is new stream rate
   /// @param totalInflow is total incoming input token flow rate
   event UpdatedStream(address from, int96 newRate, int96 totalInflow);
-
-  /// @dev Close stream from `streamer` address if balance is less than 8 hours of streaming
-  /// @param streamer is stream source (streamer) address
-  function _closeStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
-    // Only closable iff their balance is less than 8 hours of streaming
-    (,int96 streamerFlowRate,,) = self.cfa.getFlow(self.inputToken, streamer, address(this));
-    require(int(self.inputToken.balanceOf(streamer)) <= streamerFlowRate * 8 hours,
-              "!closable");
-
-    // Update Subscriptions
-    _updateSubscription(self, self.subsidyIndexId, streamer, 0, self.subsidyToken);
-    _updateSubscription(self, self.outputIndexId, streamer, 0, self.outputToken);
-    emit UpdatedStream(streamer, 0, self.cfa.getNetFlow(self.inputToken, address(this)));
-
-    // Close the streamers stream
-    self.host.callAgreement(
-        self.cfa,
-        abi.encodeWithSelector(
-            self.cfa.deleteFlow.selector,
-            self.inputToken,
-            streamer,
-            address(this),
-            new bytes(0) // placeholder
-        ),
-        "0x"
-    );
-
-    emit UpdatedStream(streamer, 0, self.cfa.getNetFlow(self.inputToken, address(this)));
-
-  }
 
 
   /// @dev Allows anyone to close any stream if the app is jailed.
@@ -89,6 +58,8 @@ library StreamExchangeHelper {
   function _emergencyDrain(StreamExchangeStorage.StreamExchange storage self) public {
     require(self.cfa.getNetFlow(self.inputToken, address(this)) == 0, "!zeroStreamers");
     self.inputToken.transfer(self.owner, self.inputToken.balanceOf(address(this)));
+
+    // TODO: This needs to loop over the output pools and transfer tokens to the owner
     self.outputToken.transfer(self.owner, self.outputToken.balanceOf(address(this)));
   }
 
@@ -134,6 +105,7 @@ library StreamExchangeHelper {
      require(self.host.isCtxValid(newCtx) || newCtx.length == 0, "!distributeCtx");
 
      // Get the exchange rate as inputToken per outputToken
+     // TODO: Check self.oracles instead of doing getCurrentValue
      bool _didGet;
      uint _timestamp;
      uint _value;

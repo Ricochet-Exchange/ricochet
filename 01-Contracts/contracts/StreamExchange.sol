@@ -33,6 +33,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor, Initializable {
     using SafeERC20 for ERC20;
     using StreamExchangeHelper for StreamExchangeStorage.StreamExchange;
     using StreamExchangeStorage for StreamExchangeStorage.StreamExchange;
+    using StreamExchangeStorage for StreamExchangeStorage.OracleInfo;
+    using StreamExchangeStorage for StreamExchangeStorage.OutputPool;
     StreamExchangeStorage.StreamExchange internal _exchange;
 
     event UpdatedStream(address from, int96 newRate, int96 totalInflow);
@@ -85,8 +87,10 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor, Initializable {
         IConstantFlowAgreementV1 cfa,
         IInstantDistributionAgreementV1 ida,
         ISuperToken inputToken,
-        ISuperToken outputToken,
-        ISuperToken subsidyToken,
+        // TODO:
+        // ISuperToken outputToken,
+        // ISuperToken subsidyToken,
+
         IUniswapV2Router02 sushiRouter,
         address payable oracle,
         uint256 requestId,
@@ -97,14 +101,20 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor, Initializable {
         _exchange.cfa = cfa;
         _exchange.ida = ida;
         _exchange.inputToken = inputToken;
-        _exchange.outputToken = outputToken;
-        _exchange.subsidyToken = subsidyToken;
+
+        // TODO:
+        // _exchange.outputToken = outputToken;
+        // _exchange.subsidyToken = subsidyToken;
+        // _exchange.feeRate = 20000;
+        // _exchange.subsidyIndexId = 1;
+        // _exchange.subsidyRate = 4e17; // 0.4 tokens/second ~ 1,000,000 tokens in a month
+
         _exchange.oracle = ITellor(oracle);
         _exchange.requestId = requestId;
-        _exchange.feeRate = 20000;
+        Oracle newOracle = new StreamExchangeStorage.OracleInfo(requestId, 0, 0);
+        // TODO: Check oracle and set init price, initialy set to 0s
+        _exchange.oracles[_exchange.inputToken] = newOracle;
         _exchange.rateTolerance = 10000;
-        _exchange.subsidyIndexId = 1;
-        _exchange.subsidyRate = 4e17; // 0.4 tokens/second ~ 1,000,000 tokens in a month
         _exchange.owner = msg.sender;
 
         // Unlimited approve for sushiswap
@@ -112,19 +122,11 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor, Initializable {
             address(_exchange.sushiRouter),
             2**256 - 1
         );
-        ERC20(_exchange.outputToken.getUnderlyingToken()).safeIncreaseAllowance(
-                address(_exchange.sushiRouter),
-                2**256 - 1
-            );
         // and Supertoken upgrades
         ERC20(_exchange.inputToken.getUnderlyingToken()).safeIncreaseAllowance(
             address(_exchange.inputToken),
             2**256 - 1
         );
-        ERC20(_exchange.outputToken.getUnderlyingToken()).safeIncreaseAllowance(
-                address(_exchange.outputToken),
-                2**256 - 1
-            );
 
         uint256 configWord = SuperAppDefinitions.APP_LEVEL_FINAL |
             SuperAppDefinitions.BEFORE_AGREEMENT_CREATED_NOOP |
@@ -152,6 +154,47 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor, Initializable {
         _exchange._initalizeLiquidityMining();
 
         _exchange.lastDistributionAt = block.timestamp;
+    }
+
+    function addOutputPool(
+      ISuperToken _token,
+      uint128 _feeRate,
+      uint256 _emissionRate,
+      uint256 _requestId) public onlyOwner {
+
+      require(_requestId != 0, "!validReqId");
+      require(_exchange.oracles[_token].requestId == 0, "!unique");
+      // Either one is >= or the other, not both, this is how a subsidy tokens is determined
+      require((_feeRate != 0 && _emissionRate == 0) || (_feeRate == 0 && _emissionRate != 0), "!subsidyAndOutput" )
+
+      StreamExchangeStorage.OutputPool newPool = new StreamExchangeStorage.OutputPool(_token, _feeRate, _emissionRate);
+      _exchange.outputPools[_exchange.numOutputPools] = newPool;
+      _createIndex(_exchange.numOutputPools, _token);
+      _exchange.numOutputPools++;
+
+      StreamExchangeStorage.OracleInfo newOracle = new StreamExchangeStorage.OracleInfo(_requestId, 0, 0);
+      _exchange.oracles[_token] = newOracle;
+      updateTokenPrice(_token);
+
+      // Is this really needed on the output
+      ERC20(_token.getUnderlyingToken()).safeIncreaseAllowance(
+              address(_exchange.sushiRouter),
+              2**256 - 1
+          );
+      ERC20(_token.getUnderlyingToken()).safeIncreaseAllowance(
+              address(_token),
+              2**256 - 1
+          );
+    }
+
+    function updateTokenPrice(address _token) public {
+      (bool ifRetrieve,
+      uint256 value,
+      uint256 timestampRetrieved) = _exchange._getCurrentValue(_exchange.oracles[_token].requestId);
+      require(_didGet, "!getCurrentValue");
+      require(_timestamp >= block.timestamp - 3600, "!currentValue");
+      market.oracles[_token].usdPrice = _value;
+      market.oracles[_token].lastUpdatedAt = _timestamp;
     }
 
     /**************************************************************************
@@ -214,24 +257,80 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor, Initializable {
                 requesterFlowRate * 8 hours,
             "!enoughTokens"
         );
-
         require(requesterFlowRate >= 0, "!negativeRates");
-        newCtx = _exchange._updateSubscriptionWithContext(
-            newCtx,
-            _exchange.outputIndexId,
-            requester,
-            uint128(uint256(int256(requesterFlowRate))),
-            _exchange.outputToken
-        );
-        newCtx = _exchange._updateSubscriptionWithContext(
-            newCtx,
-            _exchange.subsidyIndexId,
-            requester,
-            uint128(uint256(int256(requesterFlowRate))),
-            _exchange.subsidyToken
-        );
+
+        // Update all the output pool shares
+        newCtx = _updateShareholder(newCtx, requester, requesterFlowRate);
 
         emit UpdatedStream(requester, requesterFlowRate, appFlowRate);
+    }
+
+    /// @dev Close stream from `streamer` address if balance is less than 8 hours of streaming
+    /// @param streamer is stream source (streamer) address
+    function closeStream(StreamExchangeStorage.StreamExchange storage self, address streamer) public {
+      // Only closable iff their balance is less than 8 hours of streaming
+      (,int96 streamerFlowRate,,) = self.cfa.getFlow(self.inputToken, streamer, address(this));
+      require(int(self.inputToken.balanceOf(streamer)) <= streamerFlowRate * 8 hours,
+                "!closable");
+
+      // Update Subscriptions
+      _updateShareholder(bytes(0), streamer, 0);
+
+      // Close the streamers stream
+      self.host.callAgreement(
+          self.cfa,
+          abi.encodeWithSelector(
+              self.cfa.deleteFlow.selector,
+              self.inputToken,
+              streamer,
+              address(this),
+              new bytes(0) // placeholder
+          ),
+          "0x"
+      );
+
+      emit UpdatedStream(streamer, 0, self.cfa.getNetFlow(self.inputToken, address(this)));
+
+    }
+
+    function _updateShareholder(bytes memory ctx, address shareholder, int96 shareholderFlowRate) internal returns (bytes memory newCtx) {
+      // NOTE: This will start to fail with out of gas error if there's too many output pools
+      for (uint256 index = 0; index < market.numOutputPools; index++) {
+        newCtx = _updateSubscriptionWithContext(newCtx, index, shareholder, uint128(uint(int(shareholderFlowRate))), market.outputPools[index].token);
+        emit UpdatedStream(shareholder, shareholderFlowRate, self.cfa.getNetFlow(self.inputToken, address(this)));
+        // TODO: Update the fee taken by the DAO
+      }
+    }
+
+    /// @dev Same as _updateSubscription but uses provided SuperFluid context data
+    /// @param ctx SuperFluid context data
+    /// @param index IDA index ID
+    /// @param subscriber is subscriber address
+    /// @param shares is distribution shares count
+    /// @param distToken is distribution token address
+    /// @return newCtx updated SuperFluid context data
+    function _updateSubscriptionWithContext(
+      bytes memory ctx,
+      uint256 index,
+      address subscriber,
+      uint128 shares,
+      ISuperToken distToken)
+      internal returns (bytes memory newCtx)  {
+
+      newCtx = ctx;
+      (newCtx, ) = self.host.callAgreementWithContext(
+        self.ida,
+        abi.encodeWithSelector(
+          self.ida.updateSubscription.selector,
+          distToken,
+          index,
+          subscriber,
+          shares / 1e9,  // Number of shares is proportional to their rate
+          new bytes(0)
+        ),
+        new bytes(0), // user data
+        newCtx
+      );
     }
 
     /// @dev Distribute a single `amount` of outputToken among all streamers
@@ -239,12 +338,6 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor, Initializable {
     /// @dev Usually called by Keeper
     function distribute() external {
         _exchange._distribute(new bytes(0));
-    }
-
-    /// @dev Close stream from `streamer` address if balance is less than 8 hours of streaming
-    /// @param streamer is stream source (streamer) address
-    function closeStream(address streamer) public {
-        _exchange._closeStream(streamer);
     }
 
     /// @dev Allows anyone to close any stream if the app is jailed.
@@ -260,8 +353,12 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor, Initializable {
 
     /// @dev Set subsidy rate
     /// @param subsidyRate is new rate
-    function setSubsidyRate(uint128 subsidyRate) external onlyOwner {
-        _exchange.subsidyRate = subsidyRate;
+    function updateOutputPool(uint256 index, ISuperToken token, uint128 feeRate, uint256 emissionRate) external onlyOwner {
+      require(_exchange.oracles[token].requestId != 0, "!exists");
+      require((feeRate != 0 && emissionRate == 0) || (feeRate == 0 && emissionRate != 0), "!subsidyAndOutput" )
+      _exchange.outputPools[index].token = token;
+      _exchange.outputPools[index].feeRate = feeRate;
+      _exchange.outputPools[index].emissionRate = emissionRate;
     }
 
     /// @dev Set fee rate
@@ -311,14 +408,7 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor, Initializable {
             uint256 pendingDistribution
         )
     {
-        ISuperToken idaToken;
-        if (index == _exchange.outputIndexId) {
-            idaToken = _exchange.outputToken;
-        } else if (index == _exchange.subsidyIndexId) {
-            idaToken = _exchange.subsidyToken;
-        } else {
-            return (exist, approved, units, pendingDistribution);
-        }
+        ISuperToken idaToken = _exchange.outputPools[index].token;
 
         (exist, approved, units, pendingDistribution) = _exchange
             .ida
@@ -333,32 +423,8 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor, Initializable {
 
     /// @dev Get output token address
     /// @return output token address
-    function getOuputToken() external view returns (ISuperToken) {
-        return _exchange.outputToken;
-    }
-
-    /// @dev Get output token IDA index
-    /// @return output token IDA index
-    function getOuputIndexId() external view returns (uint32) {
-        return _exchange.outputIndexId;
-    }
-
-    /// @dev Get subsidy token address
-    /// @return subsidy token address
-    function getSubsidyToken() external view returns (ISuperToken) {
-        return _exchange.subsidyToken;
-    }
-
-    /// @dev Get subsidy token IDA index
-    /// @return subsidy token IDA index
-    function getSubsidyIndexId() external view returns (uint32) {
-        return _exchange.subsidyIndexId;
-    }
-
-    /// @dev Get subsidy rate
-    /// @return subsidy rate
-    function getSubsidyRate() external view returns (uint256) {
-        return _exchange.subsidyRate;
+    function getOuputPool(uint256 index) external view returns (StreamExchangeStorage.OutputPool) {
+        return _exchange.outputPools[index];
     }
 
     /// @dev Get total input flow rate
