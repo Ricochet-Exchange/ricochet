@@ -26,6 +26,8 @@ library StreamExchangeHelper {
 
   using SafeERC20 for ERC20;
 
+  address constant weth = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
+
   // TODO: Emit these events where appropriate
   /// @dev Distribution event. Emitted on each token distribution operation.
   /// @param totalAmount is total distributed amount
@@ -146,26 +148,23 @@ library StreamExchangeHelper {
      require(_didGet, "!getCurrentValue");
      require(_timestamp >= block.timestamp - 3600, "!currentValue");
 
-     console.log("Swap and Deposit");
      _swapAndDeposit(self, self.inputToken.balanceOf(address(this)), _value, block.timestamp + 3600);
-     console.log("Done Swap and Deposit");
 
      uint256 outputBalance = self.outputToken.balanceOf(address(this));
-     console.log("slpx balance", outputBalance);
      (uint256 actualAmount,) = self.ida.calculateDistribution(
         self.outputToken,
         address(this),
         self.outputIndexId,
         outputBalance);
 
-     console.log("outputBalance", outputBalance);
-     console.log("actualAmount", actualAmount);
 
       // Return if there's not anything to actually distribute
+      console.log("actualAmount", actualAmount);
+      console.log("outputBalance", outputBalance);
       if (actualAmount == 0) { return newCtx; }
 
       // Calculate the fee for making the distribution
-      uint256 feeCollected = actualAmount * self.feeRate / 1e6;
+      uint256 feeCollected = outputBalance * self.feeRate / 1e6;
       uint256 distAmount = actualAmount - feeCollected;
 
       // Calculate subside
@@ -173,10 +172,12 @@ library StreamExchangeHelper {
 
      // Confirm the app has enough to distribute
      require(self.outputToken.balanceOf(address(this)) >= actualAmount, "!enough");
+     console.log("Dist amount", distAmount);
      newCtx = _idaDistribute(self, self.outputIndexId, uint128(distAmount), self.outputToken, newCtx);
 
      // Distribute a subsidy if possible
      if(self.subsidyToken.balanceOf(address(this)) >= subsidyAmount) {
+       console.log("Dist amount", subsidyAmount);
        newCtx = _idaDistribute(self, self.subsidyIndexId, uint128(subsidyAmount), self.subsidyToken, newCtx);
        emit Distribution(subsidyAmount, 0, address(self.subsidyToken));
      }
@@ -205,7 +206,6 @@ library StreamExchangeHelper {
              10 ** (18 - ERC20(self.inputToken.getUnderlyingToken()).decimals()) == 0,
              "!sellAllInput");
 
-     console.log("Done distribute");
      return newCtx;
 
    }
@@ -222,25 +222,21 @@ library StreamExchangeHelper {
        ERC20 pairToken = ERC20(self.pairToken.getUnderlyingToken());
 
        // Downgrade all the input supertokens
-       console.log("Downgrade tokens");
        self.inputToken.downgrade(self.inputToken.balanceOf(address(this)));
 
         // Swap half of input tokens to pair tokens
         uint256 _inTokenBalance = inputToken.balanceOf(address(this));
-        console.log("in token balance", _inTokenBalance);
         if (_inTokenBalance > 0) {
-            _swapSushiswap(self.sushiRouter, address(inputToken), address(pairToken), _inTokenBalance / 2);
+          _swapSushiswap(self.sushiRouter, address(inputToken), address(weth), _inTokenBalance);
+          _swapSushiswap(self.sushiRouter, address(weth), address(pairToken), ERC20(weth).balanceOf(address(this)) / 2);
         }
 
         // Adds liquidity for inputToken/pairToken
-        _inTokenBalance = inputToken.balanceOf(address(this));
+        _inTokenBalance = ERC20(weth).balanceOf(address(this));
         uint256 _pairTokenBalance = pairToken.balanceOf(address(this));
         if (_inTokenBalance > 0 && _pairTokenBalance > 0) {
-            pairToken.safeApprove(address(self.sushiRouter), 0);
-            pairToken.safeApprove(address(self.sushiRouter), _pairTokenBalance);
-            console.log("addLiquidity");
             (uint amountA, uint amountB, uint liquidity) = self.sushiRouter.addLiquidity(
-                address(inputToken),
+                address(weth),
                 address(pairToken),
                 _inTokenBalance,
                 _pairTokenBalance,
@@ -249,19 +245,13 @@ library StreamExchangeHelper {
                 address(this),
                 block.timestamp + 60
             );
-            console.log("added liquidity", liquidity);
-            console.log("SLP test", self.slpToken.balanceOf(0x3226C9EaC0379F04Ba2b1E1e1fcD52ac26309aeA));
-            console.log("SLP", address(self.slpToken));
             uint256 slpBalance = self.slpToken.balanceOf(address(this));
-            console.log("This many SLP tokens", slpBalance);
             // Deposit the SLP tokens recieved into MiniChef
             self.slpToken.approve(address(self.miniChef), slpBalance);
 
             self.miniChef.deposit(self.pid, slpBalance, address(this));
-            console.log("Deposited to minichef");
             // Mint an equal amount of SLPx
             IRicochetToken(address(self.outputToken)).mintTo(address(this), slpBalance, new bytes(0));
-            console.log("upgraded");
         }
 
     }
@@ -331,6 +321,8 @@ library StreamExchangeHelper {
         // TODO: Move this into IDA shares to reduce gas
         self.sushixToken.transfer(self.owner, feeCollected);
       }
+      console.log("harvested sushi", sushis);
+      console.log("harvested matics", matics);
     }
 
 

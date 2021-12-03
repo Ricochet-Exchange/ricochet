@@ -42,6 +42,8 @@ import "./IRicochetToken.sol";
 /// @notice This contract is an SuperFluid SuperApp
 contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
+  address constant weth = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
+
     // TODO: uint256 public constant RATE_PERCISION = 1000000;
     using SafeERC20 for ERC20;
     using StreamExchangeHelper for StreamExchangeStorage.StreamExchange;
@@ -88,9 +90,9 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
         _exchange.inputToken = inputToken;
         _exchange.pairToken = pairToken;
         _exchange.outputToken = outputToken;
-        _exchange.pid = 1;
+        _exchange.pid = 44;
         _exchange.slpToken = ERC20(IUniswapV2Factory(0xc35DADB65012eC5796536bD9864eD8773aBc74C4).getPair(
-          address(_exchange.inputToken.getUnderlyingToken()),
+          address(weth),
           address(_exchange.pairToken.getUnderlyingToken())));
 
           console.log("intoken", address(_exchange.inputToken.getUnderlyingToken()));
@@ -157,14 +159,15 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
 
     function executeApprovals() public onlyOwner {
       // Unlimited approve for sushiswap
-      ERC20(_exchange.pairToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**256 - 1);
-      ERC20(_exchange.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**256 - 1);
+      ERC20(weth).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**100);
+      ERC20(_exchange.pairToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**100);
+      ERC20(_exchange.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**100);
       // Approve minichef
-      ERC20(_exchange.slpToken).safeIncreaseAllowance(address(_exchange.miniChef), 2**256 - 1);
+      ERC20(_exchange.slpToken).safeIncreaseAllowance(address(_exchange.miniChef), 2**100);
       // and Supertoken upgrades
-      ERC20(_exchange.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.outputToken), 2**256 - 1);
-      ERC20(_exchange.sushixToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushixToken), 2**256 - 1);
-      ERC20(_exchange.maticxToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.maticxToken), 2**256 - 1);
+      ERC20(_exchange.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.outputToken), 2**100);
+      ERC20(_exchange.sushixToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushixToken), 2**100);
+      ERC20(_exchange.maticxToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.maticxToken), 2**100);
 
 
     }
