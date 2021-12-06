@@ -49,7 +49,7 @@ module.exports = {
       gasPrice: 45000000000,
     },
     local: {
-      url: 'http://127.0.0.1:8545/',
+      url: 'http://127.0.0.1:7545/',
       accounts: [process.env.MATIC_PRIVATE_KEY],
       gas: 2000000,
       gasPrice: 20000000000

@@ -9,11 +9,11 @@ async function main() {
   const IDA_ADDRESS = "0xB0aABBA4B2783A72C52956CDEF62d438ecA2d7a1";
   const TELLOR_ORACLE_ADDRESS = "0xACC2d27400029904919ea54fFc0b18Bf07C57875";
   const RIC_CONTRACT_ADDRESS = "0x263026e7e53dbfdce5ae55ade22493f828922965";
-  const SLP_ADDRESS = '0x34965ba0ac2451A34a0471F04CCa3F990b8dea27';
+  const SLP_ADDRESS = '0x5518a3aF961EEe8771657050c5Cb23D2B3e2F6eE';
   const USDCX_ADDRESS = '0xCAa7349CEA390F89641fe306D93591f87595dc1F';
   const MATICX_ADDRESS = '0x3aD736904E9e65189c3000c7DD2c8AC8bB7cD4e3';
   const SUSHIX_ADDRESS = '0xDaB943C03f9e84795DC7BF51DdC71DaF0033382b';
-  const ETHX_ADDRESS = '0x27e1e4E6BC79D93032abef01025811B7E4727e85';
+  const IDLEX_ADDRESS = '0xB63E38D21B31719e6dF314D3d2c351dF0D4a9162';
   const ROUTER_ADDRESS = '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506';
   const TELLOR_REQUEST_ID = 60;
   const SF_REG_KEY = '';
@@ -24,7 +24,7 @@ async function main() {
   // Attach alice to the SLP token
   const RT = await ethers.getContractFactory("RicochetToken");
   usdcx = await RT.attach(USDCX_ADDRESS);
-  ethx = await RT.attach(ETHX_ADDRESS);
+  idlex = await RT.attach(IDLEX_ADDRESS);
   sushix = await RT.attach(SUSHIX_ADDRESS);
   maticx = await RT.attach(MATICX_ADDRESS);
 
@@ -39,7 +39,7 @@ async function main() {
   await slpx.initialize(
           SLP_ADDRESS,
           18,
-          "Ricochet SLP (USDC/ETH)",
+          "Ricochet SLP (IDLE-ETH)",
           "rexSLP");
 
   console.log("Deploying StreamExchangeHelper")
@@ -68,8 +68,8 @@ async function main() {
               CFA_ADDRESS,
               IDA_ADDRESS,
               usdcx.address,
-              ethx.address,
-              slpx.address,
+              idlex.address,
+              "0xF256F2DDd563f372333546Bdd3662454cbBCb22A",
               RIC_CONTRACT_ADDRESS,
               ROUTER_ADDRESS,
               TELLOR_ORACLE_ADDRESS,
@@ -82,8 +82,8 @@ async function main() {
                                                       CFA_ADDRESS,
                                                       IDA_ADDRESS,
                                                       usdcx.address,
-                                                      ethx.address,
-                                                      slpx.address,
+                                                      idlex.address,
+                                                      "0xF256F2DDd563f372333546Bdd3662454cbBCb22A",
                                                       RIC_CONTRACT_ADDRESS,
                                                       ROUTER_ADDRESS,
                                                       TELLOR_ORACLE_ADDRESS,
@@ -91,7 +91,9 @@ async function main() {
                                                       process.env.SF_REG_KEY );
   await streamExchange.deployed();
   console.log("Deployed!")
-  await streamExchange.initialize(slpx.address, RIC_CONTRACT_ADDRESS, sushix.address, maticx.address)
+  console.log("0xF256F2DDd563f372333546Bdd3662454cbBCb22A", RIC_CONTRACT_ADDRESS, sushix.address, maticx.address)
+  await streamExchange.initialize("0xF256F2DDd563f372333546Bdd3662454cbBCb22A", RIC_CONTRACT_ADDRESS, sushix.address, maticx.address)
+  console.log("Initialized")
   await streamExchange.executeApprovals();
   console.log("Deployed rexSLP at address:", slpx.address);
   console.log("Deployed StreamExchangeHelper at address:", sed.address);

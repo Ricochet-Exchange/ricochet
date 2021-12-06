@@ -142,32 +142,35 @@ contract StreamExchange is Ownable, SuperAppBase, UsingTellor {
       _exchange.sushixToken = sushix;
       _exchange.maticxToken = maticx;
 
+
       _exchange._createIndex( _exchange.outputIndexId, _exchange.outputToken);
       _exchange._createIndex( _exchange.subsidyIndexId, _exchange.subsidyToken);
       _exchange._createIndex( _exchange.sushixIndexId, _exchange.sushixToken);
       _exchange._createIndex( _exchange.maticxIndexId, _exchange.maticxToken);
 
       // Give the owner 1 share just to start up the contract
-      _exchange._updateSubscription( _exchange.outputIndexId, msg.sender, 1, _exchange.outputToken);
-      _exchange._updateSubscription( _exchange.subsidyIndexId, msg.sender, 1, _exchange.subsidyToken);
-      _exchange._updateSubscription( _exchange.sushixIndexId, msg.sender, 1, _exchange.sushixToken);
-      _exchange._updateSubscription( _exchange.maticxIndexId, msg.sender, 1, _exchange.maticxToken);
+      // _exchange._updateSubscription( _exchange.outputIndexId, msg.sender, 1, _exchange.outputToken);
+      // _exchange._updateSubscription( _exchange.subsidyIndexId, msg.sender, 1, _exchange.subsidyToken);
+      // _exchange._updateSubscription( _exchange.sushixIndexId, msg.sender, 1, _exchange.sushixToken);
+      // _exchange._updateSubscription( _exchange.maticxIndexId, msg.sender, 1, _exchange.maticxToken);
+      // require(1==0, "createdIndex");
       _exchange.lastDistributionAt = block.timestamp;
 
       // _exchange.initialize(output, subsidy, sushix, maticx);
+
     }
 
     function executeApprovals() public onlyOwner {
       // Unlimited approve for sushiswap
-      ERC20(weth).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**100);
-      ERC20(_exchange.pairToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**100);
-      ERC20(_exchange.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**100);
+      ERC20(weth).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**256 - 1);
+      ERC20(_exchange.pairToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**256 - 1);
+      ERC20(_exchange.inputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushiRouter), 2**256 - 1);
       // Approve minichef
-      ERC20(_exchange.slpToken).safeIncreaseAllowance(address(_exchange.miniChef), 2**100);
+      ERC20(_exchange.slpToken).safeIncreaseAllowance(address(_exchange.miniChef), 2**256 - 1);
       // and Supertoken upgrades
-      ERC20(_exchange.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.outputToken), 2**100);
-      ERC20(_exchange.sushixToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushixToken), 2**100);
-      ERC20(_exchange.maticxToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.maticxToken), 2**100);
+      ERC20(_exchange.outputToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.outputToken), 2**256 - 1);
+      ERC20(_exchange.sushixToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.sushixToken), 2**256 - 1);
+      ERC20(_exchange.maticxToken.getUnderlyingToken()).safeIncreaseAllowance(address(_exchange.maticxToken), 2**256 - 1);
 
 
     }

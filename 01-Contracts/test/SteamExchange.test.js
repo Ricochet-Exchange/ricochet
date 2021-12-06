@@ -331,6 +331,19 @@ describe('StreamExchange', () => {
       TELLOR_ORACLE_ADDRESS,
       TELLOR_REQUEST_ID,
       registrationKey);
+    console.log(
+      sf.host.address,
+        sf.agreements.cfa.address,
+        sf.agreements.ida.address,
+        usdcx.address,
+        idlex.address,
+        slpx.address,
+        RIC_TOKEN_ADDRESS,
+        SUSHISWAP_ROUTER_ADDRESS, // sr.address,
+        TELLOR_ORACLE_ADDRESS,
+        TELLOR_REQUEST_ID,
+        registrationKey
+    )
     console.log("Deployed")
     slpx = slpx.connect(owner)
     await slpx.transferOwnership(app.address)
