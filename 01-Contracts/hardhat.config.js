@@ -41,7 +41,7 @@ module.exports = {
       url: `https://polygon-mainnet.infura.io/v3/${process.env.INFURA_KEY}`,
       accounts: [process.env.MATIC_PRIVATE_KEY],
       gas: 2000000,
-      gasPrice: 20000000000,
+      gasPrice: 50000000000,
     },
     // kovan: {
     //   url: "https://kovan.infura.io/v3/" + process.env.INFURA_KEY,

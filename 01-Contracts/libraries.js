@@ -1,3 +1,3 @@
 module.exports = {
-  StreamExchangeHelper: "0xBb48bD9f99e894e80aB010c3ce029105BBAA9fc6",
+  StreamExchangeHelper: "0x7CD2532047B597003f6C91183aF5327d91442718",
 };

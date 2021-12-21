@@ -322,7 +322,7 @@ describe('StreamExchange', () => {
     // ==============
     // Get actual price
     const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids='+COINGECKO_KEY+'&vs_currencies=usd');
-    oraclePrice = parseInt(response.data[COINGECKO_KEY].usd * 1.02 * 1000000).toString();
+    oraclePrice = parseInt(response.data[COINGECKO_KEY].usd * 1.05 * 1000000).toString();
     console.log('oraclePrice', oraclePrice);
     await tp.submitValue(TELLOR_REQUEST_ID, oraclePrice);
     // tp = tp.connect(reporter);
